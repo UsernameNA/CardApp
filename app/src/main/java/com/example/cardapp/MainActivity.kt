@@ -28,9 +28,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.example.cardapp.ui.collection.CardListScreen
 import com.example.cardapp.ui.theme.CardAppTheme
 import com.example.cardapp.ui.theme.CreamMuted
-import com.example.cardapp.ui.theme.CreamPrimary
 import com.example.cardapp.ui.theme.GoldMuted
 import com.example.cardapp.ui.theme.GoldPrimary
 import com.example.cardapp.ui.theme.LeatherDeep
@@ -44,14 +47,28 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             CardAppTheme {
-                LandingScreen()
+                val navController = rememberNavController()
+                NavHost(navController = navController, startDestination = "landing") {
+                    composable("landing") {
+                        LandingScreen(
+                            onViewCollection = { navController.navigate("collection") },
+                            onScanCards = { /* TODO */ },
+                        )
+                    }
+                    composable("collection") {
+                        CardListScreen()
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-fun LandingScreen() {
+fun LandingScreen(
+    onViewCollection: () -> Unit = {},
+    onScanCards: () -> Unit = {},
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -75,7 +92,6 @@ fun LandingScreen() {
                 .padding(horizontal = 48.dp),
             verticalArrangement = Arrangement.Center,
         ) {
-            // App name
             Text(
                 text = "CardApp",
                 style = Typography.displayLarge.copy(
@@ -86,7 +102,6 @@ fun LandingScreen() {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Ornamental rule
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
@@ -109,11 +124,11 @@ fun LandingScreen() {
 
             Spacer(modifier = Modifier.height(52.dp))
 
-            LandingButton(text = "View Collection", onClick = {})
+            LandingButton(text = "View Collection", onClick = onViewCollection)
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            LandingButton(text = "Scan Cards", onClick = {})
+            LandingButton(text = "Scan Cards", onClick = onScanCards)
         }
     }
 }
@@ -126,7 +141,7 @@ private fun LandingButton(text: String, onClick: () -> Unit) {
         border = BorderStroke(0.8.dp, GoldMuted),
         colors = ButtonDefaults.outlinedButtonColors(
             containerColor = LeatherMid.copy(alpha = 0.6f),
-            contentColor = CreamPrimary,
+            contentColor = CreamMuted,
         ),
         modifier = Modifier
             .fillMaxWidth()

@@ -16,3 +16,6 @@
 *.keystore
 !debug.keystore
 .claude/
+/scripts/cards_png/
+/app/src/main/assets/images/
+/scripts/images/
