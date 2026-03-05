@@ -1,11 +1,11 @@
-package com.example.cardapp.data.remote.model
+package com.github.username.cardapp.data.model
 
-data class ApiCard(
+data class CardJson(
     val name: String,
     val guardian: GuardianStats?,
     val elements: String?,
     val subTypes: String?,
-    val sets: List<ApiCardSet> = emptyList(),
+    val sets: List<CardSetJson> = emptyList(),
 )
 
 data class GuardianStats(
@@ -25,13 +25,13 @@ data class Thresholds(
     val water: Int = 0,
 )
 
-data class ApiCardSet(
+data class CardSetJson(
     val name: String?,
     val releasedAt: String?,
-    val variants: List<ApiVariant> = emptyList(),
+    val variants: List<CardVariantJson> = emptyList(),
 )
 
-data class ApiVariant(
+data class CardVariantJson(
     val slug: String,
     val finish: String?,
     val product: String?,

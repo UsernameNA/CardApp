@@ -1,11 +1,11 @@
-package com.example.cardapp.ui.collection
+package com.github.username.cardapp.ui.collection
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.cardapp.data.CardRepository
-import com.example.cardapp.data.local.AppDatabase
-import com.example.cardapp.data.local.CardEntity
+import com.github.username.cardapp.data.CardRepository
+import com.github.username.cardapp.data.local.AppDatabase
+import com.github.username.cardapp.data.local.CardEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,10 +22,13 @@ sealed interface SyncState {
 
 class CollectionViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val repository = CardRepository(
-        context = app,
-        db = AppDatabase.getInstance(app),
-    )
+    private val repository =
+        CardRepository(
+            context = app,
+            db = AppDatabase.getInstance(
+                app
+            ),
+        )
 
     val cards: StateFlow<List<CardEntity>> = repository.cards
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

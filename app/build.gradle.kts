@@ -1,9 +1,3 @@
-import java.util.Properties
-
-val localProperties = Properties().apply {
-    file("../local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
-}
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -11,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.cardapp"
+    namespace = "com.github.username.cardapp"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -19,7 +13,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.cardapp"
+        applicationId = "com.github.username.cardapp"
         minSdk = 36
         targetSdk = 36
         versionCode = 1
@@ -27,11 +21,6 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField(
-            "String",
-            "DRIVE_API_KEY",
-            "\"${localProperties.getProperty("DRIVE_API_KEY", "")}\""
-        )
     }
 
     buildTypes {
@@ -49,7 +38,6 @@ android {
     }
     buildFeatures {
         compose = true
-        buildConfig = true
     }
 }
 
@@ -71,9 +59,7 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.gson)
-    implementation(libs.okhttp)
+    implementation(libs.gson)
     implementation(libs.coil.compose)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

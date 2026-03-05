@@ -19,3 +19,5 @@
 /scripts/cards_png/
 /app/src/main/assets/images/
 /scripts/images/
+__pycache__/
+*.pyc

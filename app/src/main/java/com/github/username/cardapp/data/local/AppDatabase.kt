@@ -1,4 +1,4 @@
-package com.example.cardapp.data.local
+package com.github.username.cardapp.data.local
 
 import android.content.Context
 import androidx.room.Database

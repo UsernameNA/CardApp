@@ -1,13 +1,15 @@
-package com.example.cardapp.data
+package com.github.username.cardapp.data
 
 import android.content.Context
-import com.example.cardapp.data.local.AppDatabase
-import com.example.cardapp.data.local.CardEntity
-import com.example.cardapp.data.remote.model.ApiCard
+import com.github.username.cardapp.data.local.AppDatabase
+import com.github.username.cardapp.data.local.CardEntity
+import com.github.username.cardapp.data.model.CardJson
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-class CardRepository(private val context: Context, private val db: AppDatabase) {
+class CardRepository(private val context: Context, db: AppDatabase) {
 
     private val dao = db.cardDao()
 
@@ -15,12 +17,12 @@ class CardRepository(private val context: Context, private val db: AppDatabase) 
 
     suspend fun needsCardSync(): Boolean = dao.getCardCount() == 0
 
-    suspend fun syncCards() {
+    suspend fun syncCards() = withContext(Dispatchers.IO) {
         val json = context.assets.open("cards.json").bufferedReader().use { it.readText() }
-        val type = object : TypeToken<List<ApiCard>>() {}.type
-        val apiCards: List<ApiCard> = Gson().fromJson(json, type)
+        val type = object : TypeToken<List<CardJson>>() {}.type
+        val cardList: List<CardJson> = Gson().fromJson(json, type)
 
-        val entities = apiCards.flatMap { card ->
+        val entities = cardList.flatMap { card ->
             card.sets.flatMap { set ->
                 set.variants.map { variant ->
                     val g = card.guardian

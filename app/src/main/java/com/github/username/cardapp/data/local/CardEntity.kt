@@ -1,4 +1,4 @@
-package com.example.cardapp.data.local
+package com.github.username.cardapp.data.local
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

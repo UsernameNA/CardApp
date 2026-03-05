@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 To run a single test class:
 ```bash
-./gradlew testDebugUnitTest --tests "com.example.cardapp.ExampleUnitTest"
+./gradlew testDebugUnitTest --tests "com.github.username.cardapp.ExampleUnitTest"
 ```
 
 ## Architecture
