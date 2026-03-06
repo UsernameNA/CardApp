@@ -26,3 +26,11 @@ val BurgundyLight  = Color(0xFF9E3045)
 
 // Utility
 val InkShadow = Color(0xCC040302)
+
+fun rarityColor(rarity: String): Color = when (rarity.trim().lowercase()) {
+    "ordinary" -> Color(0xFF909090)
+    "exceptional" -> Color(0xFF2E642E)
+    "elite" -> Color(0xFF4A6EC9)
+    "unique" -> BurgundyAccent
+    else -> GoldMuted
+}

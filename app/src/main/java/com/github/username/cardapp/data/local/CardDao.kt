@@ -9,12 +9,21 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface CardDao {
 
-    @Query("SELECT * FROM cards WHERE slug IN (SELECT MIN(slug) FROM cards GROUP BY name) ORDER BY name ASC")
-    fun getUniqueCards(): Flow<List<CardEntity>>
+    @Query("SELECT * FROM cards ORDER BY name ASC")
+    fun getAllCards(): Flow<List<CardEntity>>
+
+    @Query("SELECT * FROM sets ORDER BY releaseOrder ASC")
+    suspend fun getAllSets(): List<SetEntity>
 
     @Query("SELECT COUNT(*) FROM cards")
     suspend fun getCardCount(): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(cards: List<CardEntity>)
+    suspend fun insertAllSets(sets: List<SetEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllCards(cards: List<CardEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllVariants(variants: List<CardVariantEntity>)
 }

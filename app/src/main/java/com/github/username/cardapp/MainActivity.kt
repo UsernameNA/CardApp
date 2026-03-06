@@ -9,11 +9,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.github.username.cardapp.ui.collection.CardListScreen
 import com.github.username.cardapp.ui.landing.LandingScreen
+import com.github.username.cardapp.ui.scan.ScanScreen
 import com.github.username.cardapp.ui.theme.CardAppTheme
 
 private object Routes {
     const val LANDING = "landing"
     const val COLLECTION = "collection"
+    const val SCAN = "scan"
 }
 
 class MainActivity : ComponentActivity() {
@@ -27,11 +29,14 @@ class MainActivity : ComponentActivity() {
                     composable(Routes.LANDING) {
                         LandingScreen(
                             onViewCollection = { navController.navigate(Routes.COLLECTION) },
-                            onScanCards = { /* TODO */ },
+                            onScanCards = { navController.navigate(Routes.SCAN) },
                         )
                     }
                     composable(Routes.COLLECTION) {
                         CardListScreen()
+                    }
+                    composable(Routes.SCAN) {
+                        ScanScreen(onBack = { navController.popBackStack() })
                     }
                 }
             }

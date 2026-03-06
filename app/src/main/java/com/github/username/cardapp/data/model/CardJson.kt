@@ -15,6 +15,7 @@ data class GuardianStats(
     val cost: Int?,
     val attack: Int?,
     val defence: Int?,
+    val life: Int?,
     val thresholds: Thresholds?,
 )
 

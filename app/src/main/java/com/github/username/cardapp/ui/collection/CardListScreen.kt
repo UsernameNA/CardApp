@@ -34,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
@@ -48,7 +47,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.github.username.cardapp.data.local.CardEntity
-import com.github.username.cardapp.ui.theme.BurgundyAccent
 import com.github.username.cardapp.ui.theme.BurgundyLight
 import com.github.username.cardapp.ui.theme.CreamFaded
 import com.github.username.cardapp.ui.theme.CreamMuted
@@ -59,6 +57,7 @@ import com.github.username.cardapp.ui.theme.GoldPrimary
 import com.github.username.cardapp.ui.theme.LeatherMid
 import com.github.username.cardapp.ui.theme.Typography
 import com.github.username.cardapp.ui.theme.leatherBackground
+import com.github.username.cardapp.ui.theme.rarityColor
 
 @Composable
 fun CardListScreen(vm: CollectionViewModel = viewModel()) {
@@ -143,7 +142,7 @@ private fun CardGrid(cards: List<CardEntity>) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        items(cards, key = { it.slug }) { card ->
+        items(cards, key = { it.name }) { card ->
             CardTile(card)
         }
     }
@@ -163,7 +162,7 @@ private fun CardTile(card: CardEntity) {
         ) {
             AsyncImage(
                 model = ImageRequest.Builder(context)
-                    .data("file:///android_asset/images/${card.slug}.webp")
+                    .data("file:///android_asset/images/${card.primarySlug}.webp")
                     .crossfade(true)
                     .build(),
                 contentDescription = card.name,
@@ -189,7 +188,7 @@ private fun CardTile(card: CardEntity) {
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            text = card.setName,
+            text = card.cardType,
             style = Typography.bodyMedium.copy(
                 color = CreamFaded,
                 textAlign = TextAlign.Center,
@@ -198,16 +197,6 @@ private fun CardTile(card: CardEntity) {
             overflow = TextOverflow.Ellipsis,
         )
     }
-}
-
-private fun rarityColor(rarity: String): Color = when (rarity.trim().lowercase()) {
-    "common" -> Color(0xFF909090)
-    "uncommon" -> Color(0xFF4A9E4A)
-    "rare" -> Color(0xFF4A6EC9)
-    "super rare" -> Color(0xFF9A4AC9)
-    "legendary" -> GoldPrimary
-    "unique" -> BurgundyAccent
-    else -> GoldMuted
 }
 
 @Composable
@@ -323,69 +312,9 @@ private fun CardListLoadingPreview() {
 @Composable
 private fun CardListGridPreview() {
     val fakeCards = listOf(
-        CardEntity(
-            "slug-1",
-            "Ember Drake",
-            "rare",
-            "Creature",
-            "",
-            3,
-            2,
-            1,
-            "fire",
-            "",
-            "Alpha Set",
-            "standard",
-            "Artist A",
-            "",
-            "",
-            0,
-            0,
-            2,
-            0
-        ),
-        CardEntity(
-            "slug-2",
-            "Tide Caller",
-            "uncommon",
-            "Spell",
-            "",
-            2,
-            0,
-            0,
-            "water",
-            "",
-            "Alpha Set",
-            "standard",
-            "Artist B",
-            "",
-            "",
-            0,
-            0,
-            0,
-            2
-        ),
-        CardEntity(
-            "slug-3",
-            "Iron Sentinel",
-            "legendary",
-            "Creature",
-            "",
-            5,
-            4,
-            4,
-            "earth",
-            "Guardian",
-            "Alpha Set",
-            "foil",
-            "Artist C",
-            "",
-            "",
-            0,
-            3,
-            0,
-            0
-        ),
+        CardEntity(name = "Ember Drake", primarySlug = "alp-ember_drake-b-s", elements = "Fire", subTypes = "", cardType = "Minion", rarity = "Exceptional", cost = 3, attack = 2, defence = 1, life = null, rulesText = "", airThreshold = 0, earthThreshold = 0, fireThreshold = 2, waterThreshold = 0),
+        CardEntity(name = "Tide Caller", primarySlug = "alp-tide_caller-b-s", elements = "Water", subTypes = "", cardType = "Spell", rarity = "Ordinary", cost = 2, attack = 0, defence = 0, life = null, rulesText = "", airThreshold = 0, earthThreshold = 0, fireThreshold = 0, waterThreshold = 2),
+        CardEntity(name = "Iron Sentinel", primarySlug = "alp-iron_sentinel-b-s", elements = "Earth", subTypes = "Guardian", cardType = "Minion", rarity = "Unique", cost = 5, attack = 4, defence = 4, life = null, rulesText = "", airThreshold = 0, earthThreshold = 3, fireThreshold = 0, waterThreshold = 0),
     )
     CardAppTheme {
         Box(
