@@ -10,7 +10,10 @@ import com.github.username.cardapp.data.local.CardEntity
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -18,12 +21,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
+
+enum class ScanMode { Manual, Auto }
 
 sealed class ScanStatus {
     object Idle : ScanStatus()
     object Scanning : ScanStatus()
     object NotFound : ScanStatus()
     data class Found(val cardName: String) : ScanStatus()
+    object AutoWatching : ScanStatus()
+    object AutoCooldown : ScanStatus()
 }
 
 data class ScannedEntry(val card: CardEntity, val count: Int)
@@ -47,6 +55,7 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _scannedCards = MutableStateFlow<List<ScannedEntry>>(emptyList())
     val scannedCards: StateFlow<List<ScannedEntry>> = _scannedCards.asStateFlow()
+    private val scannedCardsMutex = Mutex()
 
     private val _scanStatus = MutableStateFlow<ScanStatus>(ScanStatus.Idle)
     val scanStatus: StateFlow<ScanStatus> = _scanStatus.asStateFlow()
@@ -57,15 +66,43 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     private val pendingScan = AtomicBoolean(false)
 
+    private val _scanMode = MutableStateFlow(ScanMode.Manual)
+    val scanMode: StateFlow<ScanMode> = _scanMode.asStateFlow()
+
+    // Auto mode: tracks the last scanned card and how long to ignore it
+    private val lastAutoAnalysisMs = AtomicLong(0L)
+    @Volatile private var lastAutoScannedName: String? = null
+    @Volatile private var autoScanCooldownUntil: Long = 0L
+
+    fun toggleScanMode() {
+        val next = if (_scanMode.value == ScanMode.Manual) ScanMode.Auto else ScanMode.Manual
+        _scanMode.value = next
+        _scanStatus.value = if (next == ScanMode.Auto) ScanStatus.AutoWatching else ScanStatus.Idle
+        if (next == ScanMode.Auto) lastAutoScannedName = null
+    }
+
     fun requestScan() {
         _scanStatus.value = ScanStatus.Scanning
         pendingScan.set(true)
     }
 
     fun analyzeFrame(imageProxy: ImageProxy) {
-        if (!pendingScan.compareAndSet(true, false)) {
-            imageProxy.close()
-            return
+        when (_scanMode.value) {
+            ScanMode.Manual -> {
+                if (!pendingScan.compareAndSet(true, false)) {
+                    imageProxy.close()
+                    return
+                }
+            }
+            ScanMode.Auto -> {
+                // Throttle to roughly one OCR call per second to avoid overloading the recognizer
+                val now = System.currentTimeMillis()
+                if (now - lastAutoAnalysisMs.get() < AUTO_ANALYSIS_INTERVAL_MS) {
+                    imageProxy.close()
+                    return
+                }
+                lastAutoAnalysisMs.set(now)
+            }
         }
 
         // toBitmap() returns the raw sensor image without applying rotation,
@@ -77,11 +114,15 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         imageProxy.close()
 
         recognizer.process(InputImage.fromBitmap(bitmap, sensorRotation))
-            .addOnSuccessListener { visionText -> matchCardName(visionText.text) }
-            .addOnFailureListener { setStatusTemporarily(ScanStatus.NotFound) }
+            .addOnSuccessListener { visionText ->
+                viewModelScope.launch(Dispatchers.Default) {
+                    matchCardName(visionText.text)
+                }
+            }
+            .addOnFailureListener { if (_scanMode.value == ScanMode.Manual) setStatusTemporarily(ScanStatus.NotFound) }
     }
 
-    private fun matchCardName(rawText: String) {
+    private suspend fun matchCardName(rawText: String) {
         val cards = allCards.value
         if (cards.isEmpty()) {
             setStatusTemporarily(ScanStatus.NotFound)
@@ -92,7 +133,7 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
 
         val costCandidates = Regex("""\b(\d{1,2})\b""").findAll(rawText)
             .mapNotNull { it.value.toIntOrNull() }
-            .filter { it in 0..15 }
+            .filter { it in 1..15 }
             .toSet()
 
         val ocrTokens = normalized.split(Regex("[^a-z0-9']+")).filter { it.isNotEmpty() }
@@ -111,9 +152,14 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         )
 
         if (best != null && bestScore >= SCORE_THRESHOLD) {
+            // In auto mode, skip if this is the same card we just scanned and still cooling down
+            if (_scanMode.value == ScanMode.Auto &&
+                best.name == lastAutoScannedName &&
+                System.currentTimeMillis() < autoScanCooldownUntil
+            ) return
             addScannedCard(best)
         } else {
-            setStatusTemporarily(ScanStatus.NotFound)
+            if (_scanMode.value == ScanMode.Manual) setStatusTemporarily(ScanStatus.NotFound)
         }
     }
 
@@ -127,7 +173,7 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     //              (tolerance = 1 for 4–6 char words, 2 for 7+ char words)
     //
     //   Type match    — 10 pts if the card's type (Minion, Spell, Site, …) appears in
-    //                   the OCR text; supporting signal since the type line is scanned too
+    //                   the OCR text; supporting signal since the type line is scanned to
     //
     //   Cost match    — 35 pts if the card's cost appears as a number (non-site only)
     //
@@ -187,16 +233,56 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         return score
     }
 
-    private fun addScannedCard(card: CardEntity) {
-        val current = _scannedCards.value.toMutableList()
-        val idx = current.indexOfFirst { it.card.name == card.name }
-        if (idx >= 0) {
-            current[idx] = current[idx].copy(count = current[idx].count + 1)
-        } else {
-            current.add(ScannedEntry(card, 1))
+    fun incrementCard(cardName: String) {
+        viewModelScope.launch {
+            scannedCardsMutex.withLock {
+                val current = _scannedCards.value.toMutableList()
+                val idx = current.indexOfFirst { it.card.name == cardName }
+                if (idx >= 0) current[idx] = current[idx].copy(count = current[idx].count + 1)
+                _scannedCards.value = current
+            }
         }
-        _scannedCards.value = current
-        setStatusTemporarily(ScanStatus.Found(card.name))
+    }
+
+    fun decrementCard(cardName: String) {
+        viewModelScope.launch {
+            scannedCardsMutex.withLock {
+                val current = _scannedCards.value.toMutableList()
+                val idx = current.indexOfFirst { it.card.name == cardName }
+                if (idx < 0) return@withLock
+                if (current[idx].count <= 1) current.removeAt(idx) else current[idx] = current[idx].copy(count = current[idx].count - 1)
+                _scannedCards.value = current
+            }
+        }
+    }
+
+    private suspend fun addScannedCard(card: CardEntity) {
+        scannedCardsMutex.withLock {
+            val current = _scannedCards.value.toMutableList()
+            val idx = current.indexOfFirst { it.card.name == card.name }
+            if (idx >= 0) current[idx] = current[idx].copy(count = current[idx].count + 1)
+            else current.add(ScannedEntry(card, 1))
+            _scannedCards.value = current
+        }
+
+        if (_scanMode.value == ScanMode.Auto) {
+            lastAutoScannedName = card.name
+            autoScanCooldownUntil = System.currentTimeMillis() + AUTO_COOLDOWN_MS
+            _scanStatus.value = ScanStatus.Found(card.name)
+            viewModelScope.launch {
+                delay(FOUND_BANNER_MS)
+                if (_scanMode.value == ScanMode.Auto) {
+                    _scanStatus.value = ScanStatus.AutoCooldown
+                    delay(AUTO_COOLDOWN_MS - FOUND_BANNER_MS)
+                    if (_scanMode.value == ScanMode.Auto) {
+                        _scanStatus.value = ScanStatus.AutoWatching
+                        lastAutoScannedName = null
+                    }
+                }
+            }
+        } else {
+            setStatusTemporarily(ScanStatus.Found(card.name))
+        }
     }
 
     private fun setStatusTemporarily(status: ScanStatus) {
@@ -214,6 +300,9 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         const val SCORE_THRESHOLD = 40
+        private const val AUTO_ANALYSIS_INTERVAL_MS = 900L   // max ~1 OCR call/sec in auto mode
+        private const val AUTO_COOLDOWN_MS = 2500L           // lock out same card for 2.5s after scan
+        private const val FOUND_BANNER_MS = 1200L            // how long to show "FOUND!" before transitioning
 
         // Standard Levenshtein edit distance (substitution, insertion, deletion each cost 1).
         // Two pre-allocated rows are swapped each iteration — no heap allocations in the loop.

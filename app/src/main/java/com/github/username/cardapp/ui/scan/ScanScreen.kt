@@ -18,9 +18,11 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +35,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -86,6 +89,7 @@ fun ScanScreen(onBack: () -> Unit, vm: ScanViewModel = viewModel()) {
     val context = LocalContext.current
     val scannedCards by vm.scannedCards.collectAsState()
     val scanStatus by vm.scanStatus.collectAsState()
+    val scanMode by vm.scanMode.collectAsState()
     val debugInfo by vm.debugInfo.collectAsState()
 
     var hasCameraPermission by remember {
@@ -107,10 +111,14 @@ fun ScanScreen(onBack: () -> Unit, vm: ScanViewModel = viewModel()) {
     ScanScreenContent(
         scannedCards = scannedCards,
         scanStatus = scanStatus,
+        scanMode = scanMode,
         debugInfo = debugInfo,
         hasCameraPermission = hasCameraPermission,
         onBack = onBack,
         onScanTap = vm::requestScan,
+        onToggleScanMode = vm::toggleScanMode,
+        onIncrement = vm::incrementCard,
+        onDecrement = vm::decrementCard,
         onRequestPermission = { permissionLauncher.launch(Manifest.permission.CAMERA) },
         cameraContent = { CameraPreviewSurface(onFrame = vm::analyzeFrame, modifier = Modifier.fillMaxSize()) },
     )
@@ -120,10 +128,14 @@ fun ScanScreen(onBack: () -> Unit, vm: ScanViewModel = viewModel()) {
 private fun ScanScreenContent(
     scannedCards: List<ScannedEntry>,
     scanStatus: ScanStatus,
+    scanMode: ScanMode,
     debugInfo: ScanDebugInfo?,
     hasCameraPermission: Boolean,
     onBack: () -> Unit,
     onScanTap: () -> Unit,
+    onToggleScanMode: () -> Unit,
+    onIncrement: (String) -> Unit,
+    onDecrement: (String) -> Unit,
     onRequestPermission: () -> Unit,
     cameraContent: @Composable () -> Unit,
 ) {
@@ -158,7 +170,11 @@ private fun ScanScreenContent(
         ScannedCardsPanel(
             cards = scannedCards,
             scanStatus = scanStatus,
+            scanMode = scanMode,
             onScanTap = onScanTap,
+            onToggleScanMode = onToggleScanMode,
+            onIncrement = onIncrement,
+            onDecrement = onDecrement,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
@@ -189,6 +205,7 @@ private fun ScanScreenPreview() {
         ScanScreenContent(
             scannedCards = emptyList(),
             scanStatus = ScanStatus.Idle,
+            scanMode = ScanMode.Manual,
             debugInfo = ScanDebugInfo(
                 rawText = "Abundance\nWhen this enters play, draw a card.",
                 costCandidates = setOf(3),
@@ -198,6 +215,9 @@ private fun ScanScreenPreview() {
             hasCameraPermission = true,
             onBack = {},
             onScanTap = {},
+            onToggleScanMode = {},
+            onIncrement = {},
+            onDecrement = {},
             onRequestPermission = {},
             cameraContent = {
                 Box(
@@ -218,7 +238,6 @@ private fun ScanScreenPreview() {
 
 @Composable
 private fun CameraPreviewSurface(onFrame: (ImageProxy) -> Unit, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
 
@@ -228,13 +247,11 @@ private fun CameraPreviewSurface(onFrame: (ImageProxy) -> Unit, modifier: Modifi
 
     AndroidView(
         factory = { ctx ->
-            PreviewView(ctx).apply {
+            val previewView = PreviewView(ctx).apply {
                 scaleType = PreviewView.ScaleType.FILL_CENTER
                 implementationMode = PreviewView.ImplementationMode.COMPATIBLE
             }
-        },
-        update = { previewView ->
-            val future = ProcessCameraProvider.getInstance(context)
+            val future = ProcessCameraProvider.getInstance(ctx)
             future.addListener({
                 val provider = future.get()
                 val preview = CameraPreview.Builder().build().also {
@@ -255,7 +272,8 @@ private fun CameraPreviewSurface(onFrame: (ImageProxy) -> Unit, modifier: Modifi
                 } catch (e: Exception) {
                     Log.e("ScanScreen", "Camera bind failed", e)
                 }
-            }, ContextCompat.getMainExecutor(context))
+            }, ContextCompat.getMainExecutor(ctx))
+            previewView
         },
         modifier = modifier,
     )
@@ -330,9 +348,14 @@ private fun ReticleOverlay(modifier: Modifier = Modifier) {
 private fun ScannedCardsPanel(
     cards: List<ScannedEntry>,
     scanStatus: ScanStatus,
+    scanMode: ScanMode,
     onScanTap: () -> Unit,
+    onToggleScanMode: () -> Unit,
+    onIncrement: (String) -> Unit,
+    onDecrement: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var selectedCardName by remember { mutableStateOf<String?>(null) }
     Column(
         modifier = modifier
             .background(LeatherMid.copy(alpha = 0.93f))
@@ -368,47 +391,102 @@ private fun ScannedCardsPanel(
                 color = GoldMuted.copy(alpha = 0.45f),
             )
             Spacer(Modifier.width(12.dp))
-            val scanInteraction = remember { MutableInteractionSource() }
-            val scanPressed by scanInteraction.collectIsPressedAsState()
-            val scanBusy = scanStatus == ScanStatus.Scanning
-            val (buttonLabel, buttonColor) = when (scanStatus) {
-                ScanStatus.Idle -> "SCAN" to GoldPrimary
-                ScanStatus.Scanning -> "..." to GoldMuted
-                ScanStatus.NotFound -> "NOT FOUND" to CreamFaded
-                is ScanStatus.Found -> "FOUND!" to GoldLight
-            }
+
+            // AUTO mode toggle
+            val autoActive = scanMode == ScanMode.Auto
             Box(
                 modifier = Modifier
-                    .border(1.dp, if (scanPressed) GoldLight else GoldMuted, RoundedCornerShape(2.dp))
-                    .background(if (scanPressed) GoldDark.copy(alpha = 0.35f) else Color.Transparent)
-                    .clickable(
-                        interactionSource = scanInteraction,
-                        indication = null,
-                        enabled = !scanBusy,
-                        onClick = onScanTap,
-                    )
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                    .border(1.dp, if (autoActive) GoldPrimary else GoldDark, RoundedCornerShape(2.dp))
+                    .background(if (autoActive) GoldDark.copy(alpha = 0.35f) else Color.Transparent)
+                    .clickable(onClick = onToggleScanMode)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
             ) {
-                Text(buttonLabel, style = Typography.labelLarge.copy(color = if (scanPressed) GoldLight else buttonColor))
+                Text("AUTO", style = Typography.labelLarge.copy(color = if (autoActive) GoldPrimary else GoldDark))
+            }
+
+            Spacer(Modifier.width(8.dp))
+
+            if (scanMode == ScanMode.Manual) {
+                // Manual mode: normal SCAN button
+                val scanInteraction = remember { MutableInteractionSource() }
+                val scanPressed by scanInteraction.collectIsPressedAsState()
+                val scanBusy = scanStatus == ScanStatus.Scanning
+                val (buttonLabel, buttonColor) = when (scanStatus) {
+                    ScanStatus.Idle -> "SCAN" to GoldPrimary
+                    ScanStatus.Scanning -> "..." to GoldMuted
+                    ScanStatus.NotFound -> "NOT FOUND" to CreamFaded
+                    is ScanStatus.Found -> "FOUND!" to GoldLight
+                    else -> "SCAN" to GoldPrimary
+                }
+                Box(
+                    modifier = Modifier
+                        .border(1.dp, if (scanPressed) GoldLight else GoldMuted, RoundedCornerShape(2.dp))
+                        .background(if (scanPressed) GoldDark.copy(alpha = 0.35f) else Color.Transparent)
+                        .clickable(
+                            interactionSource = scanInteraction,
+                            indication = null,
+                            enabled = !scanBusy,
+                            onClick = onScanTap,
+                        )
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                ) {
+                    Text(buttonLabel, style = Typography.labelLarge.copy(color = if (scanPressed) GoldLight else buttonColor))
+                }
+            } else {
+                // Auto mode: show current watch status
+                val (statusLabel, statusColor) = when (scanStatus) {
+                    ScanStatus.AutoWatching -> "WATCHING" to GoldMuted
+                    ScanStatus.AutoCooldown -> "NEXT..." to CreamFaded
+                    is ScanStatus.Found -> "FOUND!" to GoldLight
+                    else -> "WATCHING" to GoldMuted
+                }
+                Text(
+                    text = statusLabel,
+                    style = Typography.labelLarge.copy(color = statusColor),
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
+                )
             }
         }
 
         // Scanned cards list (newest first)
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             itemsIndexed(cards.reversed(), key = { _, entry -> entry.card.name }) { _, entry ->
-                ScannedCardRow(entry)
+                ScannedCardRow(
+                    entry = entry,
+                    isSelected = selectedCardName == entry.card.name,
+                    onLongPress = { selectedCardName = entry.card.name },
+                    onIncrement = { onIncrement(entry.card.name) },
+                    onDecrement = {
+                        if (entry.count <= 1) selectedCardName = null
+                        onDecrement(entry.card.name)
+                    },
+                    onDismiss = { selectedCardName = null },
+                )
                 HorizontalDivider(color = GoldDark.copy(alpha = 0.25f), thickness = 0.5.dp)
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ScannedCardRow(entry: ScannedEntry) {
+private fun ScannedCardRow(
+    entry: ScannedEntry,
+    isSelected: Boolean,
+    onLongPress: () -> Unit,
+    onIncrement: () -> Unit,
+    onDecrement: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     val card = entry.card
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(if (isSelected) GoldDark.copy(alpha = 0.18f) else Color.Transparent)
+            .combinedClickable(
+                onClick = { if (isSelected) onDismiss() else onLongPress() },
+                onLongClick = onLongPress,
+            )
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -433,8 +511,21 @@ private fun ScannedCardRow(entry: ScannedEntry) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (entry.count > 1) {
-            Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(8.dp))
+        if (isSelected) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CountButton("−", onClick = onDecrement)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "${entry.count}",
+                    style = Typography.labelLarge.copy(color = GoldPrimary),
+                    modifier = Modifier.width(24.dp),
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.width(6.dp))
+                CountButton("+", onClick = onIncrement)
+            }
+        } else if (entry.count > 1) {
             Box(
                 modifier = Modifier
                     .border(1.dp, GoldMuted.copy(alpha = 0.6f), RoundedCornerShape(2.dp))
@@ -447,6 +538,22 @@ private fun ScannedCardRow(entry: ScannedEntry) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun CountButton(label: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(26.dp)
+            .border(1.dp, GoldMuted, RoundedCornerShape(2.dp))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = Typography.labelMedium.copy(color = GoldPrimary),
+        )
     }
 }
 
