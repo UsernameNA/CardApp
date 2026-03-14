@@ -27,6 +27,20 @@ val BurgundyLight  = Color(0xFF9E3045)
 // Utility
 val InkShadow = Color(0xCC040302)
 
+// Elements
+val FireElement  = Color(0xFFCF6842)
+val WaterElement = Color(0xFF5B94C4)
+val EarthElement = Color(0xFF8B6914)
+val AirElement   = Color(0xFFB0C0D0)
+
+fun elementColor(element: String): Color = when (element.lowercase()) {
+    "fire" -> FireElement
+    "water" -> WaterElement
+    "earth" -> EarthElement
+    "air" -> AirElement
+    else -> GoldMuted
+}
+
 fun rarityColor(rarity: String): Color = when (rarity.trim().lowercase()) {
     "ordinary" -> Color(0xFF909090)
     "exceptional" -> Color(0xFF2E642E)

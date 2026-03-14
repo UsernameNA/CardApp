@@ -4,6 +4,8 @@ import android.content.Context
 import com.github.username.cardapp.data.local.AppDatabase
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CardVariantEntity
+import com.github.username.cardapp.data.local.CollectionCardRow
+import com.github.username.cardapp.data.local.CollectionEntryEntity
 import com.github.username.cardapp.data.local.SetEntity
 import com.github.username.cardapp.data.model.CardJson
 import com.google.gson.Gson
@@ -16,8 +18,21 @@ class CardRepository(private val context: Context, db: AppDatabase) {
     private val dao = db.cardDao()
 
     val cards = dao.getAllCards()
+    val collection: kotlinx.coroutines.flow.Flow<List<CollectionCardRow>> = dao.getCollectionEntries()
 
     suspend fun needsCardSync(): Boolean = dao.getCardCount() == 0
+
+    suspend fun addToCollection(entries: List<CollectionEntryEntity>) {
+        dao.upsertCollectionEntries(entries)
+    }
+
+    suspend fun incrementInCollection(cardName: String) {
+        dao.incrementCollectionEntry(cardName)
+    }
+
+    suspend fun removeOneFromCollection(cardName: String) {
+        dao.removeOneFromCollection(cardName)
+    }
 
     suspend fun syncCards() = withContext(Dispatchers.IO) {
         val json = context.assets.open("cards.json").bufferedReader().use { it.readText() }

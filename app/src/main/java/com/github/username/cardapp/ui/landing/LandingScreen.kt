@@ -51,6 +51,7 @@ import com.github.username.cardapp.ui.theme.leatherBackground
 
 @Composable
 fun LandingScreen(
+    onViewCards: () -> Unit = {},
     onViewCollection: () -> Unit = {},
     onScanCards: () -> Unit = {},
 ) {
@@ -90,7 +91,9 @@ fun LandingScreen(
 
             Spacer(Modifier.height(56.dp))
 
-            ArcaneButton(text = "VIEW COLLECTION", onClick = onViewCollection)
+            ArcaneButton(text = "VIEW CARDS", onClick = onViewCards)
+            Spacer(Modifier.height(12.dp))
+            ArcaneButton(text = "MY COLLECTION", onClick = onViewCollection)
             Spacer(Modifier.height(12.dp))
             ArcaneButton(text = "SCAN CARDS", onClick = onScanCards)
         }

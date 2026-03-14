@@ -7,21 +7,22 @@ import androidx.lifecycle.viewModelScope
 import com.github.username.cardapp.data.CardRepository
 import com.github.username.cardapp.data.local.AppDatabase
 import com.github.username.cardapp.data.local.CardEntity
+import com.github.username.cardapp.data.local.CollectionEntryEntity
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 
 enum class ScanMode { Manual, Auto }
 
@@ -69,16 +70,41 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     private val _scanMode = MutableStateFlow(ScanMode.Manual)
     val scanMode: StateFlow<ScanMode> = _scanMode.asStateFlow()
 
-    // Auto mode: tracks the last scanned card and how long to ignore it
-    private val lastAutoAnalysisMs = AtomicLong(0L)
-    @Volatile private var lastAutoScannedName: String? = null
-    @Volatile private var autoScanCooldownUntil: Long = 0L
+    // --- Auto mode: CV-based card detection ---
+    //
+    // Instead of scanning on a timer, we fingerprint each camera frame (16×16 grayscale
+    // sampled from the center 50% of the Y plane) and run a three-state machine:
+    //
+    //   WaitingForCard  — accumulate stable frames; once the scene is still and the center
+    //                     region has enough visual content, fire OCR
+    //   OcrInFlight     — OCR is running; skip incoming frames
+    //   WaitingForChange — a card was just scanned; wait until the fingerprint diverges
+    //                      (card removed / swapped) before watching again
+    private enum class AutoState { WaitingForCard, OcrInFlight, WaitingForChange }
+
+    private val autoState = AtomicReference(AutoState.WaitingForCard)
+
+    // Accessed from analysis executor and reset from main thread via toggleScanMode
+    @Volatile private var prevFingerprint: IntArray? = null
+    @Volatile private var stableFrameCount = 0
+
+    // Written from coroutine callbacks, read from the analysis thread
+    @Volatile private var scannedFingerprint: IntArray? = null
+    @Volatile private var failedFingerprint: IntArray? = null
 
     fun toggleScanMode() {
         val next = if (_scanMode.value == ScanMode.Manual) ScanMode.Auto else ScanMode.Manual
         _scanMode.value = next
         _scanStatus.value = if (next == ScanMode.Auto) ScanStatus.AutoWatching else ScanStatus.Idle
-        if (next == ScanMode.Auto) lastAutoScannedName = null
+        if (next == ScanMode.Auto) resetAutoState()
+    }
+
+    private fun resetAutoState() {
+        autoState.set(AutoState.WaitingForCard)
+        prevFingerprint = null
+        stableFrameCount = 0
+        scannedFingerprint = null
+        failedFingerprint = null
     }
 
     fun requestScan() {
@@ -88,27 +114,18 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
 
     fun analyzeFrame(imageProxy: ImageProxy) {
         when (_scanMode.value) {
-            ScanMode.Manual -> {
-                if (!pendingScan.compareAndSet(true, false)) {
-                    imageProxy.close()
-                    return
-                }
-            }
-            ScanMode.Auto -> {
-                // Throttle to roughly one OCR call per second to avoid overloading the recognizer
-                val now = System.currentTimeMillis()
-                if (now - lastAutoAnalysisMs.get() < AUTO_ANALYSIS_INTERVAL_MS) {
-                    imageProxy.close()
-                    return
-                }
-                lastAutoAnalysisMs.set(now)
-            }
+            ScanMode.Manual -> analyzeFrameManual(imageProxy)
+            ScanMode.Auto -> analyzeFrameAuto(imageProxy)
         }
+    }
 
-        // toBitmap() returns the raw sensor image without applying rotation,
-        // so we pass rotationDegrees to tell ML Kit how to orient it.
-        // ML Kit Text Recognition v2 detects text at any angle within the image
-        // automatically, so a single call handles both upright and sideways cards.
+    // ── Manual mode ─────────────────────────────────────────────────────────────
+
+    private fun analyzeFrameManual(imageProxy: ImageProxy) {
+        if (!pendingScan.compareAndSet(true, false)) {
+            imageProxy.close()
+            return
+        }
         val bitmap = imageProxy.toBitmap()
         val sensorRotation = imageProxy.imageInfo.rotationDegrees
         imageProxy.close()
@@ -116,18 +133,113 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         recognizer.process(InputImage.fromBitmap(bitmap, sensorRotation))
             .addOnSuccessListener { visionText ->
                 viewModelScope.launch(Dispatchers.Default) {
-                    matchCardName(visionText.text)
+                    val result = scoreOcrText(visionText.text)
+                    if (result != null) {
+                        addScannedCard(result)
+                        setStatusTemporarily(ScanStatus.Found(result.name))
+                    } else {
+                        setStatusTemporarily(ScanStatus.NotFound)
+                    }
                 }
             }
-            .addOnFailureListener { if (_scanMode.value == ScanMode.Manual) setStatusTemporarily(ScanStatus.NotFound) }
+            .addOnFailureListener { setStatusTemporarily(ScanStatus.NotFound) }
     }
 
-    private suspend fun matchCardName(rawText: String) {
-        val cards = allCards.value
-        if (cards.isEmpty()) {
-            setStatusTemporarily(ScanStatus.NotFound)
-            return
+    // ── Auto mode ───────────────────────────────────────────────────────────────
+
+    private fun analyzeFrameAuto(imageProxy: ImageProxy) {
+        // Compute fingerprint directly from the Y (luminance) plane — no Bitmap allocation.
+        val fingerprint = computeFingerprint(imageProxy)
+        val state: AutoState = autoState.get()
+
+        when (state) {
+            AutoState.WaitingForCard -> {
+                // Track inter-frame stability
+                val prev = prevFingerprint
+                if (prev != null) {
+                    if (fingerprintDiff(prev, fingerprint) < STABLE_THRESHOLD) {
+                        stableFrameCount++
+                    } else {
+                        stableFrameCount = 0
+                        failedFingerprint = null   // scene changed, allow retry
+                    }
+                }
+                prevFingerprint = fingerprint
+
+                val hasContent = fingerprintVariance(fingerprint) > CONTENT_VARIANCE_THRESHOLD
+                val notPreviouslyFailed = failedFingerprint?.let {
+                    fingerprintDiff(it, fingerprint) > CHANGE_THRESHOLD
+                } ?: true
+
+                if (stableFrameCount >= STABLE_FRAMES_REQUIRED && hasContent && notPreviouslyFailed) {
+                    if (autoState.compareAndSet(AutoState.WaitingForCard, AutoState.OcrInFlight)) {
+                        stableFrameCount = 0
+                        _scanStatus.value = ScanStatus.Scanning
+
+                        // Only create a Bitmap when we actually need OCR
+                        val bitmap = imageProxy.toBitmap()
+                        val rotation = imageProxy.imageInfo.rotationDegrees
+                        imageProxy.close()
+
+                        recognizer.process(InputImage.fromBitmap(bitmap, rotation))
+                            .addOnSuccessListener { visionText ->
+                                viewModelScope.launch(Dispatchers.Default) {
+                                    val result = scoreOcrText(visionText.text)
+                                    if (result != null) {
+                                        addScannedCard(result)
+                                        scannedFingerprint = fingerprint
+                                        autoState.set(AutoState.WaitingForChange)
+                                        _scanStatus.value = ScanStatus.Found(result.name)
+                                        viewModelScope.launch {
+                                            delay(FOUND_BANNER_MS)
+                                            if (_scanMode.value == ScanMode.Auto &&
+                                                autoState.get() == AutoState.WaitingForChange
+                                            ) {
+                                                _scanStatus.value = ScanStatus.AutoCooldown
+                                            }
+                                        }
+                                    } else {
+                                        failedFingerprint = fingerprint
+                                        autoState.set(AutoState.WaitingForCard)
+                                        _scanStatus.value = ScanStatus.AutoWatching
+                                    }
+                                }
+                            }
+                            .addOnFailureListener {
+                                failedFingerprint = fingerprint
+                                autoState.set(AutoState.WaitingForCard)
+                                _scanStatus.value = ScanStatus.AutoWatching
+                            }
+                        return
+                    }
+                }
+                imageProxy.close()
+            }
+
+            AutoState.OcrInFlight -> {
+                prevFingerprint = fingerprint
+                imageProxy.close()
+            }
+
+            AutoState.WaitingForChange -> {
+                val scanned = scannedFingerprint
+                if (scanned != null && fingerprintDiff(scanned, fingerprint) > CHANGE_THRESHOLD) {
+                    autoState.set(AutoState.WaitingForCard)
+                    stableFrameCount = 0
+                    failedFingerprint = null
+                    _scanStatus.value = ScanStatus.AutoWatching
+                }
+                prevFingerprint = fingerprint
+                imageProxy.close()
+            }
         }
+    }
+
+    // ── OCR scoring ─────────────────────────────────────────────────────────────
+
+    private fun scoreOcrText(rawText: String): CardEntity? {
+        val cards = allCards.value
+        if (cards.isEmpty()) return null
 
         val normalized = rawText.lowercase()
 
@@ -151,16 +263,7 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
             bestScore = bestScore,
         )
 
-        if (best != null && bestScore >= SCORE_THRESHOLD) {
-            // In auto mode, skip if this is the same card we just scanned and still cooling down
-            if (_scanMode.value == ScanMode.Auto &&
-                best.name == lastAutoScannedName &&
-                System.currentTimeMillis() < autoScanCooldownUntil
-            ) return
-            addScannedCard(best)
-        } else {
-            if (_scanMode.value == ScanMode.Manual) setStatusTemporarily(ScanStatus.NotFound)
-        }
+        return if (best != null && bestScore >= SCORE_THRESHOLD) best else null
     }
 
     // Scores a card against OCR text using four signals:
@@ -233,6 +336,8 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         return score
     }
 
+    // ── Scanned cards list ──────────────────────────────────────────────────────
+
     fun incrementCard(cardName: String) {
         viewModelScope.launch {
             scannedCardsMutex.withLock {
@@ -264,26 +369,23 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
             else current.add(ScannedEntry(card, 1))
             _scannedCards.value = current
         }
+    }
 
-        if (_scanMode.value == ScanMode.Auto) {
-            lastAutoScannedName = card.name
-            autoScanCooldownUntil = System.currentTimeMillis() + AUTO_COOLDOWN_MS
-            _scanStatus.value = ScanStatus.Found(card.name)
-            viewModelScope.launch {
-                delay(FOUND_BANNER_MS)
-                if (_scanMode.value == ScanMode.Auto) {
-                    _scanStatus.value = ScanStatus.AutoCooldown
-                    delay(AUTO_COOLDOWN_MS - FOUND_BANNER_MS)
-                    if (_scanMode.value == ScanMode.Auto) {
-                        _scanStatus.value = ScanStatus.AutoWatching
-                        lastAutoScannedName = null
-                    }
+    fun addScannedToCollection() {
+        viewModelScope.launch {
+            val entries = scannedCardsMutex.withLock {
+                val snapshot = _scannedCards.value.map {
+                    CollectionEntryEntity(cardName = it.card.name, quantity = it.count)
                 }
+                if (snapshot.isNotEmpty()) _scannedCards.value = emptyList()
+                snapshot
             }
-        } else {
-            setStatusTemporarily(ScanStatus.Found(card.name))
+            if (entries.isEmpty()) return@launch
+            repository.addToCollection(entries)
         }
     }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────────
 
     private fun setStatusTemporarily(status: ScanStatus) {
         _scanStatus.value = status
@@ -300,9 +402,69 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         const val SCORE_THRESHOLD = 40
-        private const val AUTO_ANALYSIS_INTERVAL_MS = 900L   // max ~1 OCR call/sec in auto mode
-        private const val AUTO_COOLDOWN_MS = 2500L           // lock out same card for 2.5s after scan
-        private const val FOUND_BANNER_MS = 1200L            // how long to show "FOUND!" before transitioning
+        private const val FOUND_BANNER_MS = 1200L
+
+        // Frame fingerprinting — 16×16 grayscale grid sampled from center of frame
+        private const val FINGERPRINT_SIZE = 16
+        private const val STABLE_THRESHOLD = 8.0       // max mean pixel diff for "stable"
+        private const val CHANGE_THRESHOLD = 25.0       // min mean pixel diff for "scene changed"
+        private const val CONTENT_VARIANCE_THRESHOLD = 200.0 // min variance to consider "has content"
+        private const val STABLE_FRAMES_REQUIRED = 5    // consecutive stable frames before OCR
+
+        /** Sample a 16×16 grayscale fingerprint from the reticle region of the Y plane.
+         *  The reticle is centered at (50%, 32.5%) of the screen (middle of the top 65%,
+         *  above the bottom panel). We map that screen position to sensor coordinates
+         *  using the image's rotation degrees. */
+        fun computeFingerprint(imageProxy: ImageProxy): IntArray {
+            val yPlane = imageProxy.planes[0]
+            val yBuffer = yPlane.buffer
+            val rowStride = yPlane.rowStride
+            val imgW = imageProxy.width
+            val imgH = imageProxy.height
+            val rotation = imageProxy.imageInfo.rotationDegrees
+
+            // Reticle center in normalized screen coords (portrait)
+            val screenCx = 0.5
+            val screenCy = 0.5
+
+            // Map screen coords to sensor coords based on rotation
+            val sensorCxNorm: Double
+            val sensorCyNorm: Double
+            when (rotation) {
+                90  -> { sensorCxNorm = 1.0 - screenCy; sensorCyNorm = screenCx }
+                270 -> { sensorCxNorm = screenCy;        sensorCyNorm = 1.0 - screenCx }
+                180 -> { sensorCxNorm = 1.0 - screenCx;  sensorCyNorm = 1.0 - screenCy }
+                else -> { sensorCxNorm = screenCx;        sensorCyNorm = screenCy }
+            }
+
+            val cropW = imgW / 2
+            val cropH = imgH / 2
+            val centerX = (sensorCxNorm * imgW).toInt().coerceIn(cropW / 2, imgW - cropW / 2)
+            val centerY = (sensorCyNorm * imgH).toInt().coerceIn(cropH / 2, imgH - cropH / 2)
+            val startX = centerX - cropW / 2
+            val startY = centerY - cropH / 2
+
+            return IntArray(FINGERPRINT_SIZE * FINGERPRINT_SIZE) { i ->
+                val fx = i % FINGERPRINT_SIZE
+                val fy = i / FINGERPRINT_SIZE
+                val srcX = startX + fx * cropW / FINGERPRINT_SIZE
+                val srcY = startY + fy * cropH / FINGERPRINT_SIZE
+                yBuffer[srcY * rowStride + srcX].toInt() and 0xFF
+            }
+        }
+
+        /** Mean absolute difference between two fingerprints. */
+        fun fingerprintDiff(a: IntArray, b: IntArray): Double {
+            var sum = 0L
+            for (i in a.indices) sum += kotlin.math.abs(a[i] - b[i])
+            return sum.toDouble() / a.size
+        }
+
+        /** Variance of luminance values — low means uniform (empty surface), high means content. */
+        fun fingerprintVariance(fp: IntArray): Double {
+            val mean = fp.average()
+            return fp.sumOf { (it - mean) * (it - mean) } / fp.size
+        }
 
         // Standard Levenshtein edit distance (substitution, insertion, deletion each cost 1).
         // Two pre-allocated rows are swapped each iteration — no heap allocations in the loop.

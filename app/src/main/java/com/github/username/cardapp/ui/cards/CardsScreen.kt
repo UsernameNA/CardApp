@@ -1,4 +1,4 @@
-package com.github.username.cardapp.ui.collection
+package com.github.username.cardapp.ui.cards
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -60,7 +60,7 @@ import com.github.username.cardapp.ui.theme.leatherBackground
 import com.github.username.cardapp.ui.theme.rarityColor
 
 @Composable
-fun CardListScreen(vm: CollectionViewModel = viewModel()) {
+fun CardsScreen(vm: CardsViewModel = viewModel()) {
     val cards by vm.cards.collectAsState()
     val syncState by vm.syncState.collectAsState()
 
@@ -70,7 +70,7 @@ fun CardListScreen(vm: CollectionViewModel = viewModel()) {
             .leatherBackground(),
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            CollectionHeader(
+            CardsHeader(
                 cardCount = cards.size,
                 modifier = Modifier.statusBarsPadding(),
             )
@@ -89,7 +89,7 @@ fun CardListScreen(vm: CollectionViewModel = viewModel()) {
 }
 
 @Composable
-private fun CollectionHeader(
+private fun CardsHeader(
     cardCount: Int,
     modifier: Modifier = Modifier,
 ) {
@@ -109,7 +109,7 @@ private fun CollectionHeader(
                 color = GoldMuted.copy(alpha = 0.45f),
             )
             Text(
-                text = "  COLLECTION  ",
+                text = "  CARDS  ",
                 style = Typography.labelLarge.copy(color = GoldPrimary),
             )
             HorizontalDivider(
@@ -301,7 +301,7 @@ private fun CardListLoadingPreview() {
                 .leatherBackground(),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                CollectionHeader(cardCount = 0, modifier = Modifier.statusBarsPadding())
+                CardsHeader(cardCount = 0, modifier = Modifier.statusBarsPadding())
                 CatalogueLoadingState(state = SyncState.SyncingCards)
             }
         }
@@ -323,7 +323,7 @@ private fun CardListGridPreview() {
                 .leatherBackground(),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                CollectionHeader(
+                CardsHeader(
                     cardCount = fakeCards.size,
                     modifier = Modifier.statusBarsPadding()
                 )
