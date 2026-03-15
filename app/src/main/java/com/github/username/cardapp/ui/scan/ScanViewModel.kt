@@ -241,7 +241,7 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         val cards = allCards.value
         if (cards.isEmpty()) return null
 
-        val normalized = rawText.lowercase()
+        val normalized = normalizeOcr(rawText.lowercase())
 
         val costCandidates = Regex("""\b(\d{1,2})\b""").findAll(rawText)
             .mapNotNull { it.value.toIntOrNull() }
@@ -249,7 +249,7 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
             .toSet()
 
         val ocrTokens = normalized.split(Regex("[^a-z0-9']+")).filter { it.isNotEmpty() }
-        val ocrWords = ocrTokens.filter { it.length > 4 }.toSet()
+        val ocrWords = ocrTokens.filter { it.length > 3 }.toSet()
 
         val (best, bestScore) = cards
             .map { it to scoreCard(it, normalized, costCandidates, ocrTokens, ocrWords) }
@@ -266,22 +266,25 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         return if (best != null && bestScore >= SCORE_THRESHOLD) best else null
     }
 
-    // Scores a card against OCR text using four signals:
+    // Scores a card against OCR text using five signals:
     //
     //   Name match — card names use a decorative font so OCR may garble individual
-    //   characters. We score in three tiers:
-    //     100 pts  exact full-name substring present
+    //   characters. We score in four tiers:
+    //     100 pts  exact full-name substring present in OCR text
     //      25 pts  per name-word with an exact token match in the OCR text
+    //      20 pts  per name-word found as substring in the full text (catches merged words)
     //      15 pts  per name-word with a fuzzy token match within edit-distance tolerance
-    //              (tolerance = 1 for 4–6 char words, 2 for 7+ char words)
+    //              (tolerance = 1 for 3–6 char words, 2 for 7+ char words)
     //
     //   Type match    — 10 pts if the card's type (Minion, Spell, Site, …) appears in
-    //                   the OCR text; supporting signal since the type line is scanned to
+    //                   the OCR text; supporting signal since the type line is scanned too
+    //
+    //   Subtype match — 8 pts if the card's subtype (Beast, Dragon, …) appears in
+    //                   the OCR text (fuzzy)
     //
     //   Cost match    — 35 pts if the card's cost appears as a number (non-site only)
     //
-    //   Rules overlap — 4 pts per significant word shared between OCR and rules text
-    //                   (rules text uses a cleaner font; exact matching is fine here)
+    //   Rules overlap — 4 pts per word shared between OCR and rules text (exact or fuzzy)
     //
     // Threshold 40: full name match always wins; partial fuzzy name + cost also wins;
     // cost alone or rules overlap alone cannot produce a false positive.
@@ -295,42 +298,69 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         var score = 0
 
         // --- Name ---
-        val cardNameLower = card.name.lowercase()
+        // Levenshtein returns doubled values (OCR-confused subs cost 1 instead of 2),
+        // so tolerance thresholds are also doubled.
+        // normalizeOcr is applied to card-side strings so both sides match consistently.
+        val cardNameLower = normalizeOcr(card.name.lowercase())
         if (normalizedText.contains(cardNameLower)) {
             score += 100
         } else {
-            for (nameWord in cardNameLower.split(" ").filter { it.length > 3 }) {
-                val tolerance = if (nameWord.length >= 7) 2 else 1
+            for (nameWord in cardNameLower.split(" ").filter { it.length > 2 }) {
+                val tol2 = if (nameWord.length >= 7) 4 else 2  // tolerance * 2
                 val bestDist = ocrTokens.minOfOrNull { levenshtein(nameWord, it) } ?: Int.MAX_VALUE
                 score += when {
                     bestDist == 0 -> 25
-                    bestDist <= tolerance -> 15
+                    // Substring check: catches OCR merging adjacent words (e.g. "darkforest")
+                    nameWord.length >= 4 && normalizedText.contains(nameWord) -> 20
+                    bestDist <= tol2 -> 15
                     else -> 0
                 }
             }
         }
 
         // --- Type (both name and type use stylized fonts, so apply same fuzzy logic) ---
-        val cardTypeLower = card.cardType.lowercase()
+        val cardTypeLower = normalizeOcr(card.cardType.lowercase())
         if (cardTypeLower.length > 3) {
-            val tolerance = if (cardTypeLower.length >= 7) 2 else 1
+            val tol2 = if (cardTypeLower.length >= 7) 4 else 2
             val bestDist = ocrTokens.minOfOrNull { levenshtein(cardTypeLower, it) } ?: Int.MAX_VALUE
-            if (bestDist <= tolerance) score += 10
+            if (bestDist <= tol2) score += 10
+        }
+
+        // --- Subtype ---
+        if (card.subTypes.isNotEmpty()) {
+            for (sub in normalizeOcr(card.subTypes.lowercase()).split(Regex("[,/\\s]+")).filter { it.length > 2 }) {
+                val tol2 = if (sub.length >= 7) 4 else 2
+                val bestDist = ocrTokens.minOfOrNull { levenshtein(sub, it) } ?: Int.MAX_VALUE
+                if (bestDist <= tol2) {
+                    score += 8
+                    break   // one subtype match is enough
+                }
+            }
         }
 
         // --- Cost ---
-        val isSite = card.cardType.lowercase() == "site"
+        val isSite = cardTypeLower == "site"
         if (!isSite && costCandidates.contains(card.cost)) {
             score += 35
         }
 
-        // --- Rules text overlap ---
+        // --- Rules text overlap (exact + fuzzy) ---
         if (card.rulesText.isNotEmpty()) {
-            val rulesWords = card.rulesText.lowercase()
+            val rulesWords = normalizeOcr(card.rulesText.lowercase())
                 .split(Regex("[^a-z0-9']+"))
-                .filter { it.length > 4 }
+                .filter { it.length > 3 }
                 .toSet()
-            score += rulesWords.intersect(ocrWords).size * 4
+            var rulesScore = 0
+            for (rw in rulesWords) {
+                if (rw in ocrWords) {
+                    rulesScore += 4
+                } else {
+                    val tol2 = if (rw.length >= 7) 4 else 2
+                    val bestDist = ocrTokens.minOfOrNull { levenshtein(rw, it) } ?: Int.MAX_VALUE
+                    if (bestDist <= tol2) rulesScore += 2
+                }
+            }
+            score += rulesScore
         }
 
         return score
@@ -466,21 +496,53 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
             return fp.sumOf { (it - mean) * (it - mean) } / fp.size
         }
 
-        // Standard Levenshtein edit distance (substitution, insertion, deletion each cost 1).
-        // Two pre-allocated rows are swapped each iteration — no heap allocations in the loop.
+        // Common OCR confusion pairs — characters frequently misread as each other.
+        // Used to reduce substitution cost in weighted Levenshtein.
+        private val OCR_CONFUSIONS: Set<Long> = buildSet {
+            fun pair(a: Char, b: Char) { add(packChars(a, b)); add(packChars(b, a)) }
+            pair('0', 'o'); pair('0', 'O')
+            pair('1', 'l'); pair('1', 'i'); pair('l', 'i')
+            pair('5', 's'); pair('5', 'S')
+            pair('8', 'b'); pair('8', 'B')
+            pair('g', 'q'); pair('g', '9')
+            pair('c', 'e')
+            pair('u', 'v')
+            pair('n', 'h')
+        }
+
+        private fun packChars(a: Char, b: Char): Long =
+            (a.lowercaseChar().code.toLong() shl 16) or b.lowercaseChar().code.toLong()
+
+        /**
+         * Normalize OCR text by fixing common misreads:
+         *   - "rn" → "m" (very frequent OCR error with serif/decorative fonts)
+         *   - "vv" → "w"
+         *   - "cl" → "d" (decorative font artifact)
+         */
+        fun normalizeOcr(text: String): String = text
+            .replace("rn", "m")
+            .replace("vv", "w")
+            .replace("cl", "d")
+
+        // Weighted Levenshtein edit distance. Substitutions between commonly confused
+        // OCR characters cost 0.5 instead of 1, so a single OCR misread doesn't burn
+        // a full edit-distance unit. Result is doubled and returned as Int to avoid
+        // floating-point: effective distance = return value / 2. Callers compare
+        // against tolerance * 2.
         fun levenshtein(a: String, b: String): Int {
             if (a == b) return 0
-            if (a.isEmpty()) return b.length
-            if (b.isEmpty()) return a.length
-            var prev = IntArray(b.length + 1) { it }
+            if (a.isEmpty()) return b.length * 2
+            if (b.isEmpty()) return a.length * 2
+            var prev = IntArray(b.length + 1) { it * 2 }
             var curr = IntArray(b.length + 1)
             for (i in 1..a.length) {
-                curr[0] = i
+                curr[0] = i * 2
                 for (j in 1..b.length) {
                     curr[j] = if (a[i - 1] == b[j - 1]) {
                         prev[j - 1]
                     } else {
-                        1 + minOf(prev[j], curr[j - 1], prev[j - 1])
+                        val subCost = if (packChars(a[i - 1], b[j - 1]) in OCR_CONFUSIONS) 1 else 2
+                        subCost + minOf(prev[j], curr[j - 1], prev[j - 1])
                     }
                 }
                 val tmp = prev; prev = curr; curr = tmp

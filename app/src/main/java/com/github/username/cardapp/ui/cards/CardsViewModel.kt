@@ -6,10 +6,13 @@ import androidx.lifecycle.viewModelScope
 import com.github.username.cardapp.data.CardRepository
 import com.github.username.cardapp.data.local.AppDatabase
 import com.github.username.cardapp.data.local.CardEntity
+import com.github.username.cardapp.ui.common.CardFilterState
+import com.github.username.cardapp.ui.common.applyFilter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -25,13 +28,22 @@ class CardsViewModel(app: Application) : AndroidViewModel(app) {
     private val repository =
         CardRepository(
             context = app,
-            db = AppDatabase.getInstance(
-                app
-            ),
+            db = AppDatabase.getInstance(app),
         )
 
-    val cards: StateFlow<List<CardEntity>> = repository.cards
+    private val allCards: StateFlow<List<CardEntity>> = repository.cards
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _filterState = MutableStateFlow(CardFilterState())
+    val filterState: StateFlow<CardFilterState> = _filterState.asStateFlow()
+
+    val cards: StateFlow<List<CardEntity>> = combine(allCards, _filterState) { cards, filter ->
+        cards.applyFilter(filter)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val totalCardCount: StateFlow<Int> = allCards
+        .combine(_filterState) { cards, _ -> cards.size }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
@@ -52,5 +64,9 @@ class CardsViewModel(app: Application) : AndroidViewModel(app) {
                 _syncState.value = SyncState.Error(e.message ?: "Unknown error")
             }
         }
+    }
+
+    fun updateFilter(transform: (CardFilterState) -> CardFilterState) {
+        _filterState.value = transform(_filterState.value)
     }
 }

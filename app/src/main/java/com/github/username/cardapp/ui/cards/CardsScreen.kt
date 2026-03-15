@@ -24,12 +24,15 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +50,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.github.username.cardapp.data.local.CardEntity
+import com.github.username.cardapp.ui.common.CardFilterState
+import com.github.username.cardapp.ui.common.NoFilterResults
+import com.github.username.cardapp.ui.common.SearchFilterBar
 import com.github.username.cardapp.ui.theme.BurgundyLight
 import com.github.username.cardapp.ui.theme.CreamFaded
 import com.github.username.cardapp.ui.theme.CreamMuted
@@ -62,7 +68,18 @@ import com.github.username.cardapp.ui.theme.rarityColor
 @Composable
 fun CardsScreen(vm: CardsViewModel = viewModel()) {
     val cards by vm.cards.collectAsState()
+    val totalCount by vm.totalCardCount.collectAsState()
     val syncState by vm.syncState.collectAsState()
+    val filterState by vm.filterState.collectAsState()
+
+    val gridState = rememberLazyGridState()
+    // Scroll key: everything except filtersExpanded
+    val scrollKey = remember(filterState) {
+        filterState.copy(filtersExpanded = false)
+    }
+    LaunchedEffect(scrollKey) {
+        gridState.scrollToItem(0)
+    }
 
     Box(
         modifier = Modifier
@@ -72,14 +89,22 @@ fun CardsScreen(vm: CardsViewModel = viewModel()) {
         Column(modifier = Modifier.fillMaxSize()) {
             CardsHeader(
                 cardCount = cards.size,
+                totalCount = totalCount,
+                hasFilter = filterState.hasActiveFilters,
                 modifier = Modifier.statusBarsPadding(),
+            )
+            SearchFilterBar(
+                state = filterState,
+                onUpdate = { newState -> vm.updateFilter { newState } },
             )
             when (val state = syncState) {
                 is SyncState.Complete, is SyncState.Idle -> {
-                    if (cards.isEmpty()) {
+                    if (cards.isEmpty() && filterState.hasActiveFilters) {
+                        NoFilterResults(onClear = { vm.updateFilter { CardFilterState() } })
+                    } else if (cards.isEmpty()) {
                         CatalogueLoadingState(state = state)
                     } else {
-                        CardGrid(cards = cards)
+                        CardGrid(cards = cards, gridState = gridState)
                     }
                 }
                 else -> CatalogueLoadingState(state = state)
@@ -91,6 +116,8 @@ fun CardsScreen(vm: CardsViewModel = viewModel()) {
 @Composable
 private fun CardsHeader(
     cardCount: Int,
+    totalCount: Int,
+    hasFilter: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -118,10 +145,15 @@ private fun CardsHeader(
                 color = GoldMuted.copy(alpha = 0.45f),
             )
         }
-        if (cardCount > 0) {
+        if (totalCount > 0) {
             Spacer(Modifier.height(4.dp))
+            val subtitle = if (hasFilter) {
+                "$cardCount of $totalCount entries catalogued"
+            } else {
+                "$totalCount entries catalogued"
+            }
             Text(
-                text = "$cardCount entries catalogued",
+                text = subtitle,
                 style = Typography.labelMedium.copy(color = CreamFaded),
             )
         }
@@ -129,9 +161,13 @@ private fun CardsHeader(
 }
 
 @Composable
-private fun CardGrid(cards: List<CardEntity>) {
+private fun CardGrid(
+    cards: List<CardEntity>,
+    gridState: androidx.compose.foundation.lazy.grid.LazyGridState = rememberLazyGridState(),
+) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
+        state = gridState,
         contentPadding = PaddingValues(
             start = 10.dp,
             end = 10.dp,
@@ -301,7 +337,7 @@ private fun CardListLoadingPreview() {
                 .leatherBackground(),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                CardsHeader(cardCount = 0, modifier = Modifier.statusBarsPadding())
+                CardsHeader(cardCount = 0, totalCount = 0, hasFilter = false, modifier = Modifier.statusBarsPadding())
                 CatalogueLoadingState(state = SyncState.SyncingCards)
             }
         }
@@ -325,7 +361,9 @@ private fun CardListGridPreview() {
             Column(modifier = Modifier.fillMaxSize()) {
                 CardsHeader(
                     cardCount = fakeCards.size,
-                    modifier = Modifier.statusBarsPadding()
+                    totalCount = fakeCards.size,
+                    hasFilter = false,
+                    modifier = Modifier.statusBarsPadding(),
                 )
                 CardGrid(cards = fakeCards)
             }

@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,7 +31,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CollectionCardRow
+import com.github.username.cardapp.ui.common.CardFilterState
 import com.github.username.cardapp.ui.common.CardRow
+import com.github.username.cardapp.ui.common.NoFilterResults
+import com.github.username.cardapp.ui.common.SearchFilterBar
 import com.github.username.cardapp.ui.theme.CardAppTheme
 import com.github.username.cardapp.ui.theme.CreamFaded
 import com.github.username.cardapp.ui.theme.CreamMuted
@@ -42,9 +47,16 @@ import com.github.username.cardapp.ui.theme.leatherBackground
 @Composable
 fun CollectionScreen(vm: CollectionViewModel = viewModel()) {
     val entries by vm.entries.collectAsState()
+    val filterState by vm.filterState.collectAsState()
+    val totalUnique by vm.totalUniqueCount.collectAsState()
+    val totalCards by vm.totalCardCount.collectAsState()
 
     CollectionScreenContent(
         entries = entries,
+        filterState = filterState,
+        totalUnique = totalUnique,
+        totalCards = totalCards,
+        onUpdateFilter = { newState -> vm.updateFilter { newState } },
         onIncrement = { vm.increment(it) },
         onDecrement = { vm.decrement(it) },
     )
@@ -53,10 +65,17 @@ fun CollectionScreen(vm: CollectionViewModel = viewModel()) {
 @Composable
 private fun CollectionScreenContent(
     entries: List<CollectionCardRow>,
+    filterState: CardFilterState = CardFilterState(),
+    totalUnique: Int = entries.size,
+    totalCards: Int = entries.sumOf { it.quantity },
+    onUpdateFilter: (CardFilterState) -> Unit = {},
     onIncrement: (String) -> Unit = {},
     onDecrement: (String) -> Unit = {},
 ) {
     var selectedCardName by remember { mutableStateOf<String?>(null) }
+    val listState = rememberLazyListState()
+    val scrollKey = remember(filterState) { filterState.copy(filtersExpanded = false) }
+    LaunchedEffect(scrollKey) { listState.scrollToItem(0) }
 
     Box(
         modifier = Modifier
@@ -67,12 +86,22 @@ private fun CollectionScreenContent(
             CollectionHeader(
                 uniqueCards = entries.size,
                 totalCards = entries.sumOf { it.quantity },
+                totalUnique = totalUnique,
+                totalTotal = totalCards,
+                hasFilter = filterState.hasActiveFilters,
                 modifier = Modifier.statusBarsPadding(),
             )
-            if (entries.isEmpty()) {
+            SearchFilterBar(
+                state = filterState,
+                onUpdate = onUpdateFilter,
+            )
+            if (entries.isEmpty() && filterState.hasActiveFilters) {
+                NoFilterResults(onClear = { onUpdateFilter(CardFilterState()) })
+            } else if (entries.isEmpty()) {
                 EmptyCollectionMessage()
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 80.dp),
                 ) {
@@ -102,6 +131,9 @@ private fun CollectionScreenContent(
 private fun CollectionHeader(
     uniqueCards: Int,
     totalCards: Int,
+    totalUnique: Int,
+    totalTotal: Int,
+    hasFilter: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -129,10 +161,15 @@ private fun CollectionHeader(
                 color = GoldMuted.copy(alpha = 0.45f),
             )
         }
-        if (totalCards > 0) {
+        if (totalTotal > 0) {
             Spacer(Modifier.height(4.dp))
+            val subtitle = if (hasFilter) {
+                "$totalCards cards \u00b7 $uniqueCards unique (of $totalTotal \u00b7 $totalUnique)"
+            } else {
+                "$totalTotal cards \u00b7 $totalUnique unique"
+            }
             Text(
-                text = "$totalCards cards \u00b7 $uniqueCards unique",
+                text = subtitle,
                 style = Typography.labelMedium.copy(color = CreamFaded),
             )
         }

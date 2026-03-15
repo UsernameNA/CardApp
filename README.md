@@ -4,14 +4,16 @@ A personal collection manager for **Sorcery: Contested Realm** trading cards, bu
 
 ## Features
 
-- **Collection browser** — browse your catalogued cards in a 3-column grid with card art, rarity indicators, and set information
+- **Card catalogue** — browse all cards in a 3-column grid with card art, rarity indicators, and type info
+- **Collection tracking** — manage your owned cards with quantity controls
+- **Card scanning** — point your camera at a physical card for OCR-based identification; manual and auto-scan modes with frame fingerprinting
+- **Search and filtering** — text search across name, type, subtype, and rules text; filter by card type, rarity, and element; AND/OR element matching; multi-field sorting
 - **Offline-first** — card data and images are bundled with the app; no internet required after setup
-- **Card scanning** *(coming soon)* — point your camera at a physical card and have it identified and added to your collection automatically
 
 ## Screenshots
 
-| Landing | Collection |
-|---------|------------|
+| Landing         | Collection      |
+|-----------------|-----------------|
 | *(coming soon)* | *(coming soon)* |
 
 ## Tech Stack
@@ -21,6 +23,7 @@ A personal collection manager for **Sorcery: Contested Realm** trading cards, bu
 - **Architecture**: single-module, ViewModel + StateFlow
 - **Local storage**: Room (SQLite)
 - **Images**: Coil
+- **Camera**: CameraX + ML Kit Text Recognition
 - **Min SDK**: 36 (Android 15)
 
 ## Building
@@ -69,8 +72,11 @@ app/src/main/java/com/github/usernamena/cardapp/
 │   ├── local/          # Room database, DAO, entities
 │   └── model/          # JSON deserialization models
 └── ui/
+    ├── cards/          # Card catalogue grid + ViewModel
+    ├── collection/     # Collection list + ViewModel
+    ├── common/         # Shared components (CardRow, SearchFilterBar, CardFilter)
     ├── landing/        # Landing screen
-    ├── collection/     # Card grid + ViewModel
+    ├── scan/           # Camera scan screen + ViewModel
     └── theme/          # Colour palette, typography, modifiers
 scripts/
 ├── fetch_card_data.py  # Downloads cards.json from API
@@ -80,8 +86,9 @@ scripts/
 ## Roadmap
 
 - [x] Landing screen
-- [x] Collection browser
-- [ ] Card scan with camera (CameraX + on-device image matching)
+- [x] Card catalogue browser
+- [x] Card scanning with camera (CameraX + ML Kit OCR)
+- [x] Collection tracking with quantity management
+- [x] Search and filtering
 - [ ] Card detail view
-- [ ] Collection filtering and search
 - [ ] Deck builder
