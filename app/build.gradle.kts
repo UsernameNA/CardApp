@@ -62,6 +62,23 @@ android {
         compose = true
     }
     buildToolsVersion = "36.1.0"
+
+    // Release builds use the full image set from scripts/images/;
+    // debug builds use the small subset in src/main/assets/images/.
+    sourceSets.getByName("release") {
+        assets.srcDir("${layout.buildDirectory.get()}/release-assets")
+    }
+}
+
+val copyReleaseImages by tasks.registering(Copy::class) {
+    from("${rootProject.projectDir}/scripts/images")
+    into("${layout.buildDirectory.get()}/release-assets/images")
+}
+
+afterEvaluate {
+    tasks.matching { it.name.contains("Release") && it.name != "copyReleaseImages" }.configureEach {
+        dependsOn(copyReleaseImages)
+    }
 }
 
 kotlin {
