@@ -48,7 +48,7 @@ class CardRepository(private val context: Context, db: AppDatabase) {
             // For each card name, pick the lowest market price from non-promo sets.
             // If only promo entries exist, use those.
             val map = mutableMapOf<String, PriceInfo>()
-            val promoSets = setOf("dust reward promos", "arthurian legends")
+            val promoSets = setOf("dust reward promos", "arthurian legends promo")
             for (entry in data.cards) {
                 val name = entry.productName ?: continue
                 val market = entry.marketPrice ?: continue
