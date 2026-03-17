@@ -15,6 +15,7 @@
 .cxx
 *.keystore
 !debug.keystore
+keystore.properties
 .claude/
 /scripts/cards_png/
 /app/src/main/assets/images/
