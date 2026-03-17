@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.ui.theme.CreamFaded
+import com.github.username.cardapp.ui.theme.CreamMuted
 import com.github.username.cardapp.ui.theme.CreamPrimary
 import com.github.username.cardapp.ui.theme.GoldDark
 import com.github.username.cardapp.ui.theme.GoldMuted
@@ -44,6 +46,7 @@ fun CardRow(
     onLongPress: (() -> Unit)? = null,
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
+    marketPrice: Double? = null,
 ) {
     Row(
         modifier = Modifier
@@ -78,8 +81,17 @@ fun CardRow(
             )
             CardInfoLine(card)
         }
-        Spacer(Modifier.width(8.dp))
+        if (marketPrice != null) {
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = formatPrice(marketPrice),
+                style = Typography.labelMedium.copy(color = CreamMuted),
+                modifier = Modifier.widthIn(min = 48.dp),
+                textAlign = TextAlign.End,
+            )
+        }
         if (isSelected) {
+            Spacer(Modifier.width(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CountButton("\u25bc", onClick = onDecrement)
                 Spacer(Modifier.width(6.dp))
@@ -92,17 +104,24 @@ fun CardRow(
                 Spacer(Modifier.width(6.dp))
                 CountButton("\u25b2", onClick = onIncrement)
             }
-        } else if (count > 1) {
+        } else {
             Box(
-                modifier = Modifier
-                    .border(1.dp, GoldMuted.copy(alpha = 0.6f), RoundedCornerShape(2.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
-                contentAlignment = Alignment.Center,
+                modifier = Modifier.width(40.dp),
+                contentAlignment = Alignment.CenterEnd,
             ) {
-                Text(
-                    text = "\u00d7$count",
-                    style = Typography.labelSmall.copy(color = GoldPrimary),
-                )
+                if (count > 1) {
+                    Box(
+                        modifier = Modifier
+                            .border(1.dp, GoldMuted.copy(alpha = 0.6f), RoundedCornerShape(2.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "\u00d7$count",
+                            style = Typography.labelSmall.copy(color = GoldPrimary),
+                        )
+                    }
+                }
             }
         }
     }
@@ -158,6 +177,12 @@ private fun AlchemicalSymbol(element: String) {
             fontSize = 10.sp,
         ),
     )
+}
+
+private fun formatPrice(price: Double): String = when {
+    price >= 1000 -> "$${price.toInt()}"
+    price >= 1 -> "${"$%.2f".format(price)}"
+    else -> "${(price * 100).toInt()}\u00a2"
 }
 
 @Composable

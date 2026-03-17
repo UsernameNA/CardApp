@@ -11,6 +11,10 @@ import com.github.username.cardapp.data.model.CardJson
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 class CardRepository(private val context: Context, db: AppDatabase) {
@@ -18,7 +22,10 @@ class CardRepository(private val context: Context, db: AppDatabase) {
     private val dao = db.cardDao()
 
     val cards = dao.getAllCards()
-    val collection: kotlinx.coroutines.flow.Flow<List<CollectionCardRow>> = dao.getCollectionEntries()
+    val collection: Flow<List<CollectionCardRow>> = dao.getCollectionEntries()
+
+    private val _prices = MutableStateFlow<Map<String, PriceInfo>>(emptyMap())
+    val prices: StateFlow<Map<String, PriceInfo>> = _prices.asStateFlow()
 
     suspend fun needsCardSync(): Boolean = dao.getCardCount() == 0
 
@@ -32,6 +39,38 @@ class CardRepository(private val context: Context, db: AppDatabase) {
 
     suspend fun removeOneFromCollection(cardName: String) {
         dao.removeOneFromCollection(cardName)
+    }
+
+    suspend fun loadPrices() = withContext(Dispatchers.IO) {
+        try {
+            val json = context.assets.open("prices.json").bufferedReader().use { it.readText() }
+            val data = Gson().fromJson(json, PricesJson::class.java)
+            // For each card name, pick the lowest market price from non-promo sets.
+            // If only promo entries exist, use those.
+            val map = mutableMapOf<String, PriceInfo>()
+            val promoSets = setOf("dust reward promos", "arthurian legends")
+            for (entry in data.cards) {
+                val name = entry.productName ?: continue
+                val market = entry.marketPrice ?: continue
+                val isPromo = entry.setName?.lowercase() in promoSets
+                val existing = map[name]
+                if (existing == null ||
+                    (existing.isPromo && !isPromo) ||
+                    (!isPromo && market < existing.marketPrice) ||
+                    (isPromo && existing.isPromo && market < existing.marketPrice)
+                ) {
+                    map[name] = PriceInfo(
+                        marketPrice = market,
+                        lowestPrice = entry.lowestPrice ?: market,
+                        setName = entry.setName.orEmpty(),
+                        isPromo = isPromo,
+                    )
+                }
+            }
+            _prices.value = map
+        } catch (_: Exception) {
+            // prices.json not bundled yet — prices stay empty
+        }
     }
 
     suspend fun syncCards() = withContext(Dispatchers.IO) {
@@ -108,3 +147,23 @@ class CardRepository(private val context: Context, db: AppDatabase) {
         dao.insertAllVariants(variantEntities)
     }
 }
+
+data class PriceInfo(
+    val marketPrice: Double,
+    val lowestPrice: Double,
+    val setName: String,
+    val isPromo: Boolean = false,
+)
+
+private data class PricesJson(
+    val fetchedAt: String?,
+    val totalCards: Int?,
+    val cards: List<PriceEntryJson>,
+)
+
+private data class PriceEntryJson(
+    val productName: String?,
+    val setName: String?,
+    val marketPrice: Double?,
+    val lowestPrice: Double?,
+)

@@ -34,17 +34,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.activity.ComponentActivity
@@ -72,6 +69,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.util.concurrent.Executors
+import com.github.username.cardapp.data.PriceInfo
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.ui.common.CardRow
 import com.github.username.cardapp.ui.theme.CardAppTheme
@@ -91,6 +89,7 @@ fun ScanScreen(onBack: () -> Unit, vm: ScanViewModel = viewModel()) {
     val scanStatus by vm.scanStatus.collectAsState()
     val scanMode by vm.scanMode.collectAsState()
     val debugInfo by vm.debugInfo.collectAsState()
+    val prices by vm.prices.collectAsState()
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -124,6 +123,7 @@ fun ScanScreen(onBack: () -> Unit, vm: ScanViewModel = viewModel()) {
         scanStatus = scanStatus,
         scanMode = scanMode,
         debugInfo = debugInfo,
+        prices = prices,
         hasCameraPermission = hasCameraPermission,
         onBack = onBack,
         onScanTap = vm::requestScan,
@@ -142,6 +142,7 @@ private fun ScanScreenContent(
     scanStatus: ScanStatus,
     scanMode: ScanMode,
     debugInfo: ScanDebugInfo?,
+    prices: Map<String, PriceInfo> = emptyMap(),
     hasCameraPermission: Boolean,
     onBack: () -> Unit,
     onScanTap: () -> Unit,
@@ -184,6 +185,7 @@ private fun ScanScreenContent(
             cards = scannedCards,
             scanStatus = scanStatus,
             scanMode = scanMode,
+            prices = prices,
             onScanTap = onScanTap,
             onToggleScanMode = onToggleScanMode,
             onIncrement = onIncrement,
@@ -196,17 +198,18 @@ private fun ScanScreenContent(
         )
 
         // Layer 5: Back button
-        IconButton(
-            onClick = onBack,
+        Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .statusBarsPadding()
-                .padding(8.dp),
+                .padding(8.dp)
+                .size(40.dp)
+                .clickable(onClick = onBack),
+            contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = GoldPrimary,
+            Text(
+                text = "\u2190",
+                style = Typography.titleLarge.copy(color = GoldPrimary),
             )
         }
     }
@@ -283,6 +286,7 @@ private fun ScannedCardsPanel(
     cards: List<ScannedEntry>,
     scanStatus: ScanStatus,
     scanMode: ScanMode,
+    prices: Map<String, PriceInfo> = emptyMap(),
     onScanTap: () -> Unit,
     onToggleScanMode: () -> Unit,
     onIncrement: (String) -> Unit,
@@ -419,6 +423,7 @@ private fun ScannedCardsPanel(
                         if (entry.count <= 1) selectedCardName = null
                         onDecrement(entry.card.name)
                     },
+                    marketPrice = prices[entry.card.name]?.marketPrice,
                 )
                 HorizontalDivider(color = GoldDark.copy(alpha = 0.25f), thickness = 0.5.dp)
             }

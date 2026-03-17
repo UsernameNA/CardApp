@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.username.cardapp.data.CardRepository
+import com.github.username.cardapp.data.PriceInfo
 import com.github.username.cardapp.data.local.AppDatabase
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.ui.common.CardFilterState
@@ -37,13 +38,15 @@ class CardsViewModel(app: Application) : AndroidViewModel(app) {
     private val _filterState = MutableStateFlow(CardFilterState())
     val filterState: StateFlow<CardFilterState> = _filterState.asStateFlow()
 
-    val cards: StateFlow<List<CardEntity>> = combine(allCards, _filterState) { cards, filter ->
-        cards.applyFilter(filter)
+    val cards: StateFlow<List<CardEntity>> = combine(allCards, _filterState, repository.prices) { cards, filter, priceMap ->
+        cards.applyFilter(filter, priceMap)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val totalCardCount: StateFlow<Int> = allCards
         .combine(_filterState) { cards, _ -> cards.size }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    val prices: StateFlow<Map<String, PriceInfo>> = repository.prices
 
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
@@ -51,10 +54,12 @@ class CardsViewModel(app: Application) : AndroidViewModel(app) {
     init {
         viewModelScope.launch {
             if (repository.needsCardSync()) sync()
+            repository.loadPrices()
         }
     }
 
     fun sync() {
+        if (_syncState.value == SyncState.SyncingCards) return
         viewModelScope.launch {
             try {
                 _syncState.value = SyncState.SyncingCards

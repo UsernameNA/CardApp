@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.github.username.cardapp.data.PriceInfo
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CollectionCardRow
 import com.github.username.cardapp.ui.common.CardFilterState
@@ -50,12 +51,14 @@ fun CollectionScreen(vm: CollectionViewModel = viewModel()) {
     val filterState by vm.filterState.collectAsState()
     val totalUnique by vm.totalUniqueCount.collectAsState()
     val totalCards by vm.totalCardCount.collectAsState()
+    val prices by vm.prices.collectAsState()
 
     CollectionScreenContent(
         entries = entries,
         filterState = filterState,
         totalUnique = totalUnique,
         totalCards = totalCards,
+        prices = prices,
         onUpdateFilter = { newState -> vm.updateFilter { newState } },
         onIncrement = { vm.increment(it) },
         onDecrement = { vm.decrement(it) },
@@ -68,6 +71,7 @@ private fun CollectionScreenContent(
     filterState: CardFilterState = CardFilterState(),
     totalUnique: Int = entries.size,
     totalCards: Int = entries.sumOf { it.quantity },
+    prices: Map<String, PriceInfo> = emptyMap(),
     onUpdateFilter: (CardFilterState) -> Unit = {},
     onIncrement: (String) -> Unit = {},
     onDecrement: (String) -> Unit = {},
@@ -118,6 +122,7 @@ private fun CollectionScreenContent(
                                 if (entry.quantity <= 1) selectedCardName = null
                                 onDecrement(entry.card.name)
                             },
+                            marketPrice = prices[entry.card.name]?.marketPrice,
                         )
                         HorizontalDivider(color = GoldDark.copy(alpha = 0.25f), thickness = 0.5.dp)
                     }
@@ -200,13 +205,7 @@ private fun EmptyCollectionMessage() {
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-private fun CollectionEmptyPreview() {
-    CardAppTheme {
-        CollectionScreenContent(entries = emptyList())
-    }
-}
+
 
 @Preview(showBackground = true)
 @Composable
@@ -227,5 +226,13 @@ private fun CollectionListPreview() {
     )
     CardAppTheme {
         CollectionScreenContent(entries = fakeEntries)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun CollectionEmptyPreview() {
+    CardAppTheme {
+        CollectionScreenContent(entries = emptyList())
     }
 }

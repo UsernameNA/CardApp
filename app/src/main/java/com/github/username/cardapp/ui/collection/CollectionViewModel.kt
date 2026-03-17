@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.username.cardapp.data.CardRepository
+import com.github.username.cardapp.data.PriceInfo
 import com.github.username.cardapp.data.local.AppDatabase
 import com.github.username.cardapp.data.local.CollectionCardRow
 import com.github.username.cardapp.ui.common.CardFilterState
@@ -29,9 +30,9 @@ class CollectionViewModel(app: Application) : AndroidViewModel(app) {
     private val _filterState = MutableStateFlow(CardFilterState())
     val filterState: StateFlow<CardFilterState> = _filterState.asStateFlow()
 
-    val entries: StateFlow<List<CollectionCardRow>> = combine(allEntries, _filterState) { entries, filter ->
+    val entries: StateFlow<List<CollectionCardRow>> = combine(allEntries, _filterState, repository.prices) { entries, filter, priceMap ->
         val quantityByName = entries.associate { it.card.name to it.quantity }
-        val sortedCards = entries.map { it.card }.applyFilter(filter)
+        val sortedCards = entries.map { it.card }.applyFilter(filter, priceMap)
         sortedCards.map { card -> CollectionCardRow(card, quantityByName[card.name] ?: 0) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -39,9 +40,15 @@ class CollectionViewModel(app: Application) : AndroidViewModel(app) {
         .combine(_filterState) { entries, _ -> entries.size }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
+    val prices: StateFlow<Map<String, PriceInfo>> = repository.prices
+
     val totalCardCount: StateFlow<Int> = allEntries
         .combine(_filterState) { entries, _ -> entries.sumOf { it.quantity } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    init {
+        viewModelScope.launch { repository.loadPrices() }
+    }
 
     fun increment(cardName: String) {
         viewModelScope.launch { repository.incrementInCollection(cardName) }

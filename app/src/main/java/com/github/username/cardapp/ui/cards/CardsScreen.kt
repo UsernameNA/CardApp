@@ -327,22 +327,6 @@ private fun CatalogueLoadingState(state: SyncState) {
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-private fun CardListLoadingPreview() {
-    CardAppTheme {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .leatherBackground(),
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                CardsHeader(cardCount = 0, totalCount = 0, hasFilter = false, modifier = Modifier.statusBarsPadding())
-                CatalogueLoadingState(state = SyncState.SyncingCards)
-            }
-        }
-    }
-}
 
 @Preview(showBackground = true)
 @Composable
@@ -366,6 +350,23 @@ private fun CardListGridPreview() {
                     modifier = Modifier.statusBarsPadding(),
                 )
                 CardGrid(cards = fakeCards)
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun CardListLoadingPreview() {
+    CardAppTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .leatherBackground(),
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                CardsHeader(cardCount = 0, totalCount = 0, hasFilter = false, modifier = Modifier.statusBarsPadding())
+                CatalogueLoadingState(state = SyncState.SyncingCards)
             }
         }
     }

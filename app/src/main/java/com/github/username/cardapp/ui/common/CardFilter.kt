@@ -1,5 +1,6 @@
 package com.github.username.cardapp.ui.common
 
+import com.github.username.cardapp.data.PriceInfo
 import com.github.username.cardapp.data.local.CardEntity
 
 enum class SortDir { Off, Asc, Desc }
@@ -8,8 +9,9 @@ data class SortState(
     val name: SortDir = SortDir.Asc,
     val cost: SortDir = SortDir.Off,
     val rarity: SortDir = SortDir.Off,
+    val price: SortDir = SortDir.Off,
     // Order in which sorts were last activated — last = primary.
-    // Stores field names: "name", "cost", "rarity"
+    // Stores field names: "name", "cost", "rarity", "price"
     val priority: List<String> = listOf("name"),
 )
 
@@ -39,6 +41,7 @@ fun SortState.toggle(field: String): SortState {
         "name" -> name
         "cost" -> cost
         "rarity" -> rarity
+        "price" -> price
         else -> return this
     }
     val next = when (current) {
@@ -55,11 +58,15 @@ fun SortState.toggle(field: String): SortState {
         "name" -> copy(name = next, priority = newPriority)
         "cost" -> copy(cost = next, priority = newPriority)
         "rarity" -> copy(rarity = next, priority = newPriority)
+        "price" -> copy(price = next, priority = newPriority)
         else -> this
     }
 }
 
-fun List<CardEntity>.applyFilter(state: CardFilterState): List<CardEntity> {
+fun List<CardEntity>.applyFilter(
+    state: CardFilterState,
+    prices: Map<String, PriceInfo> = emptyMap(),
+): List<CardEntity> {
     var result = this
 
     if (state.query.isNotBlank()) {
@@ -120,6 +127,11 @@ fun List<CardEntity>.applyFilter(state: CardFilterState): List<CardEntity> {
             "rarity" -> when (s.rarity) {
                 SortDir.Asc -> compareBy<CardEntity> { RARITY_ORDER[it.rarity.lowercase()] ?: 0 }
                 SortDir.Desc -> compareByDescending<CardEntity> { RARITY_ORDER[it.rarity.lowercase()] ?: 0 }
+                SortDir.Off -> null
+            }
+            "price" -> when (s.price) {
+                SortDir.Asc -> compareBy<CardEntity> { prices[it.name]?.marketPrice ?: Double.MAX_VALUE }
+                SortDir.Desc -> compareByDescending<CardEntity> { prices[it.name]?.marketPrice ?: -1.0 }
                 SortDir.Off -> null
             }
             else -> null

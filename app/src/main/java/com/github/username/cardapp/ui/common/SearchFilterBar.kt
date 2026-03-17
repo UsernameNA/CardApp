@@ -176,6 +176,9 @@ fun SearchFilterBar(
             SortToggle("RARITY", state.sort.rarity) {
                 onUpdate(state.copy(sort = state.sort.toggle("rarity")))
             }
+            SortToggle("PRICE", state.sort.price) {
+                onUpdate(state.copy(sort = state.sort.toggle("price")))
+            }
         }
 
         // Active filter summary chips (when collapsed but filters active)

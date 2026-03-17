@@ -5,6 +5,7 @@ import androidx.camera.core.ImageProxy
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.username.cardapp.data.CardRepository
+import com.github.username.cardapp.data.PriceInfo
 import com.github.username.cardapp.data.local.AppDatabase
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CollectionEntryEntity
@@ -53,6 +54,12 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
 
     private val allCards: StateFlow<List<CardEntity>> = repository.cards
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val prices: StateFlow<Map<String, PriceInfo>> = repository.prices
+
+    init {
+        viewModelScope.launch { repository.loadPrices() }
+    }
 
     private val _scannedCards = MutableStateFlow<List<ScannedEntry>>(emptyList())
     val scannedCards: StateFlow<List<ScannedEntry>> = _scannedCards.asStateFlow()
@@ -300,8 +307,9 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         // --- Name ---
         // Levenshtein returns doubled values (OCR-confused subs cost 1 instead of 2),
         // so tolerance thresholds are also doubled.
-        // normalizeOcr is applied to card-side strings so both sides match consistently.
-        val cardNameLower = normalizeOcr(card.name.lowercase())
+        // normalizeOcr is only applied to the OCR side (normalizedText); card names
+        // are already correct and normalizing them corrupts names containing "cl".
+        val cardNameLower = card.name.lowercase()
         if (normalizedText.contains(cardNameLower)) {
             score += 100
         } else {
@@ -319,7 +327,7 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         // --- Type (both name and type use stylized fonts, so apply same fuzzy logic) ---
-        val cardTypeLower = normalizeOcr(card.cardType.lowercase())
+        val cardTypeLower = card.cardType.lowercase()
         if (cardTypeLower.length > 3) {
             val tol2 = if (cardTypeLower.length >= 7) 4 else 2
             val bestDist = ocrTokens.minOfOrNull { levenshtein(cardTypeLower, it) } ?: Int.MAX_VALUE
@@ -328,7 +336,7 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
 
         // --- Subtype ---
         if (card.subTypes.isNotEmpty()) {
-            for (sub in normalizeOcr(card.subTypes.lowercase()).split(Regex("[,/\\s]+")).filter { it.length > 2 }) {
+            for (sub in card.subTypes.lowercase().split(Regex("[,/\\s]+")).filter { it.length > 2 }) {
                 val tol2 = if (sub.length >= 7) 4 else 2
                 val bestDist = ocrTokens.minOfOrNull { levenshtein(sub, it) } ?: Int.MAX_VALUE
                 if (bestDist <= tol2) {
@@ -346,7 +354,7 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
 
         // --- Rules text overlap (exact + fuzzy) ---
         if (card.rulesText.isNotEmpty()) {
-            val rulesWords = normalizeOcr(card.rulesText.lowercase())
+            val rulesWords = card.rulesText.lowercase()
                 .split(Regex("[^a-z0-9']+"))
                 .filter { it.length > 3 }
                 .toSet()
