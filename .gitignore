@@ -15,4 +15,10 @@
 .cxx
 *.keystore
 !debug.keystore
+keystore.properties
 .claude/
+/scripts/cards_png/
+/scripts/images/
+__pycache__/
+*.pyc
+/scripts/config/

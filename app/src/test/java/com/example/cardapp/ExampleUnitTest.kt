@@ -1,4 +1,4 @@
-package com.example.cardapp
+package com.github.username.cardapp
 
 import org.junit.Test
 

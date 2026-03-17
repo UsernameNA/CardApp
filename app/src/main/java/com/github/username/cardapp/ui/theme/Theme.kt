@@ -1,4 +1,4 @@
-package com.example.cardapp.ui.theme
+package com.github.username.cardapp.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
