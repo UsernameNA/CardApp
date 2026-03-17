@@ -66,13 +66,16 @@ android {
     // Release builds use the full image set from scripts/images/;
     // debug builds use the small subset in src/main/assets/images/.
     sourceSets.getByName("release") {
-        assets.srcDir("${layout.buildDirectory.get()}/release-assets")
+        assets.directories.add("${layout.buildDirectory.get()}/release-assets")
     }
 }
 
+val releaseImagesDir = rootProject.layout.projectDirectory.dir("scripts/images")
+
 val copyReleaseImages by tasks.registering(Copy::class) {
-    from("${rootProject.projectDir}/scripts/images")
-    into("${layout.buildDirectory.get()}/release-assets/images")
+    from(releaseImagesDir)
+    into(layout.buildDirectory.dir("release-assets/images"))
+    isEnabled = releaseImagesDir.asFile.exists()
 }
 
 afterEvaluate {
