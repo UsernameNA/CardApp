@@ -1,21 +1,23 @@
 package com.github.username.cardapp.ui.cards
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.username.cardapp.data.CardRepository
 import com.github.username.cardapp.data.PriceInfo
-import com.github.username.cardapp.data.local.AppDatabase
+import com.github.username.cardapp.data.SortPreferences
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.ui.common.CardFilterState
 import com.github.username.cardapp.ui.common.applyFilter
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 sealed interface SyncState {
     data object Idle : SyncState
@@ -24,13 +26,11 @@ sealed interface SyncState {
     data class Error(val message: String) : SyncState
 }
 
-class CardsViewModel(app: Application) : AndroidViewModel(app) {
-
-    private val repository =
-        CardRepository(
-            context = app,
-            db = AppDatabase.getInstance(app),
-        )
+@HiltViewModel
+class CardsViewModel @Inject constructor(
+    private val repository: CardRepository,
+    private val sortPreferences: SortPreferences,
+) : ViewModel() {
 
     private val allCards: StateFlow<List<CardEntity>> = repository.cards
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -53,6 +53,8 @@ class CardsViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch {
+            val savedSort = sortPreferences.sortState.first()
+            _filterState.value = _filterState.value.copy(sort = savedSort)
             if (repository.needsCardSync()) sync()
             repository.loadPrices()
         }
@@ -72,6 +74,11 @@ class CardsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun updateFilter(transform: (CardFilterState) -> CardFilterState) {
-        _filterState.value = transform(_filterState.value)
+        val old = _filterState.value
+        val new = transform(old)
+        _filterState.value = new
+        if (old.sort != new.sort) {
+            viewModelScope.launch { sortPreferences.save(new.sort) }
+        }
     }
 }

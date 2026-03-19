@@ -67,7 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import java.util.concurrent.Executors
 import com.github.username.cardapp.data.PriceInfo
 import com.github.username.cardapp.data.local.CardEntity
@@ -83,7 +83,7 @@ import com.github.username.cardapp.ui.theme.LeatherMid
 import com.github.username.cardapp.ui.theme.Typography
 
 @Composable
-fun ScanScreen(onBack: () -> Unit, vm: ScanViewModel = viewModel()) {
+fun ScanScreen(onBack: () -> Unit, vm: ScanViewModel = hiltViewModel()) {
     val context = LocalContext.current
     val scannedCards by vm.scannedCards.collectAsState()
     val scanStatus by vm.scanStatus.collectAsState()

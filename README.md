@@ -19,12 +19,14 @@ A personal collection manager for **Sorcery: Contested Realm** trading cards, bu
 
 ## Tech Stack
 
-- **Language**: Kotlin 2.0
+- **Language**: Kotlin 2.3
 - **UI**: Jetpack Compose + Material 3
-- **Architecture**: single-module, ViewModel + StateFlow
+- **Serialization**: Kotlin Serialization
+- **Architecture**: single-module, MVVM (Hilt + ViewModel + StateFlow)
 - **Local storage**: Room (SQLite)
 - **Images**: Coil
 - **Camera**: CameraX + ML Kit Text Recognition
+- **Build**: R8 minification + resource shrinking enabled
 - **Min SDK**: 36 (Android 15)
 
 ## Installation
@@ -78,7 +80,9 @@ Converts PNG card images to WebP for efficient bundling. Defaults to `scripts/ca
 
 ```
 app/src/main/java/com/github/usernamena/cardapp/
+├── CardAppApplication.kt
 ├── MainActivity.kt
+├── di/                 # Hilt dependency injection modules
 ├── data/
 │   ├── CardRepository.kt
 │   ├── local/          # Room database, DAO, entities
@@ -105,5 +109,22 @@ scripts/
 - [x] Collection tracking with quantity management
 - [x] Search and filtering
 - [x] Market prices from TCGPlayer
+- [x] Dependency injection (Hilt)
 - [ ] Card detail view
 - [ ] Deck builder
+
+## Architecture TODO
+
+Gaps to address as a learning exercise:
+
+- [x] **Repository interface** — `CardRepository` interface with `CardRepositoryImpl`; bound via Hilt `@Binds`
+- [ ] **Error handling** — propagate errors via `Result<T>` or a sealed class instead of swallowing exceptions; add user-facing error/retry UI
+- [ ] **Type-safe navigation** — replace hardcoded route strings with `@Serializable` route classes (Compose Navigation supports this)
+- [x] **Persist user preferences (DataStore)** — sort order persists across app restarts via Jetpack DataStore
+- [ ] **Retrofit** — add a remote data source for fetching card data and prices from APIs instead of bundling JSON assets
+- [ ] **Paging 3** — paginate the card catalogue grid and collection list for efficient loading of large datasets
+- [ ] **WorkManager** — schedule periodic background price sync so prices stay fresh without manual rebuilds
+- [x] **ProGuard/R8** — enable `isMinifyEnabled` for release builds to shrink APK size and obfuscate code
+- [x] **Kotlin Serialization** — replace Gson with compile-time serialization (no reflection, no ProGuard keep rules)
+- [ ] **Unit tests** — ViewModel and Repository tests with mocked dependencies (Hilt makes this practical now)
+- [ ] **UI tests** — Compose UI tests for key screens using `createComposeRule()`

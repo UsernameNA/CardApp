@@ -1,50 +1,69 @@
 package com.github.username.cardapp.data
 
 import android.content.Context
-import com.github.username.cardapp.data.local.AppDatabase
+import com.github.username.cardapp.data.local.CardDao
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CardVariantEntity
 import com.github.username.cardapp.data.local.CollectionCardRow
 import com.github.username.cardapp.data.local.CollectionEntryEntity
 import com.github.username.cardapp.data.local.SetEntity
 import com.github.username.cardapp.data.model.CardJson
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class CardRepository(private val context: Context, db: AppDatabase) {
+interface CardRepository {
+    val cards: Flow<List<CardEntity>>
+    val collection: Flow<List<CollectionCardRow>>
+    val prices: StateFlow<Map<String, PriceInfo>>
+    suspend fun needsCardSync(): Boolean
+    suspend fun syncCards()
+    suspend fun loadPrices()
+    suspend fun addToCollection(entries: List<CollectionEntryEntity>)
+    suspend fun incrementInCollection(cardName: String)
+    suspend fun removeOneFromCollection(cardName: String)
+}
 
-    private val dao = db.cardDao()
+private val json = Json { ignoreUnknownKeys = true }
 
-    val cards = dao.getAllCards()
-    val collection: Flow<List<CollectionCardRow>> = dao.getCollectionEntries()
+@Singleton
+class CardRepositoryImpl @Inject constructor(
+    @param:ApplicationContext private val context: Context,
+    private val dao: CardDao,
+) : CardRepository {
+
+    override val cards = dao.getAllCards()
+    override val collection: Flow<List<CollectionCardRow>> = dao.getCollectionEntries()
 
     private val _prices = MutableStateFlow<Map<String, PriceInfo>>(emptyMap())
-    val prices: StateFlow<Map<String, PriceInfo>> = _prices.asStateFlow()
+    override val prices: StateFlow<Map<String, PriceInfo>> = _prices.asStateFlow()
 
-    suspend fun needsCardSync(): Boolean = dao.getCardCount() == 0
+    override suspend fun needsCardSync(): Boolean = dao.getCardCount() == 0
 
-    suspend fun addToCollection(entries: List<CollectionEntryEntity>) {
+    override suspend fun addToCollection(entries: List<CollectionEntryEntity>) {
         dao.upsertCollectionEntries(entries)
     }
 
-    suspend fun incrementInCollection(cardName: String) {
+    override suspend fun incrementInCollection(cardName: String) {
         dao.incrementCollectionEntry(cardName)
     }
 
-    suspend fun removeOneFromCollection(cardName: String) {
+    override suspend fun removeOneFromCollection(cardName: String) {
         dao.removeOneFromCollection(cardName)
     }
 
-    suspend fun loadPrices() = withContext(Dispatchers.IO) {
+    override suspend fun loadPrices() = withContext(Dispatchers.IO) {
         try {
-            val json = context.assets.open("prices.json").bufferedReader().use { it.readText() }
-            val data = Gson().fromJson(json, PricesJson::class.java)
+            val raw = context.assets.open("prices.json").bufferedReader().use { it.readText() }
+            val data = json.decodeFromString<PricesJson>(raw)
             // For each card name, pick the lowest market price from non-promo sets.
             // If only promo entries exist, use those.
             val map = mutableMapOf<String, PriceInfo>()
@@ -73,10 +92,9 @@ class CardRepository(private val context: Context, db: AppDatabase) {
         }
     }
 
-    suspend fun syncCards() = withContext(Dispatchers.IO) {
-        val json = context.assets.open("cards.json").bufferedReader().use { it.readText() }
-        val type = object : TypeToken<List<CardJson>>() {}.type
-        val cardList: List<CardJson> = Gson().fromJson(json, type)
+    override suspend fun syncCards() = withContext(Dispatchers.IO) {
+        val raw = context.assets.open("cards.json").bufferedReader().use { it.readText() }
+        val cardList = json.decodeFromString<List<CardJson>>(raw)
 
         // Collect unique sets → sort by releasedAt → assign 1-based releaseOrder
         val setMap = linkedMapOf<String, String>() // name → releasedAt
@@ -155,15 +173,17 @@ data class PriceInfo(
     val isPromo: Boolean = false,
 )
 
+@Serializable
 private data class PricesJson(
-    val fetchedAt: String?,
-    val totalCards: Int?,
-    val cards: List<PriceEntryJson>,
+    val fetchedAt: String? = null,
+    val totalCards: Int? = null,
+    val cards: List<PriceEntryJson> = emptyList(),
 )
 
+@Serializable
 private data class PriceEntryJson(
-    val productName: String?,
-    val setName: String?,
-    val marketPrice: Double?,
-    val lowestPrice: Double?,
+    val productName: String? = null,
+    val setName: String? = null,
+    val marketPrice: Double? = null,
+    val lowestPrice: Double? = null,
 )

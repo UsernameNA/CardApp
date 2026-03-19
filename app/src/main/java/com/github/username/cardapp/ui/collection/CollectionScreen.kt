@@ -28,7 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.github.username.cardapp.data.PriceInfo
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CollectionCardRow
@@ -46,7 +46,7 @@ import com.github.username.cardapp.ui.theme.Typography
 import com.github.username.cardapp.ui.theme.leatherBackground
 
 @Composable
-fun CollectionScreen(vm: CollectionViewModel = viewModel()) {
+fun CollectionScreen(vm: CollectionViewModel = hiltViewModel()) {
     val entries by vm.entries.collectAsState()
     val filterState by vm.filterState.collectAsState()
     val totalUnique by vm.totalUniqueCount.collectAsState()

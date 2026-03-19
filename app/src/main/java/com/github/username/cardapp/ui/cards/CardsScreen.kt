@@ -46,7 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import com.github.username.cardapp.ui.theme.CardAppTheme
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.github.username.cardapp.data.local.CardEntity
@@ -66,7 +66,7 @@ import com.github.username.cardapp.ui.theme.leatherBackground
 import com.github.username.cardapp.ui.theme.rarityColor
 
 @Composable
-fun CardsScreen(vm: CardsViewModel = viewModel()) {
+fun CardsScreen(vm: CardsViewModel = hiltViewModel()) {
     val cards by vm.cards.collectAsState()
     val totalCount by vm.totalCardCount.collectAsState()
     val syncState by vm.syncState.collectAsState()

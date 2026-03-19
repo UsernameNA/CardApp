@@ -1,17 +1,16 @@
 package com.github.username.cardapp.ui.scan
 
-import android.app.Application
 import androidx.camera.core.ImageProxy
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.username.cardapp.data.CardRepository
 import com.github.username.cardapp.data.PriceInfo
-import com.github.username.cardapp.data.local.AppDatabase
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CollectionEntryEntity
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +23,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
+import javax.inject.Inject
 
 enum class ScanMode { Manual, Auto }
 
@@ -45,12 +45,10 @@ data class ScanDebugInfo(
     val bestScore: Int,
 )
 
-class ScanViewModel(app: Application) : AndroidViewModel(app) {
-
-    private val repository = CardRepository(
-        context = app,
-        db = AppDatabase.getInstance(app),
-    )
+@HiltViewModel
+class ScanViewModel @Inject constructor(
+    private val repository: CardRepository,
+) : ViewModel() {
 
     private val allCards: StateFlow<List<CardEntity>> = repository.cards
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
