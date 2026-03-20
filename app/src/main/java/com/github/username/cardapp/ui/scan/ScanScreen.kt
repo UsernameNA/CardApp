@@ -586,7 +586,7 @@ private fun previewScannedCards() = listOf(
             name = "Abundance", primarySlug = "abundance-alpha", elements = "Earth",
             subTypes = "", cardType = "Spell", rarity = "Elite", cost = 3,
             attack = 0, defence = 0, life = null, rulesText = "When this enters play, draw a card.",
-            airThreshold = 0, earthThreshold = 2, fireThreshold = 0, waterThreshold = 0,
+            airThreshold = 2, earthThreshold = 1, fireThreshold = 0, waterThreshold = 1,
         ),
         count = 2,
     ),

@@ -110,7 +110,7 @@ scripts/
 - [x] Search and filtering
 - [x] Market prices from TCGPlayer
 - [x] Dependency injection (Hilt)
-- [ ] Card detail view
+- [x] Card detail view
 - [ ] Deck builder
 
 ## Architecture TODO
@@ -119,7 +119,7 @@ Gaps to address as a learning exercise:
 
 - [x] **Repository interface** — `CardRepository` interface with `CardRepositoryImpl`; bound via Hilt `@Binds`
 - [ ] **Error handling** — propagate errors via `Result<T>` or a sealed class instead of swallowing exceptions; add user-facing error/retry UI
-- [ ] **Type-safe navigation** — replace hardcoded route strings with `@Serializable` route classes (Compose Navigation supports this)
+- [x] **Type-safe navigation** — `@Serializable` route objects replace hardcoded strings; uses `composable<Route>` and `navigate(Route)`
 - [x] **Persist user preferences (DataStore)** — sort order persists across app restarts via Jetpack DataStore
 - [ ] **Retrofit** — add a remote data source for fetching card data and prices from APIs instead of bundling JSON assets
 - [ ] **Paging 3** — paginate the card catalogue grid and collection list for efficient loading of large datasets

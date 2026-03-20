@@ -19,6 +19,12 @@ interface CardDao {
     @Query("SELECT COUNT(*) FROM cards")
     suspend fun getCardCount(): Int
 
+    @Query("SELECT * FROM cards WHERE name = :name LIMIT 1")
+    fun getCardByName(name: String): Flow<CardEntity?>
+
+    @Query("SELECT * FROM variants WHERE cardName = :cardName ORDER BY setName, finish")
+    fun getVariantsByCardName(cardName: String): Flow<List<CardVariantEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAllSets(sets: List<SetEntity>)
 
@@ -27,6 +33,17 @@ interface CardDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAllVariants(variants: List<CardVariantEntity>)
+
+    @Transaction
+    suspend fun syncAll(
+        sets: List<SetEntity>,
+        cards: List<CardEntity>,
+        variants: List<CardVariantEntity>,
+    ) {
+        insertAllSets(sets)
+        insertAllCards(cards)
+        insertAllVariants(variants)
+    }
 
     // --- Collection ---
 

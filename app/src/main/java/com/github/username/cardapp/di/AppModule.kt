@@ -23,5 +23,6 @@ object AppModule {
             .build()
 
     @Provides
+    @Singleton
     fun provideCardDao(db: AppDatabase): CardDao = db.cardDao()
 }

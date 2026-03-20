@@ -30,7 +30,13 @@ interface CardRepository {
     suspend fun addToCollection(entries: List<CollectionEntryEntity>)
     suspend fun incrementInCollection(cardName: String)
     suspend fun removeOneFromCollection(cardName: String)
+    fun getCardByName(name: String): Flow<CardEntity?>
+    fun getVariantsByCardName(cardName: String): Flow<List<CardVariantEntity>>
+    suspend fun getFaqs(cardName: String): List<FaqEntry>
 }
+
+@Serializable
+data class FaqEntry(val question: String, val answer: String)
 
 private val json = Json { ignoreUnknownKeys = true }
 
@@ -58,6 +64,24 @@ class CardRepositoryImpl @Inject constructor(
 
     override suspend fun removeOneFromCollection(cardName: String) {
         dao.removeOneFromCollection(cardName)
+    }
+
+    override fun getCardByName(name: String) = dao.getCardByName(name)
+
+    override fun getVariantsByCardName(cardName: String) = dao.getVariantsByCardName(cardName)
+
+    private var faqCache: Map<String, List<FaqEntry>>? = null
+
+    override suspend fun getFaqs(cardName: String): List<FaqEntry> = withContext(Dispatchers.IO) {
+        val cache = faqCache ?: try {
+            val raw = context.assets.open("faqs.json").bufferedReader().use { it.readText() }
+            val map = json.decodeFromString<Map<String, List<FaqEntry>>>(raw)
+            faqCache = map
+            map
+        } catch (_: Exception) {
+            emptyMap()
+        }
+        cache[cardName].orEmpty()
     }
 
     override suspend fun loadPrices() = withContext(Dispatchers.IO) {
@@ -111,17 +135,25 @@ class CardRepositoryImpl @Inject constructor(
             }
         val setOrder = setEntities.associate { it.name to it.releaseOrder }
 
+        // Cards whose default image should use a specific variant instead of
+        // the standard-finish from the earliest set.
+        val primarySlugOverrides = mapOf(
+            "Apprentice Wizard" to "pro-apprentice_wizard-wk-s",
+            "Grandmaster Wizard" to "pro-grandmaster_wizard-wk-s",
+        )
+
         // One CardEntity per unique card name.
         // primarySlug = the standard-finish variant from the card's earliest set.
         val cardEntities = cardList.map { card ->
             val g = card.guardian
-            val primarySlug = card.sets
-                .sortedBy { setOrder[it.name] ?: Int.MAX_VALUE }
-                .firstNotNullOfOrNull { set ->
-                    set.variants.firstOrNull { it.finish.equals("Standard", ignoreCase = true) }?.slug
-                        ?: set.variants.firstOrNull()?.slug
-                }
-                .orEmpty()
+            val primarySlug = primarySlugOverrides[card.name]
+                ?: card.sets
+                    .sortedBy { setOrder[it.name] ?: Int.MAX_VALUE }
+                    .firstNotNullOfOrNull { set ->
+                        set.variants.firstOrNull { it.finish.equals("Standard", ignoreCase = true) }?.slug
+                            ?: set.variants.firstOrNull()?.slug
+                    }
+                    .orEmpty()
 
             CardEntity(
                 name = card.name,
@@ -160,9 +192,7 @@ class CardRepositoryImpl @Inject constructor(
             }
         }
 
-        dao.insertAllSets(setEntities)
-        dao.insertAllCards(cardEntities)
-        dao.insertAllVariants(variantEntities)
+        dao.syncAll(setEntities, cardEntities, variantEntities)
     }
 }
 
