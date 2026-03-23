@@ -79,7 +79,7 @@ private fun SymbolRow(groups: List<Pair<String, Int>>, fontSize: TextUnit) {
     }
 }
 
-private fun splitForRows(
+internal fun splitForRows(
     thresholds: List<Pair<String, Int>>,
 ): Pair<List<Pair<String, Int>>, List<Pair<String, Int>>> {
     val total = thresholds.sumOf { it.second }

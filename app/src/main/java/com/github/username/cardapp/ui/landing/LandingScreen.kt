@@ -300,7 +300,7 @@ private fun CornerOrnament(
 
 @Preview(showBackground = true)
 @Composable
-fun LandingScreenPreview() {
+private fun LandingScreenPreview() {
     CardAppTheme {
         LandingScreen()
     }

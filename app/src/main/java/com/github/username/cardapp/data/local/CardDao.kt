@@ -34,12 +34,24 @@ interface CardDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAllVariants(variants: List<CardVariantEntity>)
 
+    @Query("DELETE FROM variants")
+    suspend fun deleteAllVariants()
+
+    @Query("DELETE FROM cards")
+    suspend fun deleteAllCards()
+
+    @Query("DELETE FROM sets")
+    suspend fun deleteAllSets()
+
     @Transaction
     suspend fun syncAll(
         sets: List<SetEntity>,
         cards: List<CardEntity>,
         variants: List<CardVariantEntity>,
     ) {
+        deleteAllVariants()
+        deleteAllCards()
+        deleteAllSets()
         insertAllSets(sets)
         insertAllCards(cards)
         insertAllVariants(variants)
@@ -47,6 +59,7 @@ interface CardDao {
 
     // --- Collection ---
 
+    @Transaction
     @Query("""
         SELECT c.*, ce.quantity FROM collection ce
         INNER JOIN cards c ON c.name = ce.cardName
@@ -66,7 +79,11 @@ interface CardDao {
         for (entry in entries) upsertCollectionEntry(entry.cardName, entry.quantity)
     }
 
-    @Query("UPDATE collection SET quantity = quantity + 1 WHERE cardName = :cardName")
+    @Query("""
+        INSERT INTO collection (cardName, quantity)
+        VALUES (:cardName, 1)
+        ON CONFLICT(cardName) DO UPDATE SET quantity = quantity + 1
+    """)
     suspend fun incrementCollectionEntry(cardName: String)
 
     @Query("UPDATE collection SET quantity = quantity - 1 WHERE cardName = :cardName AND quantity > 1")

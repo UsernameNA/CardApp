@@ -1,3 +1,4 @@
+import org.gradle.api.file.Directory
 import java.util.Properties
 
 plugins {
@@ -73,7 +74,7 @@ android {
     }
 }
 
-val releaseImagesDir = rootProject.layout.projectDirectory.dir("scripts/images")
+val releaseImagesDir: Directory = rootProject.layout.projectDirectory.dir("scripts/images")
 
 val copyReleaseImages by tasks.registering(Copy::class) {
     from(releaseImagesDir)
@@ -113,6 +114,9 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.retrofit)
+    implementation(libs.okhttp)
+    implementation(libs.retrofit.kotlinx.serialization)
     implementation(libs.coil.compose)
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)

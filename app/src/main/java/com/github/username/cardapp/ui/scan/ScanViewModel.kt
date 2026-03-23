@@ -28,12 +28,12 @@ import javax.inject.Inject
 enum class ScanMode { Manual, Auto }
 
 sealed class ScanStatus {
-    object Idle : ScanStatus()
-    object Scanning : ScanStatus()
-    object NotFound : ScanStatus()
+    data object Idle : ScanStatus()
+    data object Scanning : ScanStatus()
+    data object NotFound : ScanStatus()
     data class Found(val cardName: String) : ScanStatus()
-    object AutoWatching : ScanStatus()
-    object AutoCooldown : ScanStatus()
+    data object AutoWatching : ScanStatus()
+    data object AutoCooldown : ScanStatus()
 }
 
 data class ScannedEntry(val card: CardEntity, val count: Int)

@@ -286,13 +286,13 @@ private fun ScannedCardsPanel(
     cards: List<ScannedEntry>,
     scanStatus: ScanStatus,
     scanMode: ScanMode,
-    prices: Map<String, PriceInfo> = emptyMap(),
-    onScanTap: () -> Unit,
-    onToggleScanMode: () -> Unit,
-    onIncrement: (String) -> Unit,
-    onDecrement: (String) -> Unit,
-    onAddToCollection: () -> Unit,
     modifier: Modifier = Modifier,
+    prices: Map<String, PriceInfo> = emptyMap(),
+    onScanTap: () -> Unit = {},
+    onToggleScanMode: () -> Unit = {},
+    onIncrement: (String) -> Unit = {},
+    onDecrement: (String) -> Unit = {},
+    onAddToCollection: () -> Unit = {},
 ) {
     var selectedCardName by remember { mutableStateOf<String?>(null) }
     Column(

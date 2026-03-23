@@ -1,6 +1,7 @@
 package com.github.username.cardapp.data
 
 import android.content.Context
+import android.util.Log
 import com.github.username.cardapp.data.local.CardDao
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CardVariantEntity
@@ -8,6 +9,7 @@ import com.github.username.cardapp.data.local.CollectionCardRow
 import com.github.username.cardapp.data.local.CollectionEntryEntity
 import com.github.username.cardapp.data.local.SetEntity
 import com.github.username.cardapp.data.model.CardJson
+import com.github.username.cardapp.data.remote.SorceryApi
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -16,6 +18,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -38,12 +42,12 @@ interface CardRepository {
 @Serializable
 data class FaqEntry(val question: String, val answer: String)
 
-private val json = Json { ignoreUnknownKeys = true }
-
 @Singleton
 class CardRepositoryImpl @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val dao: CardDao,
+    private val api: SorceryApi,
+    private val json: Json,
 ) : CardRepository {
 
     override val cards = dao.getAllCards()
@@ -71,20 +75,25 @@ class CardRepositoryImpl @Inject constructor(
     override fun getVariantsByCardName(cardName: String) = dao.getVariantsByCardName(cardName)
 
     private var faqCache: Map<String, List<FaqEntry>>? = null
+    private val faqMutex = Mutex()
 
     override suspend fun getFaqs(cardName: String): List<FaqEntry> = withContext(Dispatchers.IO) {
-        val cache = faqCache ?: try {
-            val raw = context.assets.open("faqs.json").bufferedReader().use { it.readText() }
-            val map = json.decodeFromString<Map<String, List<FaqEntry>>>(raw)
-            faqCache = map
-            map
-        } catch (_: Exception) {
-            emptyMap()
+        val cache = faqMutex.withLock {
+            faqCache ?: try {
+                val raw = context.assets.open("faqs.json").bufferedReader().use { it.readText() }
+                val map = json.decodeFromString<Map<String, List<FaqEntry>>>(raw)
+                faqCache = map
+                map
+            } catch (e: Exception) {
+                Log.w("CardRepository", "Failed to load FAQs", e)
+                emptyMap()
+            }
         }
         cache[cardName].orEmpty()
     }
 
     override suspend fun loadPrices() = withContext(Dispatchers.IO) {
+        if (_prices.value.isNotEmpty()) return@withContext
         try {
             val raw = context.assets.open("prices.json").bufferedReader().use { it.readText() }
             val data = json.decodeFromString<PricesJson>(raw)
@@ -111,14 +120,25 @@ class CardRepositoryImpl @Inject constructor(
                 }
             }
             _prices.value = map
-        } catch (_: Exception) {
-            // prices.json not bundled yet — prices stay empty
+        } catch (e: Exception) {
+            Log.w("CardRepository", "Failed to load prices", e)
+        }
+    }
+
+    private suspend fun fetchCardList(): List<CardJson> {
+        return try {
+            val remote = api.getCards()
+            Log.d("CardRepository", "Fetched ${remote.size} cards from API")
+            remote
+        } catch (e: Exception) {
+            Log.d("CardRepository", "API unavailable, using bundled data: ${e.message}")
+            val raw = context.assets.open("cards.json").bufferedReader().use { it.readText() }
+            json.decodeFromString<List<CardJson>>(raw)
         }
     }
 
     override suspend fun syncCards() = withContext(Dispatchers.IO) {
-        val raw = context.assets.open("cards.json").bufferedReader().use { it.readText() }
-        val cardList = json.decodeFromString<List<CardJson>>(raw)
+        val cardList = fetchCardList()
 
         // Collect unique sets → sort by releasedAt → assign 1-based releaseOrder
         val setMap = linkedMapOf<String, String>() // name → releasedAt
