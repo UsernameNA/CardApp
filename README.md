@@ -1,5 +1,7 @@
 # CardApp
 
+<img src="app/src/main/ic_launcher-playstore.png" width="512" alt="CardApp icon">
+
 A personal collection manager for **Sorcery: Contested Realm** trading cards, built for Android with Jetpack Compose.
 
 ## Features

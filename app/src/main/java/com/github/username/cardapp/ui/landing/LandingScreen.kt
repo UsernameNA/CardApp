@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -30,14 +31,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.github.username.cardapp.R
 import com.github.username.cardapp.ui.theme.CardAppTheme
 import com.github.username.cardapp.ui.theme.CreamFaded
 import com.github.username.cardapp.ui.theme.CreamMuted
@@ -127,14 +134,38 @@ private fun TitleSection() {
         end = Offset(shimmerX + 200f, 0f),
     )
 
-    Text(
-        text = "CARDAPP",
-        style = Typography.displayLarge.copy(
-            brush = shimmerBrush,
-            textAlign = TextAlign.Center,
-        ),
+    Box(
         modifier = Modifier.fillMaxWidth(),
-    )
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "CARDAPP",
+            style = Typography.displayLarge.copy(
+                brush = shimmerBrush,
+                textAlign = TextAlign.Center,
+            ),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        // Raven landing on the "D" — shimmer brush applied via SrcIn blend
+        val ravenPainter = painterResource(R.drawable.ic_launcher_foreground)
+        Spacer(
+            modifier = Modifier
+                .size(180.dp)
+                .offset(x = 18.dp, y = (-58).dp)
+                .graphicsLayer { alpha = 0.99f } // force offscreen buffer for BlendMode
+                .drawWithCache {
+                    onDrawBehind {
+                        with(ravenPainter) {
+                            draw(size = Size(size.width, size.height))
+                        }
+                        drawRect(
+                            brush = shimmerBrush,
+                            blendMode = BlendMode.SrcIn,
+                        )
+                    }
+                },
+        )
+    }
 
     Spacer(Modifier.height(16.dp))
     OrnamentalDivider(modifier = Modifier.fillMaxWidth())
