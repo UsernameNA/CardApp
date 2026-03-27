@@ -51,7 +51,6 @@ class CollectionViewModel @Inject constructor(
         viewModelScope.launch {
             val savedSort = sortPreferences.sortState.first()
             _filterState.value = _filterState.value.copy(sort = savedSort)
-            repository.loadPrices()
         }
     }
 

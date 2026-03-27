@@ -25,26 +25,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 
-enum class ScanMode { Manual, Auto }
-
-sealed class ScanStatus {
-    data object Idle : ScanStatus()
-    data object Scanning : ScanStatus()
-    data object NotFound : ScanStatus()
-    data class Found(val cardName: String) : ScanStatus()
-    data object AutoWatching : ScanStatus()
-    data object AutoCooldown : ScanStatus()
-}
-
-data class ScannedEntry(val card: CardEntity, val count: Int)
-
-data class ScanDebugInfo(
-    val rawText: String,
-    val costCandidates: Set<Int>,
-    val bestCardName: String?,
-    val bestScore: Int,
-)
-
 @HiltViewModel
 class ScanViewModel @Inject constructor(
     private val repository: CardRepository,
@@ -55,9 +35,6 @@ class ScanViewModel @Inject constructor(
 
     val prices: StateFlow<Map<String, PriceInfo>> = repository.prices
 
-    init {
-        viewModelScope.launch { repository.loadPrices() }
-    }
 
     private val _scannedCards = MutableStateFlow<List<ScannedEntry>>(emptyList())
     val scannedCards: StateFlow<List<ScannedEntry>> = _scannedCards.asStateFlow()

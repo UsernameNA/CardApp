@@ -3,65 +3,12 @@ package com.github.username.cardapp.ui.common
 import com.github.username.cardapp.data.PriceInfo
 import com.github.username.cardapp.data.local.CardEntity
 
-enum class SortDir { Off, Asc, Desc }
-
-data class SortState(
-    val name: SortDir = SortDir.Asc,
-    val cost: SortDir = SortDir.Off,
-    val rarity: SortDir = SortDir.Off,
-    val price: SortDir = SortDir.Off,
-    // Order in which sorts were last activated — last = primary.
-    // Stores field names: "name", "cost", "rarity", "price"
-    val priority: List<String> = listOf("name"),
-)
-
-data class CardFilterState(
-    val query: String = "",
-    val types: Set<String> = emptySet(),
-    val rarities: Set<String> = emptySet(),
-    val elements: Set<String> = emptySet(),
-    val elementMatchAll: Boolean = false,
-    val sort: SortState = SortState(),
-    val filtersExpanded: Boolean = false,
-) {
-    val hasActiveFilters: Boolean
-        get() = query.isNotBlank() || types.isNotEmpty() || rarities.isNotEmpty() || elements.isNotEmpty()
-}
-
 private val RARITY_ORDER = mapOf(
     "ordinary" to 0,
     "exceptional" to 1,
     "elite" to 2,
     "unique" to 3,
 )
-
-/** Cycle a sort field: Off → Asc → Desc → Off, and update priority. */
-fun SortState.toggle(field: String): SortState {
-    val current = when (field) {
-        "name" -> name
-        "cost" -> cost
-        "rarity" -> rarity
-        "price" -> price
-        else -> return this
-    }
-    val next = when (current) {
-        SortDir.Off -> SortDir.Asc
-        SortDir.Asc -> SortDir.Desc
-        SortDir.Desc -> SortDir.Off
-    }
-    val newPriority = if (next == SortDir.Off) {
-        priority - field
-    } else {
-        (priority - field) + field
-    }
-    return when (field) {
-        "name" -> copy(name = next, priority = newPriority)
-        "cost" -> copy(cost = next, priority = newPriority)
-        "rarity" -> copy(rarity = next, priority = newPriority)
-        "price" -> copy(price = next, priority = newPriority)
-        else -> this
-    }
-}
 
 fun List<CardEntity>.applyFilter(
     state: CardFilterState,
@@ -110,7 +57,6 @@ fun List<CardEntity>.applyFilter(
         }
     }
 
-    // Build a chained comparator from active sorts, primary (most recent) first.
     val s = state.sort
     val comparators = s.priority.asReversed().mapNotNull { field ->
         when (field) {
@@ -140,11 +86,9 @@ fun List<CardEntity>.applyFilter(
 
     if (comparators.isNotEmpty()) {
         val combined = comparators.reduce { acc, c -> acc.then(c) }
-        // Always tie-break on name if name isn't already a sort key
         val final = if (s.name == SortDir.Off) combined.thenBy { it.name.lowercase() } else combined
         result = result.sortedWith(final)
     } else {
-        // No sort active — default to name asc
         result = result.sortedBy { it.name.lowercase() }
     }
 

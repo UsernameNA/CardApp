@@ -40,7 +40,6 @@ class CardDetailViewModel @Inject constructor(
     val faqs: StateFlow<List<FaqEntry>> = _faqs.asStateFlow()
 
     init {
-        viewModelScope.launch { repository.loadPrices() }
         viewModelScope.launch { _faqs.value = repository.getFaqs(cardName) }
     }
 

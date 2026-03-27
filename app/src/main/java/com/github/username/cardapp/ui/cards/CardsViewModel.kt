@@ -19,13 +19,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-sealed interface SyncState {
-    data object Idle : SyncState
-    data object SyncingCards : SyncState
-    data object Complete : SyncState
-    data class Error(val message: String) : SyncState
-}
-
 @HiltViewModel
 class CardsViewModel @Inject constructor(
     private val repository: CardRepository,
@@ -55,8 +48,6 @@ class CardsViewModel @Inject constructor(
         viewModelScope.launch {
             val savedSort = sortPreferences.sortState.first()
             _filterState.value = _filterState.value.copy(sort = savedSort)
-            if (repository.needsCardSync()) sync()
-            repository.loadPrices()
         }
     }
 

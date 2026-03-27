@@ -83,7 +83,7 @@ import com.github.username.cardapp.ui.theme.LeatherMid
 import com.github.username.cardapp.ui.theme.Typography
 
 @Composable
-fun ScanScreen(onBack: () -> Unit, vm: ScanViewModel = hiltViewModel()) {
+fun ScanScreen(onBack: () -> Unit, onCardClick: (String) -> Unit = {}, vm: ScanViewModel = hiltViewModel()) {
     val context = LocalContext.current
     val scannedCards by vm.scannedCards.collectAsState()
     val scanStatus by vm.scanStatus.collectAsState()
@@ -126,6 +126,7 @@ fun ScanScreen(onBack: () -> Unit, vm: ScanViewModel = hiltViewModel()) {
         prices = prices,
         hasCameraPermission = hasCameraPermission,
         onBack = onBack,
+        onCardClick = onCardClick,
         onScanTap = vm::requestScan,
         onToggleScanMode = vm::toggleScanMode,
         onIncrement = vm::incrementCard,
@@ -145,6 +146,7 @@ private fun ScanScreenContent(
     prices: Map<String, PriceInfo> = emptyMap(),
     hasCameraPermission: Boolean,
     onBack: () -> Unit,
+    onCardClick: (String) -> Unit = {},
     onScanTap: () -> Unit,
     onToggleScanMode: () -> Unit,
     onIncrement: (String) -> Unit,
@@ -186,6 +188,7 @@ private fun ScanScreenContent(
             scanStatus = scanStatus,
             scanMode = scanMode,
             prices = prices,
+            onCardClick = onCardClick,
             onScanTap = onScanTap,
             onToggleScanMode = onToggleScanMode,
             onIncrement = onIncrement,
@@ -232,40 +235,44 @@ private fun ReticleOverlay(modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val panelFraction = 0.35f
         val availH = size.height * (1f - panelFraction)
-        val cardW = size.width * 0.58f
+        val cardW = size.width * 0.9f
         val cardH = cardW / 0.72f
         val cx = size.width / 2f
         val cy = availH / 2f
 
         val left = cx - cardW / 2f
-        val top = cy - cardH / 2f
+        val top = cy - cardH / 4f
         val right = cx + cardW / 2f
-        val bottom = cy + cardH / 2f
         val bracketLen = cardW * 0.18f
         val strokePx = 2.dp.toPx()
+        val thinStroke = strokePx * 0.5f
         val alpha = 0.55f + pulse * 0.45f
         val goldColor = GoldPrimary.copy(alpha = alpha)
         val goldLight = GoldLight.copy(alpha = alpha * 0.85f)
+        val goldFaint = GoldMuted.copy(alpha = alpha * 0.4f)
+        val dSize = 4.dp.toPx()
+        val tickLen = 6.dp.toPx()
+        val inset = 8.dp.toPx()
 
+        // ── Primary L-brackets ──
         // Top-left
         drawLine(goldColor, Offset(left, top + bracketLen), Offset(left, top), strokePx)
         drawLine(goldColor, Offset(left, top), Offset(left + bracketLen, top), strokePx)
         // Top-right
         drawLine(goldColor, Offset(right - bracketLen, top), Offset(right, top), strokePx)
         drawLine(goldColor, Offset(right, top), Offset(right, top + bracketLen), strokePx)
-        // Bottom-left
-        drawLine(goldColor, Offset(left, bottom - bracketLen), Offset(left, bottom), strokePx)
-        drawLine(goldColor, Offset(left, bottom), Offset(left + bracketLen, bottom), strokePx)
-        // Bottom-right
-        drawLine(goldColor, Offset(right - bracketLen, bottom), Offset(right, bottom), strokePx)
-        drawLine(goldColor, Offset(right, bottom), Offset(right, bottom - bracketLen), strokePx)
 
-        // Corner diamonds
-        val dSize = 4.dp.toPx()
-        listOf(
-            Offset(left, top), Offset(right, top),
-            Offset(left, bottom), Offset(right, bottom),
-        ).forEach { corner ->
+        // ── Inner accent L-brackets (thinner, inset) ──
+        drawLine(goldFaint, Offset(left + inset, top + inset), Offset(left + inset, top + inset + bracketLen * 0.5f), thinStroke)
+        drawLine(goldFaint, Offset(left + inset, top + inset), Offset(left + inset + bracketLen * 0.5f, top + inset), thinStroke)
+        drawLine(goldFaint, Offset(right - inset, top + inset), Offset(right - inset, top + inset + bracketLen * 0.5f), thinStroke)
+        drawLine(goldFaint, Offset(right - inset, top + inset), Offset(right - inset - bracketLen * 0.5f, top + inset), thinStroke)
+
+        // ── Connecting line between brackets (faint horizontal rule) ──
+        drawLine(goldFaint, Offset(left + bracketLen + dSize * 2, top), Offset(right - bracketLen - dSize * 2, top), thinStroke)
+
+        // ── Corner diamonds ──
+        listOf(Offset(left, top), Offset(right, top)).forEach { corner ->
             val diamondPath = Path().apply {
                 moveTo(corner.x, corner.y - dSize)
                 lineTo(corner.x + dSize * 0.65f, corner.y)
@@ -276,8 +283,33 @@ private fun ReticleOverlay(modifier: Modifier = Modifier) {
             drawPath(diamondPath, goldLight, style = Stroke(strokePx * 0.8f))
         }
 
-        // Center aim dot
-        drawCircle(GoldLight.copy(alpha = alpha * 0.6f), 2.5.dp.toPx(), Offset(cx, cy))
+        // ── Center diamond on the connecting line ──
+        val centerDiamond = Path().apply {
+            val ds = dSize * 0.7f
+            moveTo(cx, top - ds)
+            lineTo(cx + ds * 0.65f, top)
+            lineTo(cx, top + ds)
+            lineTo(cx - ds * 0.65f, top)
+            close()
+        }
+        drawPath(centerDiamond, goldColor)
+
+        // ── Flanking tick marks along connecting line ──
+        val tickPositions = listOf(0.25f, 0.4f, 0.6f, 0.75f)
+        for (frac in tickPositions) {
+            val tx = left + (right - left) * frac
+            drawLine(goldFaint, Offset(tx, top - tickLen * 0.5f), Offset(tx, top + tickLen * 0.5f), thinStroke)
+        }
+
+        // ── Bracket end nubs ──
+        val nubR = 1.8f
+        drawCircle(goldLight, nubR, Offset(left + bracketLen, top))
+        drawCircle(goldLight, nubR, Offset(left, top + bracketLen))
+        drawCircle(goldLight, nubR, Offset(right - bracketLen, top))
+        drawCircle(goldLight, nubR, Offset(right, top + bracketLen))
+
+        // ── Center aim dot ──
+        drawCircle(GoldLight.copy(alpha = alpha * 0.6f), 2.5.dp.toPx(), Offset(cx, cy * 1.5f))
     }
 }
 
@@ -288,6 +320,7 @@ private fun ScannedCardsPanel(
     scanMode: ScanMode,
     modifier: Modifier = Modifier,
     prices: Map<String, PriceInfo> = emptyMap(),
+    onCardClick: (String) -> Unit = {},
     onScanTap: () -> Unit = {},
     onToggleScanMode: () -> Unit = {},
     onIncrement: (String) -> Unit = {},
@@ -417,7 +450,7 @@ private fun ScannedCardsPanel(
                     onToggle = {
                         selectedCardName = if (selectedCardName == entry.card.name) null else entry.card.name
                     },
-                    onLongPress = { selectedCardName = entry.card.name },
+                    onLongPress = { onCardClick(entry.card.name) },
                     onIncrement = { onIncrement(entry.card.name) },
                     onDecrement = {
                         if (entry.count <= 1) selectedCardName = null

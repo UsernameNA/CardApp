@@ -51,6 +51,12 @@
       "answer": "Yes, this is a triggered ability, which can trigger on your opponent's turn as well, if Adtonitum moves."
     }
   ],
+  "Aino": [
+    {
+      "question": "Can Aino step across the top and bottom edges of the realm if she already has Stealth?",
+      "answer": "Yes."
+    }
+  ],
   "Alabaster Box": [
     {
       "question": "Does this need to be carried to have an effect?",
@@ -76,6 +82,10 @@
     }
   ],
   "Amulet of Niniane": [
+    {
+      "question": "What does \"can't be targeted or damaged by magic\" mean?",
+      "answer": "Magic can't target the card and the card can't be damaged by Magic (even without targeting). The card can still be targeted by non-Magic effects."
+    },
     {
       "question": "Can Magic spells which cause an ally to target a unit (e.g. Shatter Strike) select the bearer of Amulet as the target?",
       "answer": "Yes, because the ally is doing the targeting, not the Magic spell."
@@ -135,6 +145,12 @@
     {
       "question": "Do you still need to meet threshold requirements when using its ability?",
       "answer": "Yes, since you're still casting it (and not summoning it directly)."
+    }
+  ],
+  "Arcade of Bones": [
+    {
+      "question": "What does \"can't be targeted or damaged by magic\" mean?",
+      "answer": "Magic can't target the card and the card can't be damaged by Magic (even without targeting). The card can still be targeted by non-Magic effects."
     }
   ],
   "Archangel Michael": [
@@ -299,6 +315,12 @@
       "answer": "No! Therefore, the banished minion can be in a different region and/or have Stealth."
     }
   ],
+  "Bind Evil": [
+    {
+      "question": "What happens if the minion stops being Evil while under this effect (e.g. due to Persecutor's Brand wearing off, or Saint of Redemption entering play)?",
+      "answer": "The target only needs to be Evil when the spell is cast and resolves. It will continue to be be disabled, even if it stops being Evil later, until an adjacent Spellcaster taps specifically to release it."
+    }
+  ],
   "Bitter Departed": [
     {
       "question": "What if there was more than one killer last turn?",
@@ -308,7 +330,7 @@
   "Black Cat": [
     {
       "question": "How do I resolve this effect?",
-      "answer": "The first eight times the cat would die, it doesn't instead. Track it in some reasonable way. If it gains a deathrite, it does not trigger on the first eight lives, since it doesn't actually die.\nIf the cat is moved to an inhospitable location, e.g. underground or underwater, the game will notice and try to kill it along with any other minions who should die. The other minion's deathrite effects will resolve first, and they'll go to the cemetery. Then the game will notice the cat should die, and continue trying to kill it until it's actually dead and goes to the cemetery."
+      "answer": "The first eight times the cat would die, it doesn't instead and fully heals. Track its number of lives in some reasonable way. If it gains a deathrite, it does not trigger on the first eight lives, since it doesn't actually die.\nIf the cat is moved to an inhospitable location, e.g. underground or underwater, the game will notice and try to kill it along with any other minions who should die. The other minion's deathrite effects will resolve first, and they'll go to the cemetery. Then the game will notice the cat should die, and continue trying to kill it until it's actually dead and goes to the cemetery."
     }
   ],
   "Black Mass": [
@@ -387,6 +409,18 @@
     {
       "question": "Does the ally die if it didn't take enough damage from the fights to kill it?",
       "answer": "No. If the fights with those enemies wouldn't normally kill your ally, your ally will live!"
+    },
+    {
+      "question": "Can I cast this on my Avatar when my opponent and I are both on Death's Door to win the game?",
+      "answer": "Yes. Thanks to the golden rule, your avatar will not die until after finishing all of its fights."
+    },
+    {
+      "question": "What is the proper way to resolve the timing for this spell?",
+      "answer": "Choose an ally, then declare an enemy near it to fight, putting that fight on the storyline. Resolve the fight, including any deathrite abilities of the enemy, and place it in the cemetery if it died. Then, repeat the process one fight at a time until the chosen ally has fought all nearby enemies. Finally, if your ally took enough damage, it will now die.\nThat is, you declare and resolve each fight before proceeding to the next one.\nFor example, you play Blaze of Glory on your Autumn Unicorn. I have an Estranged Loner, Muddy Pigs, and my Avatar nearby. You choose to fight my avatar first, so I lose 4 life. Then you choose to fight the Estranged Loner. It dies, I summon a Horrible Hybrids, and the Estranged Loner goes to my cemetery. Then you fight the Horrible Hybrids, it dies too, and goes to my cemetery. Then you fight the Muddy Pigs, they die, I gain 3 life, then they go to my cemetery. Finally, your Unicorn has taken enough damage to die, so it would trigger any deathrite abilities now (if it had any), and then go to your cemetery. A Blaze of Glory indeed!"
+    },
+    {
+      "question": "How do I resolve this effect if control of the minion changes between fights (e.g. it had Infiltrate cast on it earlier)?",
+      "answer": "If control of the ally changes in the middle of resolving this effect, the units it sees as \"enemies\" will change as well.  The caster of Blaze of Glory still chooses the order in which the fights happen. Note that the fights are not optional.\nFor example, I've infiltrated your Autumn Unicorn. You also have a Lugbog Cat and a Skeleton nearby, while I have a Bosk Troll nearby. I cast Blaze of Glory on the Autumn Unicorn. I choose to have it fight your Skeleton first, which breaks stealth, returning control of the Unicorn to you. The Skeleton is removed from the realm. The Unicorn isn't done fighting yet because it still sees an enemy - the Bosk Troll! So the Unicorn fights the Bosk Troll. The Bosk Troll dies and is placed in the cemetery. Then the Unicorn dies and is placed in the cemetery.\nThat is, after each fight, look around and ask \"Are there any nearby enemies I haven't fought yet?\" If there is, fight one! Repeat until there are no unfought nearby enemies."
     }
   ],
   "Bleeding Skull": [
@@ -461,6 +495,12 @@
       "answer": "No, the rubble is created in place, not played."
     }
   ],
+  "Bower of Bliss": [
+    {
+      "question": "How does this effect work?",
+      "answer": "Cards with the printed Mortal type become Beasts, lose the Mortal type, and are silenced."
+    }
+  ],
   "Brobdingnag Bullfrog": [
     {
       "question": "Does the swallowed minion untap? Is it still in the realm? Can it be attacked?",
@@ -486,7 +526,15 @@
   "Bureau of Occult Control": [
     {
       "question": "How does this effect resolve?",
-      "answer": "\"Access\" occurs if a card would leave the collection or cemetery zone. You may still freely look at your collection and cemetery, and add cards to them.\nFor example, Archimago must pay (2) to use his ability. Similarly, Deathspeaker must pay (2) to use his ability.\nIf an effect is resolving (and not paying a cost like Archimago or Deathspeaker), you may choose not to pay the (2) and have that part of the effect fail. For example, Feast for Crows may search the other zones and simply not remove any spells from cemetery."
+      "answer": "\"Access\" occurs if a card would leave the collection or cemetery zone, either ))moving(( to another zone (i.e. the realm) or being banished. You may still freely look at your collection and cemetery, and add cards to them.\nThe (2) is paid when the ability which would \"access\" cards is put on the storyline, allowing the entire effect access. The Bureau does not increase casting costs; it is a separate cost. It will not be reduced by effects that reduce casting cost (e.g. [[Mix Aer]]), since it's not a casting cost and often there are effects that access without casting anything (e.g. Adept Illusionist, Imposter, etc.)\nFor example, Archimago must pay (2) to activate his ability, even though 3 cards are banished. Similarly, Deathspeaker must pay (2) to use his ability, even if on Death's Door, as this is not an increase to the cost of the ability but a separate cost which must be paid in advance.\nYou may choose not to pay the (2) and resolve the rest of the effect but be unable to access cards from a cemetery or collection. For example, [[Feast for Crows]] may search the other zones and simply not remove any spells from cemetery. [[Adept Illusionist]] may search your spellbook and hand for another copy of itself, but not your cemetery."
+    },
+    {
+      "question": "When casting a spell from my cemetery that would banish itself after casting (e.g. Ghostfire), can I choose not to pay the extra cost to keep it from banishing itself?",
+      "answer": "No. You must pay the (2) before even casting the spell, as a separate cost. Once you actually cast it, you resolve the effect normally and your access tax has already been paid."
+    },
+    {
+      "question": "How does the Bureau interact with Wormelow Tump?",
+      "answer": "You still have to pay the Bureau tax! The cards themselves are not being affected; a separate cost is being added to allow you to access them. "
     }
   ],
   "Buried Treasure": [
@@ -509,6 +557,12 @@
     {
       "question": "How does forced movement affect minions in the Cage?",
       "answer": "Due to the golden rule, only teleportation-based forced movement effects can move minions out of the Cage; non-teleportation, forced movement effects can't move the locked minions away from the Cage. For example, [[Blink]] or [[Swap]] would allow a minion to escape, but [[River Rapids]], [[Riptide]], or [[Scatter]] would not."
+    }
+  ],
+  "Candlemas Monks": [
+    {
+      "question": "If these die during my end phase, does their deathrite cause the game to proceed to the next end phase, essentially skipping my opponent's turn?",
+      "answer": "No, when the deathrite resolves during the end phase it does not cause the game to proceed to the next end phase, as you're already in the end phase."
     }
   ],
   "Captain Baldassare": [
@@ -807,6 +861,12 @@
       "answer": "No. This effect simply provides additional locations where you may summon your earth minions."
     }
   ],
+  "Cursed Land": [
+    {
+      "question": "What happens if my opponent plays a site nearby Cursed Land that would silence it (e.g. Fields of Phyxis, Smokestacks of Gnaak)?",
+      "answer": "They will not lose life. This is because Cursed Land's ability is a triggered ability, but [[Fields of Phyxis]] and [[Smokestacks of Gnaak]] both have passive abilities which apply ongoing effects, and ongoing effects are applied before triggers."
+    }
+  ],
   "Dank Omphalos": [
     {
       "question": "Must spells cast by the Omphalos match its elements?",
@@ -819,8 +879,12 @@
       "answer": "See ((Moving to a Specific Location Via a Special Ability or Magic)) in the Codex."
     },
     {
-      "question": "What happens if there's no path that can get the Avatar or striking unit to the Darkest Dungeon (because of Perilous Bridge, for example)?",
-      "answer": "If there is no legal path that will get the unit being dragged to the Dungeon, then there is no path to put on the Storyline and the unit will not move. Determine paths for each unit involved separately, as different ongoing or passive abilities might affect them differently."
+      "question": "What happens if there's no path that can get both the Avatar and the striking unit to the Darkest Dungeon (because of Perilous Bridge, for example)?",
+      "answer": "If there is no legal path that will get both of the involved units to the Dungeon, there will be no movement put on the storyline, and both units will remain where they are."
+    },
+    {
+      "question": "What happens if the ally strikes the avatar during a fight, and is killed by the avatar's strike?",
+      "answer": "If the ally dies as a result of the fight, then you are unable to drag both the ally and the avatar to the Dungeon.  The avatar will not move."
     }
   ],
   "Day of Judgment": [
@@ -919,6 +983,16 @@
     {
       "question": "Can you tap minions with summoning sickness for this effect?",
       "answer": "Yes, it's part of the effect of the spell, not strictly a cost being paid, so you can tap your allies that have summoning sickness for this effect.  Note that only untapped units can be tapped, however."
+    }
+  ],
+  "Displace": [
+    {
+      "question": "Can this teleport a minion or artifact from a site to the void?",
+      "answer": "No. The location the minion or artifact teleports to must be one diagonal step away from where it started, and steps are only measured within the same region. A minion or artifact starting at a surface location can only be teleported to another surface location, for example."
+    },
+    {
+      "question": "Can this teleport an aura from a site to the void?",
+      "answer": "Yes! When moving auras, you ignore the regional boundaries between surface and void locations."
     }
   ],
   "Divine Intervention": [
@@ -1111,16 +1185,16 @@
       "answer": "No."
     },
     {
-      "question": "If Magellan Globe is in play and an Oversized unit on the top row moves “up” one row to wrap around to the bottom, what happens?",
-      "answer": "Since Magellan Globe is an ongoing effect that connects the top and bottom edges, the oversized unit can occupy 2 locations on the top row and 2 locations on the bottom row. Ensure that game state is clear, using notes as needed."
-    },
-    {
       "question": "If Polar Explorers or Ruler of Thul are in play and an oversized unit on the top row moves “up” one row to wrap around to the bottom, what happens?",
       "answer": "This ability only allows movement across the borders, not ongoing occupation. Units cannot balance on the edge of the realm and an oversized unit that finds its way there falls to one side or the other. Its controller places it in the closest legal position, controller's choice if tied."
     },
     {
+      "question": "If Magellan Globe is in play and an Oversized unit on the top row moves “up” one row to wrap around to the bottom, what happens?",
+      "answer": "Since Magellan Globe is an ongoing effect that connects the top and bottom edges, the oversized unit can occupy 2 locations on the top row and 2 locations on the bottom row. Ensure that game state is clear, using notes as needed."
+    },
+    {
       "question": "If Magellan Globe leaves play when a card is spanning the edge of the realm, what happens?",
-      "answer": "Units cannot balance on the edge of the realm and an oversized unit that finds its way there falls to one side or the other. Its controller places it in the closest legal position, controller's choice if tied."
+      "answer": "Units cannot balance on the edge of the realm and an oversized unit that finds its way there falls to one side or the other. Its controller places it in the closest legal position, controller's choice if tied.\nIf there's no legal position anywhere in the realm for a minion, it dies. If there's no legal position anywhere in the realm for an avatar, shrink it until there is a legal position (Avatar controller's choice), and place it there."
     }
   ],
   "Entangle Terrain": [
@@ -1171,6 +1245,12 @@
       "answer": "No. The Evil Twin only gains the abilities as enters the realm, and you must declare its summoning location at the time you cast it, before it enters."
     }
   ],
+  "Failed Mutation": [
+    {
+      "question": "What does \"can't be targeted or damaged by magic\" mean?",
+      "answer": "Magic can't target the card and the card can't be damaged by Magic (even without targeting). The card can still be targeted by non-Magic effects."
+    }
+  ],
   "Faith Incarnate": [
     {
       "question": "Does this effect count all wards in the realm, or only ones I control?",
@@ -1195,6 +1275,12 @@
       "answer": "At least one of the summoning sites must include an affected site. The \"strike each other unit where it lands\" effect occurs on one affected site of your choice (that the summoned minion occupies)."
     }
   ],
+  "False Idol": [
+    {
+      "question": "Do I draw a spell if my opponent's minion enters the realm tapped?",
+      "answer": "No. This ability only triggers when a minion goes from being untapped to tapped while nearby the Idol."
+    }
+  ],
   "Far East Assassin": [
     {
       "question": "When you use the ability, what happens to the “thrown” artifact?",
@@ -1205,6 +1291,12 @@
       "answer": "Yes. It’s an activated special ability, so Stealth is lost per the normal Stealth rules."
     }
   ],
+  "Feign Death": [
+    {
+      "question": "If I choose a minion that has no Deathrite ability, does it still gain stealth?",
+      "answer": "Yes, it will still gain stealth."
+    }
+  ],
   "Fey Changeling": [
     {
       "question": "Can this be summoned to an inhospitable location (e.g. underground) and die, but still have a chance to use its genesis ability first?",
@@ -1213,6 +1305,12 @@
     {
       "question": "The term \"summon\" means \"enter the realm.\" So, does that mean I can play this minion for free?",
       "answer": "No. This effect simply provides additional locations where you may summon this minion."
+    }
+  ],
+  "Fields of Camlann": [
+    {
+      "question": "What is the proper timing of resolution for this effect?",
+      "answer": "The non-active player chooses a minion, then the active player chooses a minion. Then all other minions are killed. The non-active player resolves any triggered abilities (like deathrite), and finally the active player resolves their triggered abilities."
     }
   ],
   "Fire Harpoons!": [
@@ -1263,6 +1361,10 @@
   ],
   "Flame of the First Ones": [
     {
+      "question": "What is a \"new site\"?",
+      "answer": "A site where this card has not stopped since entering the realm."
+    },
+    {
       "question": "Does conjuring this into the realm count as \"stopping\"?",
       "answer": "No, something must move in order to stop, and conjuring something into the realm is not movement. To trigger, the Flame has to move from one location to another."
     }
@@ -1302,7 +1404,7 @@
   "Flanking Maneuver": [
     {
       "question": "Do the locations need to be in the same region?",
-      "answer": "Yes, as teleportation effects do not allow cards to change regions unless specified."
+      "answer": "No. Teleport effects ignore regional boundaries unless otherwise specified, and the only restriction on this effect is that the locations be a chess knight's move apart on the board.\nFor example, if A is a void square, and B contains a site, Flanking Maneuver can move units from that void location to either the surface or subsurface of the site.\n"
     }
   ],
   "Flood": [
@@ -1399,8 +1501,8 @@
       "answer": "The rubble must be placed adjacent to your Geomancer. If there's no void adjacent to your Geomancer, then no rubble is placed."
     },
     {
-      "question": "Does Mirror Realm (copying an earth site) or Valley of Delight (choosing earth) count for Geomancer's first ability?",
-      "answer": "Yes. Mirror ))Realm(( works because it applies as it enters the realm. Valley of Delight works because the Genesis effect of the site interrupts the resolution of the Geomancer's ability; when the second part of Geomancer's ability actually resolves and looks at the site, the site is indeed an earth (E) site. See \"((Splitting Events on the Storyline))\" for more details on Valley of Delight interaction, analogous to the Tawny example and splitting the Druid's ability."
+      "question": "Does Mirror Realm (copying an earth site), Valley of Delight (choosing earth), or one of the Bloom sites (i.e. Twilight Bloom) count for Geomancer's first ability?",
+      "answer": "Yes. Mirror ))Realm(( works because it applies as it enters the realm. Valley of Delight and the Bloom sites work because the Genesis effect of the site interrupts the resolution of the Geomancer's ability; when the second part of Geomancer's ability actually resolves and looks at the site, the site is indeed an earth (E) site. See \"((Splitting Events on the Storyline))\" for more details on Valley of Delight interaction, analogous to the Tawny example and splitting the Druid's ability."
     },
     {
       "question": "If Geomancer creates a Rubble adjacent to Boulevard of Bones, do they create a skeleton?",
@@ -1735,6 +1837,12 @@
       "answer": "No, since it will enter that location before its Genesis ability begins to resolve. It will only strike a unit at each of the two new locations it enters while resolving its Genesis."
     }
   ],
+  "Hounds of Ondaros": [
+    {
+      "question": "What does it mean to \"permanently lose stealth\"?",
+      "answer": "Simply remove the stealth token. It does not prevent the minion from gaining stealth later."
+    }
+  ],
   "Howl from Beyond": [
     {
       "question": "How do I resolve this effect?",
@@ -1874,11 +1982,15 @@
     },
     {
       "question": "What if the Mortal's location is one where Jack would be silenced? Or disabled?",
-      "answer": "The ability is put on the storyline to resolve when Jack the Ripper is cast, before he even enters the realm. He will still silence and kill the Mortal, and then become silenced himself. However, if Jack the Ripper is disabled as soon as he enters the realm, he will be unable to perform the silence and kill effects of his casting ability."
+      "answer": "When Jack the Ripper is cast (before he even enters the realm!), his ability is put on the storyline to resolve in the future, when he enters the realm.\nSilenced upon entering the realm: His ability is already on the storyline, so it still resolves. (A silenced minion can still kill other minions.) He does lose stealth due to silence.\nDisabled upon entering the realm: His ability is already on the storyline, but when it goes to resolve, he cannot actually kill anyone, since being disabled prevents a minion from taking any actions granted by an effect. He will also lose stealth due to being disabled."
     },
     {
       "question": "Can Jack be cast to a Mortal in a region other than the surface?",
       "answer": "Yes, but if cast to the void, he will be banished before the rest of his cast ability can resolve. If summoned underground or underwater (or to any location with an effect that would kill him) he will die before he can complete his task as well, assuming he doesn't immediately gain the ability to survive in that location.  This means he will neither Silence nor Kill his prey."
+    },
+    {
+      "question": "What if I send Jack the Ripper to commit regicide, casting him to the location of my opponent's King of the Realm?",
+      "answer": "Jack will enter at the King's location and will technically change control briefly to the controller of the [[King of the Realm]], but his ability will already be on the storyline. Jack will then silence and kill the King, and return to your control."
     }
   ],
   "Jihad": [
@@ -1988,7 +2100,7 @@
     },
     {
       "question": "How does this ability work?",
-      "answer": "Site abilities cannot target, damage, destroy, banish, modify, move, or impede the movement of the bearer of the Key. For example:\nGnome Hollows will not stop a 3+ power Key bearer from entering. A Key bearer can walk over a Perilous Bridge on the ground.\nRemote Desert will not damage a Key bearer.\nFields of Camlann will not destroy a Key bearer, even when it's not the chosen minion.\nRiver Rapids can't move a Key bearer.\nMany site effects won't apply, as part of \"can't be modified\":\nGilman House can't transform a Key bearer\nBabbling Brook can't disable a Key bearer\nBog can't immobilize a Key bearer\nSilent Hills can't silence a Key bearer\nRoad to Perdition can't increase or decrease a Key bearer's power\nAccursed Desert can't break a Key bearer's Ward\nSome site abilities will continue to work:\nA Key bearer Avatar will still heal life from Holy Ground and lose life from Poisoned Well.\nRiver of Blood will still reduce healing, regardless of who holds the Key.\nWizard's Den will still allow a Key bearer Avatar to draw a spell (since players actually draw spells, not units).\nGarden of Eden will still stop a Key bearer Avatar from drawing extra spells (since players actually draw spells, not units).\nBeacon will still count an enemy Key bearer.\nAsmodeus with the Key still can't destroy a Bedrock.\nA Key bearer Avatar will still have to pay (2) extra for Bureau of Occult Control, since gaining and paying mana is done by the player.\nA Key bearer Avatar will still be able to use the threshold provided by The Empyrean's site ability, since tracking threshold is done by the player.\n[[The Void]] ))site(( would still banish a non-voidwalk minion Key bearer, since the game itself is banishing the minion."
+      "answer": "Site abilities cannot target, damage, destroy, banish, modify, move, or impede the movement or attacks of the bearer of the Key. Additionally, site abilities cannot cause the bearer to lose or gain life, and cannot affect healing the bearer receives. For example:\nGnome Hollows will not stop a 3+ power Key bearer from entering. A Key bearer can walk over a Perilous Bridge on the ground.\nRemote Desert will not damage a Key bearer.\nPoisoned Well cannot cause the bearer to lose life.\nAn Avatar Key bearer will not gain life from Holy Ground or lose life from Poisoned Well.\nAn Avatar Key bearer will not have its healing reduced by River of Blood. (The Avatar itself must hold the Key to ignore the half healing effect from River of Blood.)\nFields of Camlann will not destroy a Key bearer, even when it's not the chosen minion.\nRiver Rapids can't move a Key bearer.\nMany site effects won't apply, as part of \"can't be modified\":\nGilman House can't transform a Key bearer\nBabbling Brook can't disable a Key bearer\nBog can't immobilize a Key bearer\nSilent Hills can't silence a Key bearer\nRoad to Perdition can't increase or decrease a Key bearer's power\nAccursed Desert can't break a Key bearer's Ward\nSome site abilities will continue to work:\nWizard's Den will still allow a Key bearer Avatar to draw a spell (since players actually draw spells, not units).\nGarden of Eden will still stop a Key bearer Avatar from drawing extra spells (since players actually draw spells, not units).\nBeacon will still count an enemy Key bearer.\nAsmodeus with the Key still can't destroy a Bedrock.\nA Key bearer Avatar will still have to pay (2) extra for Bureau of Occult Control, since gaining and paying mana is done by the player.\nA Key bearer Avatar will still be able to use the threshold provided by The Empyrean's site ability, since tracking threshold is done by the player.\n[[The Void]] ))site(( would still banish a non-voidwalk minion Key bearer, since the game itself is banishing the minion."
     },
     {
       "question": "How does this ability interact with Flooded sites?",
@@ -2063,6 +2175,12 @@
       "answer": "You control the Rubble and your avatar will lose life if the Rubble takes damage, but the Rubble still doesn’t provide mana. i.e. you own a hunk of worthless rock!"
     }
   ],
+  "Lava Salamander": [
+    {
+      "question": "What counts as a \"fire spell\"?",
+      "answer": "Once a minion, aura, or artifact enters the realm, it is no longer considered a \"spell.\" Magic never enters the realm, so it is still considered a spell while it is resolving. In effect, Lava Salamander is immune to fire Magic."
+    }
+  ],
   "Leap Attack": [
     {
       "question": "Does this card count as an \"attack\" since it has the word \"attack\" in its name?",
@@ -2106,7 +2224,7 @@
   "Lord of Greed": [
     {
       "question": "How do I properly resolve this effect?",
-      "answer": "Lord of Greed may and must take a carriable artifact from anywhere in the realm, including from another unit sharing a location with him. In this case, \"elsewhere\" means anywhere other than Lord of Greed's hands! He will take from allies as well.\nThis does not target the artifact, but per the golden rule, he cannot take what he cannot detect, and thus artifacts carried by minions with stealth are safe from Lord of Greed."
+      "answer": "Lord of Greed may and must take a carriable artifact from anywhere in the realm, including from another unit sharing a location with him. In this case, \"elsewhere\" means anywhere other than Lord of Greed's hands! He will take from allies as well.\nThis does not target the artifact, so even artifacts carried by minions with stealth are not safe from Lord of Greed."
     }
   ],
   "Lucky Charm": [
@@ -2163,14 +2281,6 @@
       "answer": "Yes. Ensure that the game state is clear, so all players know which sites the aura occupies, using notes as needed."
     },
     {
-      "question": "If Magellan Globe is in play and an Oversized unit on the top row moves “up” one row to wrap around to the bottom, what happens?",
-      "answer": "Since Magellan Globe is an ongoing effect that connects the top and bottom edges, the oversized unit can occupy 2 locations on the top row and 2 locations on the bottom row. Ensure that game state is clear, using notes as needed."
-    },
-    {
-      "question": "If Magellan Globe leaves play when a card is spanning the edge of the realm, what happens?",
-      "answer": "Units cannot balance on the edge of the realm and an oversized unit that finds its way there falls to one side or the other. Its controller places it in the closest legal position, controller's choice if tied."
-    },
-    {
       "question": "What happens if I cast a spell that does grid-based damage?",
       "answer": "The grid can span edges of the realm as needed, since they are connected."
     },
@@ -2189,6 +2299,14 @@
     {
       "question": "Can Airborne units in one corner of the realm fly directly to the opposite corner if Magellan Globe is in the realm?",
       "answer": "Yes."
+    },
+    {
+      "question": "If Magellan Globe is in play and an Oversized unit on the top row moves “up” one row to wrap around to the bottom, what happens?",
+      "answer": "Since Magellan Globe is an ongoing effect that connects the top and bottom edges, the oversized unit can occupy 2 locations on the top row and 2 locations on the bottom row. Ensure that game state is clear, using notes as needed."
+    },
+    {
+      "question": "If Magellan Globe leaves play when a card is spanning the edge of the realm, what happens?",
+      "answer": "Units cannot balance on the edge of the realm and an oversized unit that finds its way there falls to one side or the other. Its controller places it in the closest legal position, controller's choice if tied.\nIf there's no legal position anywhere in the realm for a minion, it dies. If there's no legal position anywhere in the realm for an avatar, shrink it until there is a legal position (Avatar controller's choice), and place it there."
     },
     {
       "question": "Are there any other corner cases for Magellan Globe?",
@@ -2248,6 +2366,10 @@
     }
   ],
   "Master Tracker": [
+    {
+      "question": "What does it mean to \"permanently lose stealth\"?",
+      "answer": "Simply remove the stealth token. It does not prevent the minion from gaining stealth later."
+    },
     {
       "question": "Once the Master Tracker leaves play, does a future enemy that arrives with Stealth still have stealth?",
       "answer": "Yes. But enemies that already lost Stealth won't regain it."
@@ -2397,6 +2519,12 @@
       "answer": "The controller of the minion does not change when transforming, so in that case your opponent would control it. Note cards always go to their owner's cemetery so when that minion dies it will go to your cemetery."
     }
   ],
+  "Moonsong Talagelum": [
+    {
+      "question": "Since this \"counts as Grey Wolves\" does that mean I can include any number of it in my spellbook?",
+      "answer": "No. The phrase \"counts as Grey Wolves\" means that other cards will see it as being named \"Grey Wolves\" in addition to its normal name. You still must follow rarity restrictions."
+    }
+  ],
   "Morgana le Fay": [
     {
       "question": "Where do I keep Morgana's hand of cards?",
@@ -2441,16 +2569,16 @@
       "answer": "A card's size is generally set when it enters the realm, and is considered one of its characteristics, not an ability. It will not resize."
     },
     {
-      "question": "If Magellan Globe is in play and an Oversized unit on the top row moves “up” one row to wrap around to the bottom, what happens?",
-      "answer": "Since Magellan Globe is an ongoing effect that connects the top and bottom edges, the oversized unit can occupy 2 locations on the top row and 2 locations on the bottom row. Ensure that game state is clear, using notes as needed."
-    },
-    {
       "question": "If Polar Explorers or Ruler of Thul are in play and an oversized unit on the top row moves “up” one row to wrap around to the bottom, what happens?",
       "answer": "This ability only allows movement across the borders, not ongoing occupation. Units cannot balance on the edge of the realm and an oversized unit that finds its way there falls to one side or the other. Its controller places it in the closest legal position, controller's choice if tied."
     },
     {
+      "question": "If Magellan Globe is in play and an Oversized unit on the top row moves “up” one row to wrap around to the bottom, what happens?",
+      "answer": "Since Magellan Globe is an ongoing effect that connects the top and bottom edges, the oversized unit can occupy 2 locations on the top row and 2 locations on the bottom row. Ensure that game state is clear, using notes as needed."
+    },
+    {
       "question": "If Magellan Globe leaves play when a card is spanning the edge of the realm, what happens?",
-      "answer": "Units cannot balance on the edge of the realm and an oversized unit that finds its way there falls to one side or the other. Its controller places it in the closest legal position, controller's choice if tied."
+      "answer": "Units cannot balance on the edge of the realm and an oversized unit that finds its way there falls to one side or the other. Its controller places it in the closest legal position, controller's choice if tied.\nIf there's no legal position anywhere in the realm for a minion, it dies. If there's no legal position anywhere in the realm for an avatar, shrink it until there is a legal position (Avatar controller's choice), and place it there."
     }
   ],
   "Mountain Pass": [
@@ -2460,11 +2588,11 @@
     },
     {
       "question": "Your minion attacks my Mountain Pass. Can my adjacent minion defend?",
-      "answer": "Technically, my adjacent minion (without Airborne or Voidwalk) could tap to declare a defense, but it wouldn’t move to the Mountain Pass, since your attacker is already there. So, my minion would just end up tapped where it started, without actually redirecting the attack. It would almost certainly be better to not declare the defense."
+      "answer": "No, assuming the minion is beginning on the surface of a site and doesn't have the airborne ability. \nBecause another minion is already on the surface of the Mountain Pass, that location will not be within your minion's range of motion, and so it cannot activate the defend ability."
     },
     {
       "question": "What does “enter this site on the ground” mean?",
-      "answer": "Entering on the ground only covers movement from the surface of an adjacent site to the surface of the Mountain Pass, excluding Airborne and teleportation."
+      "answer": "Entering on the ground only covers movement from the surface of another site to the surface of the Mountain Pass, excluding Airborne and teleportation."
     },
     {
       "question": "I have a minion on my Mountain Pass, and a voidwalk minion on an adjacent square. Can I move from the void to Mountain Pass?",
@@ -2503,6 +2631,12 @@
       "answer": "No, your opponent can still rearrange sites, because that doesn't count as moving the units, just the sites."
     }
   ],
+  "Onslaught": [
+    {
+      "question": "How does this Magic work?",
+      "answer": "Onslaught creates an ongoing effect which lasts the duration of your turn and continually prevents your units from being immobilized, silenced, or disabled. A minion cast after Onslaught resolves would be protected, and would gain +1 power and Charge.\nNote that Onslaught does not remove any ongoing effects which may be disabling, silencing or immobilizing your units, it just suppresses them for the duration of your turn. \nFor example, if you play Onslaught and then summon a [[Slumbering Giantess]], her Genesis ability will still resolve, and she will be disabled when the effect of Onslaught wears off. For the duration of your turn, however, she will have +1 power and Charge, and will ignore the disable effect from her Genesis ability."
+    }
+  ],
   "Onyx Core": [
     {
       "question": "When does this artifact provide mana?",
@@ -2513,12 +2647,28 @@
     {
       "question": "Is the Orb the spellcaster for the copied spell?",
       "answer": "Yes."
+    },
+    {
+      "question": "If I cast a Magic with X in the cost, does the copy have the same value of X too?",
+      "answer": "Yes. The Orb copies the spell after costs have been paid, so X is a set value."
+    },
+    {
+      "question": "If I cast a spell with an additional cost (e.g. Craterize), do I need to pay the additional cost again?",
+      "answer": "No. The Orb copies the spell after costs have been paid."
+    },
+    {
+      "question": "Can I target the same site twice when casting two copies of Craterize with Orb?",
+      "answer": "You technically can, but beware! If the first Craterize successfully destroys the targeted site, the second Craterize will no longer have a valid target in the realm and will fail, resulting in no damage from that copy of Craterize."
     }
   ],
   "Order of the White Wing": [
     {
+      "question": "Does the minion that's being summoned from elsewhere enter the realm for a moment before it's banished?",
+      "answer": "No, it doesn't ever enter the realm. For example, it will not trigger a Genesis, it will not get a Lance, it will not trigger a Mariner's Curse, etc. It doesn't actually enter the realm at all, since this is a replacement effect."
+    },
+    {
       "question": "Does this prevent minions from being cast from other \"hand\" zones (e.g. Morgana le Fay, or an Omphalos)?",
-      "answer": "No. Those minions are still being cast from a hand, so they are not prevented by the Order."
+      "answer": "Yes. The Order prevents minions from being summoned from anywhere except directly from a player's hand."
     }
   ],
   "Ormund Harpooneers": [
@@ -2661,6 +2811,18 @@
       "answer": "You apply each of their abilities in timestamp order. The first Piper takes control of all minions with 1 or less power, then the second Piper will take control of them. The controller of the second Piper will end up controlling all minions with 1 or less power."
     }
   ],
+  "Pilgrim's Shrine": [
+    {
+      "question": "What happens if the minion which leaves this site can't be warded (e.g. it has a Ward already or it's Evil)?",
+      "answer": "The Ward remains on the site, as it cannot be transferred."
+    }
+  ],
+  "Pillar of Zeiros": [
+    {
+      "question": "How does this interact with effects which modify healing (e.g. River of Blood)?",
+      "answer": "You banish all dead minions, count them, and then heal once for a total amount equal to the number of dead minions which were banished. [[River of Blood]] would halve, rounding down, that final total."
+    }
+  ],
   "Pith Imp": [
     {
       "question": "Where does the stolen spell go?",
@@ -2757,6 +2919,12 @@
       "answer": "If the Regurgitator has an empty belly and there are any dead minions, you must fill its belly by banishing one. If it has a full belly, you must empty it by shooting a projectile. If it has an empty belly and there are no dead minions, nothing happens."
     }
   ],
+  "Release the Hounds": [
+    {
+      "question": "Can I play this with only one Hellhound in my collection?",
+      "answer": "Yes. You will only summon that one [[Hellhound]]."
+    }
+  ],
   "Replication": [
     {
       "question": "Where can I conjure the copy?",
@@ -2836,11 +3004,15 @@
   "River Rapids": [
     {
       "question": "What is a “connected river”?",
-      "answer": "Connected rivers are a contiguous group of adjacent sites with River in their name, regardless of who controls them, and which contains River Rapids."
+      "answer": "Connected rivers are a contiguous group of adjacent sites with River in their name, regardless of who controls them, and which contains River Rapids.\nRiver Rapids is, by definition, connected to itself, even if it is not connected to any other Rivers."
     },
     {
       "question": "How does this ability work?",
       "answer": "It is an activated ability that you can choose to activate one time on your turn. You choose a minion that is on a connected river, and push it one step. You can use this to push the minion off of rivers, and you can activate it even if River Rapids is the only \"connected\" river."
+    },
+    {
+      "question": "Can this ability push minions which are submerged at connected Rivers?",
+      "answer": "Yes, submerged minions can be pushed."
     }
   ],
   "River of Blood": [
@@ -2937,6 +3109,12 @@
     {
       "question": "Can I push something into another region?",
       "answer": "No, this is forced movement, which cannot cause things to change regions unless specified."
+    }
+  ],
+  "Scent Hounds": [
+    {
+      "question": "What does it mean to \"permanently lose stealth\"?",
+      "answer": "Simply remove the stealth token. It does not prevent the minion from gaining stealth later."
     }
   ],
   "Scorched Earth": [
@@ -3043,6 +3221,12 @@
     {
       "question": "My Shield Maidens attack, and then 3 Foot Soldiers defend. How much damage do my Shield Maidens take?",
       "answer": "0, because each source of damage is reduced by 1!"
+    }
+  ],
+  "Shrike Orchard": [
+    {
+      "question": "Can this target sub-surface minions?",
+      "answer": "Yes.  The minion must be nearby to the site, which means it must be near one of the site's locations.  This means that minions which are underground (or underwater, if the Shrike Orchard is flooded) can be targeted by this effect."
     }
   ],
   "Siege Ballista": [
@@ -3283,6 +3467,12 @@
       "answer": "When you sacrifice a card that has multiple types, you may specify which type your opponent must match. For example, if you sacrifice one automaton (Minion and Artifact), you can force your opponent to sacrifice a minion or an artifact, your choice (not both). Similarly, if you're playing as Enchantress and you sacrifice an animated aura (Minion and Aura), you can force your opponent to sacrifice a minion or an aura, your choice (not both)."
     }
   ],
+  "Tactical Move": [
+    {
+      "question": "What is the timing for the resolution of this spell?",
+      "answer": "Choose an ally, declare its movement steps, placing them on the Storyline, then resolve those steps. Repeat for each ally.\nThat is, you declare and resolve each ally’s steps before proceeding to the next ally. If you gain more allies during the resolution, you may move them too; keep repeating the effect until each ally has moved."
+    }
+  ],
   "Templar": [
     {
       "question": "Can any of my spellcasters cast a spell and still benefit from my avatar's ability?",
@@ -3397,6 +3587,10 @@
     {
       "question": "Stretch my avatar? You're pulling my leg! Does this make my avatar an oversized unit now?",
       "answer": "Pulling both arms and both legs actually but, yes! Your avatar will now be an oversized unit!"
+    },
+    {
+      "question": "If Magellan Globe leaves play when a card is spanning the edge of the realm, what happens?",
+      "answer": "Units cannot balance on the edge of the realm and an oversized unit that finds its way there falls to one side or the other. Its controller places it in the closest legal position, controller's choice if tied.\nIf there's no legal position anywhere in the realm for a minion, it dies. If there's no legal position anywhere in the realm for an avatar, shrink it until there is a legal position (Avatar controller's choice), and place it there."
     }
   ],
   "The Void": [
@@ -3409,6 +3603,10 @@
       "answer": "Yes."
     },
     {
+      "question": "Can forced movement move a minion from a surface location to the surface of The Void?",
+      "answer": "Yes!"
+    },
+    {
       "question": "When my opponent casts a minion spell with Voidwalk, can they choose The Void as its summoning location, even though it's my site?",
       "answer": "Yes! It is a void, so they can choose to cast their Voidwalk minions to here if they wish."
     },
@@ -3419,6 +3617,12 @@
     {
       "question": "Normally, when moving from void to a site, a minion (e.g. Hounds of Ondaros) can move directly to the surface OR subsurface. Therefore, when moving from the subsurface + void location of this site, can a minion like Hounds of Ondaros move directly to the surface of an adjacent site? Could they move from the surface + void location directly to the subsurface of an adjacent site?",
       "answer": "Yes! Minions with voidwalk can continue to use their voidwalk abilities to move accordingly."
+    }
+  ],
+  "Thing in the Ice": [
+    {
+      "question": "What does \"can't be targeted or damaged by magic\" mean?",
+      "answer": "Magic can't target the card and the card can't be damaged by Magic (even without targeting). The card can still be targeted by non-Magic effects."
     }
   ],
   "Thunderstorm": [
@@ -3461,6 +3665,12 @@
     {
       "question": "The alpha and beta text is different, which should I use?",
       "answer": "The beta text is correct."
+    }
+  ],
+  "Troll Bridge": [
+    {
+      "question": "What is a \"lone enemy\"?",
+      "answer": "A \"lone enemy\" is an enemy unit that's not entering simultaneously with another enemy unit. Stationary units at the Troll Bridge ignored.\nHere are some examples:\nIf an enemy [[War Horse]] is carrying its Avatar and moves to your Troll Bridge, it will not trigger, since there are two enemies entering simultaneously. \nIf your [[Bodach Bogeyman]] is carrying two enemy minions and moves to your Troll Bridge, it will not trigger. However, if the Bogeyman were carrying just one enemy, the Bridge would trigger.\nIf there is already an enemy occupying the Troll Bridge and another enemy unit enters, it will trigger for the entering enemy."
     }
   ],
   "Truesight Crossbow": [
@@ -3669,6 +3879,18 @@
       "answer": "This effect applies a doubling throughout the turn. If the unit gains or loses power, apply any additions or subtractions first, then double."
     }
   ],
+  "Watchtower": [
+    {
+      "question": "What does it mean to \"permanently lose stealth\"?",
+      "answer": "Simply remove the stealth token. It does not prevent the minion from gaining stealth later."
+    }
+  ],
+  "Watery Grave": [
+    {
+      "question": "What does \"drowns\" mean?",
+      "answer": "A minion \"drowns\" if it dies due to being underwater without also having the submerge ability. You control the resulting Skeleton."
+    }
+  ],
   "Wave of Eviction": [
     {
       "question": "How do I properly resolve this effect?",
@@ -3709,6 +3931,10 @@
     {
       "question": "If I choose to move 0 steps (perhaps because my unit is Immobile), do I strike anything?",
       "answer": "No, because you don't have any path if you don't move. A path involves 1 or more steps, and each step has a starting and ending location that's different (if your step is from a location to the same location, you didn't actually move anywhere.)"
+    },
+    {
+      "question": "Can I choose to move a step forward and then back to strike an enemy twice with this?",
+      "answer": "No. You can choose to step forward and back, but an enemy is either along your path or not. They will not be struck more than once."
     }
   ],
   "White Hart": [

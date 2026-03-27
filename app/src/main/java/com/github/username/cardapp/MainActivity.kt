@@ -47,10 +47,15 @@ class MainActivity : ComponentActivity() {
                         CardDetailScreen(onBack = { navController.popBackStack() })
                     }
                     composable<Collection> {
-                        CollectionScreen()
+                        CollectionScreen(
+                            onCardClick = { cardName -> navController.navigate(CardDetail(cardName)) },
+                        )
                     }
                     composable<Scan> {
-                        ScanScreen(onBack = { navController.popBackStack() })
+                        ScanScreen(
+                            onBack = { navController.popBackStack() },
+                            onCardClick = { cardName -> navController.navigate(CardDetail(cardName)) },
+                        )
                     }
                 }
             }

@@ -46,7 +46,7 @@ import com.github.username.cardapp.ui.theme.Typography
 import com.github.username.cardapp.ui.theme.leatherBackground
 
 @Composable
-fun CollectionScreen(vm: CollectionViewModel = hiltViewModel()) {
+fun CollectionScreen(onCardClick: (String) -> Unit = {}, vm: CollectionViewModel = hiltViewModel()) {
     val entries by vm.entries.collectAsState()
     val filterState by vm.filterState.collectAsState()
     val totalUnique by vm.totalUniqueCount.collectAsState()
@@ -62,6 +62,7 @@ fun CollectionScreen(vm: CollectionViewModel = hiltViewModel()) {
         onUpdateFilter = { newState -> vm.updateFilter { newState } },
         onIncrement = { vm.increment(it) },
         onDecrement = { vm.decrement(it) },
+        onCardClick = onCardClick,
     )
 }
 
@@ -75,6 +76,7 @@ private fun CollectionScreenContent(
     onUpdateFilter: (CardFilterState) -> Unit = {},
     onIncrement: (String) -> Unit = {},
     onDecrement: (String) -> Unit = {},
+    onCardClick: (String) -> Unit = {},
 ) {
     var selectedCardName by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
@@ -117,6 +119,7 @@ private fun CollectionScreenContent(
                             onToggle = {
                                 selectedCardName = if (selectedCardName == entry.card.name) null else entry.card.name
                             },
+                            onLongPress = { onCardClick(entry.card.name) },
                             onIncrement = { onIncrement(entry.card.name) },
                             onDecrement = {
                                 if (entry.quantity <= 1) selectedCardName = null
