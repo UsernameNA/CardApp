@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
@@ -67,6 +68,7 @@ import com.github.username.cardapp.ui.theme.LeatherMid
 import com.github.username.cardapp.ui.theme.Typography
 import com.github.username.cardapp.ui.theme.leatherBackground
 import kotlin.random.Random
+import kotlinx.coroutines.flow.first
 
 private enum class Parity { ODD, EVEN }
 
@@ -146,8 +148,7 @@ fun LandingScreen(
         // Dice game overlay
         DiceOverlay(
             diceState = diceState,
-            onResult = { value ->
-                val guess = (diceState as? DiceState.Rolling)?.guess ?: return@DiceOverlay
+            onResult = { guess, value ->
                 diceState = DiceState.Result(guess, value)
             },
             onDismiss = { diceState = DiceState.Idle },
@@ -377,7 +378,7 @@ private fun CornerOrnament(
 }
 
 @Composable
-private fun DiceOverlay(diceState: DiceState, onResult: (Int) -> Unit, onDismiss: () -> Unit) {
+private fun DiceOverlay(diceState: DiceState, onResult: (Parity, Int) -> Unit, onDismiss: () -> Unit) {
     val overlayAlpha = remember { Animatable(0f) }
 
     LaunchedEffect(diceState) {
@@ -404,9 +405,9 @@ private fun DiceOverlay(diceState: DiceState, onResult: (Int) -> Unit, onDismiss
     ) {
         when (diceState) {
             is DiceState.Rolling -> {
+                val guess = diceState.guess
                 DiceRollingContent(
-                    guess = diceState.guess,
-                    onFinished = { resultValue -> onResult(resultValue) },
+                    onFinished = { resultValue -> onResult(guess, resultValue) },
                 )
             }
             is DiceState.Result -> {
@@ -418,7 +419,7 @@ private fun DiceOverlay(diceState: DiceState, onResult: (Int) -> Unit, onDismiss
 }
 
 @Composable
-private fun DiceRollingContent(guess: Parity, onFinished: (Int) -> Unit) {
+private fun DiceRollingContent(onFinished: (Int) -> Unit) {
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.dice_roll))
     val progress by animateLottieCompositionAsState(
         composition = composition,
@@ -426,12 +427,10 @@ private fun DiceRollingContent(guess: Parity, onFinished: (Int) -> Unit) {
         isPlaying = true,
     )
 
-    var fired by remember { mutableStateOf(false) }
-    LaunchedEffect(progress) {
-        if (progress >= 1f && !fired) {
-            fired = true
-            onFinished(Random.nextInt(1, 7))
-        }
+    LaunchedEffect(Unit) {
+        snapshotFlow { progress }
+            .first { it >= 1f }
+        onFinished(Random.nextInt(1, 7))
     }
 
     LottieAnimation(
