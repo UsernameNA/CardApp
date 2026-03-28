@@ -1,5 +1,6 @@
 package com.github.username.cardapp.ui.landing
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -16,6 +17,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,8 +29,11 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
@@ -44,7 +49,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
 import com.github.username.cardapp.R
+import com.github.username.cardapp.ui.theme.BurgundyAccent
 import com.github.username.cardapp.ui.theme.CardAppTheme
 import com.github.username.cardapp.ui.theme.CreamFaded
 import com.github.username.cardapp.ui.theme.CreamMuted
@@ -52,9 +62,19 @@ import com.github.username.cardapp.ui.theme.GoldDark
 import com.github.username.cardapp.ui.theme.GoldLight
 import com.github.username.cardapp.ui.theme.GoldMuted
 import com.github.username.cardapp.ui.theme.GoldPrimary
+import com.github.username.cardapp.ui.theme.InkShadow
 import com.github.username.cardapp.ui.theme.LeatherMid
 import com.github.username.cardapp.ui.theme.Typography
 import com.github.username.cardapp.ui.theme.leatherBackground
+import kotlin.random.Random
+
+private enum class Parity { ODD, EVEN }
+
+private sealed interface DiceState {
+    data object Idle : DiceState
+    data class Rolling(val guess: Parity) : DiceState
+    data class Result(val guess: Parity, val value: Int) : DiceState
+}
 
 @Composable
 fun LandingScreen(
@@ -62,6 +82,8 @@ fun LandingScreen(
     onViewCollection: () -> Unit = {},
     onScanCards: () -> Unit = {},
 ) {
+    var diceState by remember { mutableStateOf<DiceState>(DiceState.Idle) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -98,12 +120,38 @@ fun LandingScreen(
 
             Spacer(Modifier.height(56.dp))
 
-            ArcaneButton(text = "VIEW CARDS", onClick = onViewCards)
+            ArcaneButton(text = "VIEW CARDS", onClick = onViewCards, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(12.dp))
-            ArcaneButton(text = "MY COLLECTION", onClick = onViewCollection)
+            ArcaneButton(text = "MY COLLECTION", onClick = onViewCollection, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(12.dp))
-            ArcaneButton(text = "SCAN CARDS", onClick = onScanCards)
+            ArcaneButton(text = "SCAN CARDS", onClick = onScanCards, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(12.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                ArcaneButton(
+                    text = "ODD",
+                    onClick = { diceState = DiceState.Rolling(Parity.ODD) },
+                    modifier = Modifier.weight(1f),
+                )
+                ArcaneButton(
+                    text = "EVEN",
+                    onClick = { diceState = DiceState.Rolling(Parity.EVEN) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
+
+        // Dice game overlay
+        DiceOverlay(
+            diceState = diceState,
+            onResult = { value ->
+                val guess = (diceState as? DiceState.Rolling)?.guess ?: return@DiceOverlay
+                diceState = DiceState.Result(guess, value)
+            },
+            onDismiss = { diceState = DiceState.Idle },
+        )
     }
 }
 
@@ -222,7 +270,7 @@ private fun OrnamentalDivider(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ArcaneButton(text: String, onClick: () -> Unit) {
+private fun ArcaneButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -231,8 +279,7 @@ private fun ArcaneButton(text: String, onClick: () -> Unit) {
     )
 
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .height(52.dp)
             .scale(scale)
             .border(
@@ -326,6 +373,99 @@ private fun CornerOrnament(
             // Inner corner dot
             drawCircle(GoldDark.copy(alpha = 0.8f), smallDotR * 0.8f, Offset(inset, inset))
         }
+    }
+}
+
+@Composable
+private fun DiceOverlay(diceState: DiceState, onResult: (Int) -> Unit, onDismiss: () -> Unit) {
+    val overlayAlpha = remember { Animatable(0f) }
+
+    LaunchedEffect(diceState) {
+        when (diceState) {
+            is DiceState.Rolling -> overlayAlpha.animateTo(1f, tween(300))
+            is DiceState.Idle -> overlayAlpha.animateTo(0f, tween(500))
+            is DiceState.Result -> { /* already visible */ }
+        }
+    }
+
+    if (overlayAlpha.value == 0f && diceState is DiceState.Idle) return
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer { alpha = overlayAlpha.value }
+            .background(InkShadow.copy(alpha = 0.7f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {},
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        when (diceState) {
+            is DiceState.Rolling -> {
+                DiceRollingContent(
+                    guess = diceState.guess,
+                    onFinished = { resultValue -> onResult(resultValue) },
+                )
+            }
+            is DiceState.Result -> {
+                DiceResultContent(diceState = diceState, onTimeout = onDismiss)
+            }
+            is DiceState.Idle -> { /* fading out */ }
+        }
+    }
+}
+
+@Composable
+private fun DiceRollingContent(guess: Parity, onFinished: (Int) -> Unit) {
+    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.dice_roll))
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations = 1,
+        isPlaying = true,
+    )
+
+    var fired by remember { mutableStateOf(false) }
+    LaunchedEffect(progress) {
+        if (progress >= 1f && !fired) {
+            fired = true
+            onFinished(Random.nextInt(1, 7))
+        }
+    }
+
+    LottieAnimation(
+        composition = composition,
+        progress = { progress },
+        modifier = Modifier.size(200.dp),
+    )
+}
+
+@Composable
+private fun DiceResultContent(diceState: DiceState.Result, onTimeout: () -> Unit) {
+    val isCorrect = (diceState.value % 2 == 1) == (diceState.guess == Parity.ODD)
+
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(2000)
+        onTimeout()
+    }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = "${diceState.value}",
+            style = Typography.displayLarge.copy(
+                color = GoldLight,
+                textAlign = TextAlign.Center,
+            ),
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = if (isCorrect) "CORRECT!" else "WRONG!",
+            style = Typography.headlineMedium.copy(
+                color = if (isCorrect) GoldPrimary else BurgundyAccent,
+                textAlign = TextAlign.Center,
+            ),
+        )
     }
 }
 
