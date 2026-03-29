@@ -1,5 +1,6 @@
 package com.github.username.cardapp.ui.landing
 
+import android.annotation.SuppressLint
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -390,11 +391,15 @@ private fun DiceOverlay(diceState: DiceState, onResult: (Parity, Int) -> Unit, o
 
     if (overlayAlpha.value == 0f && diceState is DiceState.Idle) return
 
+    val showScrim = diceState is DiceState.Result
     Box(
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer { alpha = overlayAlpha.value }
-            .background(InkShadow.copy(alpha = 0.7f))
+            .then(
+                if (showScrim) Modifier.background(InkShadow.copy(alpha = 0.7f))
+                else Modifier
+            )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -424,6 +429,7 @@ private class DiceBridge(private val onResult: (Int) -> Unit) {
     }
 }
 
+@SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun DiceRollingContent(onFinished: (Int) -> Unit) {
     val context = LocalContext.current
