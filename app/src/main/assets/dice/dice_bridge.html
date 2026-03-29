@@ -3,10 +3,10 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { background: transparent; overflow: hidden; width: 100%; height: 100%; }
-  #canvas { width: 100%; height: 100%; }
-  #canvas canvas { display: block; width: 100% !important; height: 100% !important; }
+  * { margin: 0; padding: 0; }
+  html, body { background: transparent; overflow: hidden; }
+  #canvas { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
+  #canvas canvas { display: block; }
 </style>
 </head>
 <body>
@@ -19,6 +19,10 @@
 <script>
 (function() {
     var canvas = document.getElementById('canvas');
+    var w = window.innerWidth;
+    var h = window.innerHeight;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
 
     var box = new $t.dice.dieBox(canvas);
 
@@ -32,7 +36,7 @@
     var spread = (Math.random() - 0.5) * (Math.PI / 3.6);  // ±25°
     var angle = baseAngle + spread;
     var coords = { x: Math.cos(angle), y: Math.sin(angle) };
-    var boost = (Math.random() * 0.5 + 1.0) * Math.min(canvas.clientWidth, canvas.clientHeight);
+    var boost = (Math.random() * 0.5 + 1.0) * Math.min(w, h);
 
     function beforeRoll() { /* no UI to hide */ }
 
