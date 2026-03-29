@@ -392,25 +392,32 @@
         this.scene.add(this.desk);
 
         this.world.add(new CANNON.RigidBody(0, new CANNON.Plane(), deskBodyMaterial));
+
+        // Compute visible frustum bounds at z=0 so barriers match screen edges
+        var halfFov = 10 * Math.PI / 180;
+        this.visHalfH = wh * Math.tan(halfFov);
+        this.visHalfW = this.visHalfH * (this.cw / this.ch);
+        var visHalfH = this.visHalfH;
+        var visHalfW = this.visHalfW;
         var barrier;
         barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrierBodyMaterial);
         barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
-        barrier.position.set(0, this.h * 0.93, 0);
+        barrier.position.set(0, visHalfH * 0.93, 0);
         this.world.add(barrier);
 
         barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrierBodyMaterial);
         barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-        barrier.position.set(0, -this.h * 0.93, 0);
+        barrier.position.set(0, -visHalfH * 0.93, 0);
         this.world.add(barrier);
 
         barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrierBodyMaterial);
         barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), -Math.PI / 2);
-        barrier.position.set(this.w * 0.93, 0, 0);
+        barrier.position.set(visHalfW * 0.93, 0, 0);
         this.world.add(barrier);
 
         barrier = new CANNON.RigidBody(0, new CANNON.Plane(), barrierBodyMaterial);
         barrier.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), Math.PI / 2);
-        barrier.position.set(-this.w * 0.93, 0, 0);
+        barrier.position.set(-visHalfW * 0.93, 0, 0);
         this.world.add(barrier);
 
         this.lastTime = 0;
@@ -552,8 +559,8 @@
         for (var i in rollSpec.set) {
             var vec = makeRandomVector(coords);
             var pos = {
-                x: this.w * (vec.x > 0 ? -1 : 1) * 0.9,
-                y: this.h * (vec.y > 0 ? -1 : 1) * 0.9,
+                x: (this.visHalfW || this.w) * (vec.x > 0 ? -1 : 1) * 0.9,
+                y: (this.visHalfH || this.h) * (vec.y > 0 ? -1 : 1) * 0.9,
                 z: self.rnd() * 200 + 200
             };
             var projector = Math.abs(vec.x / vec.y);
