@@ -339,12 +339,12 @@
         this.useAdaptiveTimestep = true;
 
         this.renderer = window.WebGLRenderingContext ?
-            new THREE.WebGLRenderer({ antialias: true }) :
+            new THREE.WebGLRenderer({ antialias: true, alpha: true }) :
             new THREE.CanvasRenderer({ antialias: true });
         this.renderer.setSize(this.cw * 2, this.ch * 2);
         this.renderer.shadowMapEnabled = true;
         this.renderer.shadowMapSoft = true;
-        this.renderer.setClearColor(0xffffff, 1);
+        this.renderer.setClearColor(0x000000, 0);
 
         this.dice = [];
         this.scene = new THREE.Scene();
@@ -386,9 +386,9 @@
         this.world.addContactMaterial(new CANNON.ContactMaterial(
             this.dieBodyMaterial, this.dieBodyMaterial, 0, 0.5));
 
-        this.desk = new THREE.Mesh(new THREE.PlaneGeometry(this.w * 2, this.h * 2, 1, 1), 
-                                   new THREE.MeshLambertMaterial({ color: 0xffffff }));
-        this.desk.receiveShadow = true;
+        this.desk = new THREE.Mesh(new THREE.PlaneGeometry(this.w * 2, this.h * 2, 1, 1),
+                                   new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0 }));
+        this.desk.receiveShadow = false;
         this.scene.add(this.desk);
 
         this.world.add(new CANNON.RigidBody(0, new CANNON.Plane(), deskBodyMaterial));
