@@ -30,15 +30,10 @@
         constant: 0
     };
 
-    // Random throw direction and boost
-    var coords = {
-        x: (Math.random() * 2 - 1) * w,
-        y: -(Math.random() * 2 - 1) * h
-    };
-    var dist = Math.sqrt(coords.x * coords.x + coords.y * coords.y);
-    var boost = (Math.random() + 3) * dist;
-    coords.x /= dist;
-    coords.y /= dist;
+    // Random throw direction with moderate force so the die stays on screen
+    var angle = Math.random() * Math.PI * 2;
+    var coords = { x: Math.cos(angle), y: Math.sin(angle) };
+    var boost = (Math.random() * 0.5 + 1.0) * Math.min(w, h);
 
     function beforeRoll() { /* no UI to hide */ }
 
