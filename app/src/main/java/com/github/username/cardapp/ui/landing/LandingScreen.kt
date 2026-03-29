@@ -34,7 +34,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
@@ -50,10 +49,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.airbnb.lottie.compose.LottieAnimation
-import com.airbnb.lottie.compose.LottieCompositionSpec
-import com.airbnb.lottie.compose.animateLottieCompositionAsState
-import com.airbnb.lottie.compose.rememberLottieComposition
+import android.os.Handler
+import android.os.Looper
+import android.webkit.JavascriptInterface
+import android.webkit.WebView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import com.github.username.cardapp.R
 import com.github.username.cardapp.ui.theme.BurgundyAccent
 import com.github.username.cardapp.ui.theme.CardAppTheme
@@ -67,8 +68,6 @@ import com.github.username.cardapp.ui.theme.InkShadow
 import com.github.username.cardapp.ui.theme.LeatherMid
 import com.github.username.cardapp.ui.theme.Typography
 import com.github.username.cardapp.ui.theme.leatherBackground
-import kotlin.random.Random
-import kotlinx.coroutines.flow.first
 
 private enum class Parity { ODD, EVEN }
 
@@ -418,25 +417,26 @@ private fun DiceOverlay(diceState: DiceState, onResult: (Parity, Int) -> Unit, o
     }
 }
 
+private class DiceBridge(private val onResult: (Int) -> Unit) {
+    @JavascriptInterface
+    fun onDiceResult(value: Int) {
+        Handler(Looper.getMainLooper()).post { onResult(value) }
+    }
+}
+
 @Composable
 private fun DiceRollingContent(onFinished: (Int) -> Unit) {
-    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.dice_roll))
-    val progress by animateLottieCompositionAsState(
-        composition = composition,
-        iterations = 1,
-        isPlaying = true,
-    )
-
-    LaunchedEffect(Unit) {
-        snapshotFlow { progress }
-            .first { it >= 1f }
-        onFinished(Random.nextInt(1, 7))
-    }
-
-    LottieAnimation(
-        composition = composition,
-        progress = { progress },
-        modifier = Modifier.size(200.dp),
+    val context = LocalContext.current
+    AndroidView(
+        factory = {
+            WebView(context).apply {
+                settings.javaScriptEnabled = true
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                addJavascriptInterface(DiceBridge(onFinished), "Android")
+                loadUrl("file:///android_asset/dice/dice_bridge.html")
+            }
+        },
+        modifier = Modifier.fillMaxSize(),
     )
 }
 
