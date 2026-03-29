@@ -30,9 +30,9 @@
         constant: 0
     };
 
-    // Throw from bottom-left toward top-right with ~30° variation
-    var baseAngle = Math.PI / 4;  // 45° = top-right
-    var spread = (Math.random() - 0.5) * (Math.PI / 3);  // ±30°
+    // Throw from bottom-left toward upper-right with ~25° variation
+    var baseAngle = Math.PI / 3;  // 60° = steeper toward top-right
+    var spread = (Math.random() - 0.5) * (Math.PI / 3.6);  // ±25°
     var angle = baseAngle + spread;
     var coords = { x: Math.cos(angle), y: Math.sin(angle) };
     var boost = (Math.random() * 0.5 + 1.0) * Math.min(w, h);
