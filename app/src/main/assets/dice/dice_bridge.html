@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<style>
+  * { margin: 0; padding: 0; }
+  body { background: #000; overflow: hidden; }
+  #canvas { width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<div id="canvas"></div>
+
+<script src="three.min.js"></script>
+<script src="cannon.min.js"></script>
+<script src="teal.js"></script>
+<script src="dice.js"></script>
+<script>
+(function() {
+    var canvas = document.getElementById('canvas');
+    var w = window.innerWidth;
+    var h = window.innerHeight;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+
+    var box = new $t.dice.dieBox(canvas, { w: w, h: h });
+
+    var notation = {
+        set: [{ type: 'd20' }],
+        constant: 0
+    };
+
+    // Random throw direction and boost
+    var coords = {
+        x: (Math.random() * 2 - 1) * w,
+        y: -(Math.random() * 2 - 1) * h
+    };
+    var dist = Math.sqrt(coords.x * coords.x + coords.y * coords.y);
+    var boost = (Math.random() + 3) * dist;
+    coords.x /= dist;
+    coords.y /= dist;
+
+    function beforeRoll() { /* no UI to hide */ }
+
+    function afterRoll(notation, result) {
+        var value = result[0];
+        // Call back into Android
+        if (window.Android && Android.onDiceResult) {
+            Android.onDiceResult(value);
+        }
+    }
+
+    // Auto-throw on load
+    box.rollDice(notation, coords, boost, beforeRoll, afterRoll);
+})();
+</script>
+</body>
+</html>
