@@ -1,5 +1,10 @@
 package com.github.username.cardapp.ui.collection
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -48,21 +54,40 @@ import com.github.username.cardapp.ui.theme.leatherBackground
 @Composable
 fun CollectionScreen(onCardClick: (String) -> Unit = {}, vm: CollectionViewModel = hiltViewModel()) {
     val entries by vm.entries.collectAsState()
+    val allEntries by vm.allEntries.collectAsState()
     val filterState by vm.filterState.collectAsState()
-    val totalUnique by vm.totalUniqueCount.collectAsState()
     val totalCards by vm.totalCardCount.collectAsState()
     val prices by vm.prices.collectAsState()
+    val context = LocalContext.current
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+        if (!text.isNullOrBlank()) vm.importCollection(text)
+    }
 
     CollectionScreenContent(
         entries = entries,
         filterState = filterState,
-        totalUnique = totalUnique,
         totalCards = totalCards,
         prices = prices,
         onUpdateFilter = { newState -> vm.updateFilter { newState } },
         onIncrement = { vm.increment(it) },
         onDecrement = { vm.decrement(it) },
         onCardClick = onCardClick,
+        onImport = { importLauncher.launch("text/*") },
+        onExport = {
+            val text = allEntries
+                .sortedBy { it.card.name }
+                .joinToString("\n") { "${it.quantity} ${it.card.name}" }
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+                putExtra(Intent.EXTRA_SUBJECT, "Sorcery Collection")
+            }
+            context.startActivity(Intent.createChooser(intent, "Export Collection"))
+        },
     )
 }
 
@@ -70,13 +95,14 @@ fun CollectionScreen(onCardClick: (String) -> Unit = {}, vm: CollectionViewModel
 private fun CollectionScreenContent(
     entries: List<CollectionCardRow>,
     filterState: CardFilterState = CardFilterState(),
-    totalUnique: Int = entries.size,
     totalCards: Int = entries.sumOf { it.quantity },
     prices: Map<String, PriceInfo> = emptyMap(),
     onUpdateFilter: (CardFilterState) -> Unit = {},
     onIncrement: (String) -> Unit = {},
     onDecrement: (String) -> Unit = {},
     onCardClick: (String) -> Unit = {},
+    onImport: () -> Unit = {},
+    onExport: () -> Unit = {},
 ) {
     var selectedCardName by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
@@ -89,12 +115,17 @@ private fun CollectionScreenContent(
             .leatherBackground(),
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
+            val totalValue = entries.sumOf { entry ->
+                val price = prices[entry.card.name]?.marketPrice ?: 0.0
+                price * entry.quantity
+            }
             CollectionHeader(
-                uniqueCards = entries.size,
                 totalCards = entries.sumOf { it.quantity },
-                totalUnique = totalUnique,
                 totalTotal = totalCards,
+                totalValue = totalValue,
                 hasFilter = filterState.hasActiveFilters,
+                onExport = onExport,
+                onImport = onImport,
                 modifier = Modifier.statusBarsPadding(),
             )
             SearchFilterBar(
@@ -136,13 +167,15 @@ private fun CollectionScreenContent(
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun CollectionHeader(
-    uniqueCards: Int,
     totalCards: Int,
-    totalUnique: Int,
     totalTotal: Int,
+    totalValue: Double,
     hasFilter: Boolean,
     modifier: Modifier = Modifier,
+    onExport: () -> Unit = {},
+    onImport: () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -171,14 +204,19 @@ private fun CollectionHeader(
         }
         if (totalTotal > 0) {
             Spacer(Modifier.height(4.dp))
+            val valueStr = "$%.2f".format(totalValue)
             val subtitle = if (hasFilter) {
-                "$totalCards cards \u00b7 $uniqueCards unique (of $totalTotal \u00b7 $totalUnique)"
+                "$totalCards cards \u00b7 $valueStr (of $totalTotal)"
             } else {
-                "$totalTotal cards \u00b7 $totalUnique unique"
+                "$totalTotal cards \u00b7 $valueStr"
             }
             Text(
                 text = subtitle,
                 style = Typography.labelMedium.copy(color = CreamFaded),
+                modifier = Modifier.combinedClickable(
+                    onClick = { onExport() },
+                    onLongClick = { onImport() },
+                ),
             )
         }
     }

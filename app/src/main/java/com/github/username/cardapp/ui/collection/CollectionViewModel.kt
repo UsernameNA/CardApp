@@ -6,6 +6,7 @@ import com.github.username.cardapp.data.CardRepository
 import com.github.username.cardapp.data.PriceInfo
 import com.github.username.cardapp.data.SortPreferences
 import com.github.username.cardapp.data.local.CollectionCardRow
+import com.github.username.cardapp.data.local.CollectionEntryEntity
 import com.github.username.cardapp.ui.common.CardFilterState
 import com.github.username.cardapp.ui.common.applyFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,7 +26,7 @@ class CollectionViewModel @Inject constructor(
     private val sortPreferences: SortPreferences,
 ) : ViewModel() {
 
-    private val allEntries: StateFlow<List<CollectionCardRow>> = repository.collection
+    val allEntries: StateFlow<List<CollectionCardRow>> = repository.collection
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _filterState = MutableStateFlow(CardFilterState())
@@ -60,6 +61,22 @@ class CollectionViewModel @Inject constructor(
 
     fun decrement(cardName: String) {
         viewModelScope.launch { repository.removeOneFromCollection(cardName) }
+    }
+
+    fun importCollection(text: String) {
+        viewModelScope.launch {
+            val entries = text.lines()
+                .filter { it.isNotBlank() }
+                .mapNotNull { line ->
+                    val spaceIndex = line.indexOf(' ')
+                    if (spaceIndex < 1) return@mapNotNull null
+                    val qty = line.substring(0, spaceIndex).toIntOrNull() ?: return@mapNotNull null
+                    val name = line.substring(spaceIndex + 1).trim()
+                    if (name.isEmpty() || qty <= 0) return@mapNotNull null
+                    CollectionEntryEntity(cardName = name, quantity = qty)
+                }
+            if (entries.isNotEmpty()) repository.addToCollection(entries)
+        }
     }
 
     fun updateFilter(transform: (CardFilterState) -> CardFilterState) {
