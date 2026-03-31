@@ -1,6 +1,10 @@
 package com.github.username.cardapp.ui.landing
 
 import android.annotation.SuppressLint
+import android.os.Handler
+import android.os.Looper
+import android.webkit.JavascriptInterface
+import android.webkit.WebView
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -34,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,15 +51,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import android.os.Handler
-import android.os.Looper
-import android.webkit.JavascriptInterface
-import android.webkit.WebView
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.github.username.cardapp.R
 import com.github.username.cardapp.ui.theme.BurgundyAccent
@@ -83,6 +84,7 @@ fun LandingScreen(
     onViewCards: () -> Unit = {},
     onViewCollection: () -> Unit = {},
     onScanCards: () -> Unit = {},
+    onTrackGame: () -> Unit = {},
 ) {
     var diceState by remember { mutableStateOf<DiceState>(DiceState.Idle) }
 
@@ -128,18 +130,20 @@ fun LandingScreen(
             Spacer(Modifier.height(12.dp))
             ArcaneButton(text = "SCAN CARDS", onClick = onScanCards, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(12.dp))
+            ArcaneButton(text = "TRACK GAME", onClick = onTrackGame, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(12.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 ArcaneButton(
                     text = "ODD",
-                    onClick = { diceState = DiceState.Rolling(Parity.ODD) },
+                    onClick = { if (diceState is DiceState.Idle) diceState = DiceState.Rolling(Parity.ODD) },
                     modifier = Modifier.weight(1f),
                 )
                 ArcaneButton(
                     text = "EVEN",
-                    onClick = { diceState = DiceState.Rolling(Parity.EVEN) },
+                    onClick = { if (diceState is DiceState.Idle) diceState = DiceState.Rolling(Parity.EVEN) },
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -379,6 +383,9 @@ private fun CornerOrnament(
 
 @Composable
 private fun DiceOverlay(diceState: DiceState, onResult: (Parity, Int) -> Unit, onDismiss: () -> Unit) {
+    // Remember the guess from Rolling so it survives the transition to Result
+    var currentGuess by remember { mutableStateOf<Parity?>(null) }
+    if (diceState is DiceState.Rolling) currentGuess = diceState.guess
     val overlayAlpha = remember { Animatable(0f) }
 
     LaunchedEffect(diceState) {
@@ -403,21 +410,32 @@ private fun DiceOverlay(diceState: DiceState, onResult: (Parity, Int) -> Unit, o
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = {},
+                onClick = { if (diceState is DiceState.Result) onDismiss() },
             ),
         contentAlignment = Alignment.Center,
     ) {
-        when (diceState) {
-            is DiceState.Rolling -> {
-                val guess = diceState.guess
-                DiceRollingContent(
-                    onFinished = { resultValue -> onResult(guess, resultValue) },
-                )
-            }
-            is DiceState.Result -> {
-                DiceResultContent(diceState = diceState, onTimeout = onDismiss)
-            }
-            is DiceState.Idle -> { /* fading out */ }
+        // Keep WebView alive during both Rolling and Result so the die stays visible
+        val showDie = diceState is DiceState.Rolling || diceState is DiceState.Result
+        if (showDie) {
+            DiceRollingContent(
+                onFinished = { resultValue ->
+                    val guess = currentGuess ?: return@DiceRollingContent
+                    onResult(guess, resultValue)
+                },
+            )
+        }
+        if (diceState is DiceState.Result) {
+            // Touch-intercepting layer over the WebView to allow tap-to-dismiss
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onDismiss,
+                    ),
+            )
+            DiceResultContent(diceState = diceState, onTimeout = onDismiss)
         }
     }
 }
@@ -432,16 +450,18 @@ private class DiceBridge(private val onResult: (Int) -> Unit) {
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun DiceRollingContent(onFinished: (Int) -> Unit) {
+    val currentOnFinished by rememberUpdatedState(onFinished)
     val context = LocalContext.current
     AndroidView(
         factory = {
             WebView(context).apply {
                 settings.javaScriptEnabled = true
                 setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                addJavascriptInterface(DiceBridge(onFinished), "Android")
+                addJavascriptInterface(DiceBridge { currentOnFinished(it) }, "Android")
                 loadUrl("file:///android_asset/dice/dice_bridge.html")
             }
         },
+        onRelease = { it.destroy() },
         modifier = Modifier.fillMaxSize(),
     )
 }

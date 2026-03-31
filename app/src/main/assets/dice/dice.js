@@ -559,8 +559,8 @@
         for (var i in rollSpec.set) {
             var vec = makeRandomVector(coords);
             var pos = {
-                x: (this.visHalfW || this.w) * (vec.x > 0 ? -1 : 1) * 0.9,
-                y: (this.visHalfH || this.h) * (vec.y > 0 ? -1 : 1) * 0.9,
+                x: this.visHalfW * (vec.x > 0 ? -1 : 1) * 0.9,
+                y: this.visHalfH * (vec.y > 0 ? -1 : 1) * 0.9,
                 z: self.rnd() * 200 + 200
             };
             var projector = Math.abs(vec.x / vec.y);
