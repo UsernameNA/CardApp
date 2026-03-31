@@ -22,3 +22,4 @@ keystore.properties
 __pycache__/
 *.pyc
 /scripts/config/
+.superpowers/

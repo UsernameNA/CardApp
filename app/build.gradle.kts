@@ -1,9 +1,12 @@
+import org.gradle.api.file.Directory
 import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -46,7 +49,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -66,13 +70,16 @@ android {
     // Release builds use the full image set from scripts/images/;
     // debug builds use the small subset in src/main/assets/images/.
     sourceSets.getByName("release") {
-        assets.srcDir("${layout.buildDirectory.get()}/release-assets")
+        assets.directories.add("${layout.buildDirectory.get()}/release-assets")
     }
 }
 
+val releaseImagesDir: Directory = rootProject.layout.projectDirectory.dir("scripts/images")
+
 val copyReleaseImages by tasks.registering(Copy::class) {
-    from("${rootProject.projectDir}/scripts/images")
-    into("${layout.buildDirectory.get()}/release-assets/images")
+    from(releaseImagesDir)
+    into(layout.buildDirectory.dir("release-assets/images"))
+    isEnabled = releaseImagesDir.asFile.exists()
 }
 
 afterEvaluate {
@@ -105,13 +112,21 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
-    implementation(libs.gson)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.retrofit)
+    implementation(libs.okhttp)
+    implementation(libs.retrofit.kotlinx.serialization)
     implementation(libs.coil.compose)
+    implementation(libs.coil.svg)
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
     implementation(libs.mlkit.text.recognition)
+    implementation(libs.hilt.android)
+    implementation(libs.hilt.navigation.compose)
+    ksp(libs.hilt.compiler)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

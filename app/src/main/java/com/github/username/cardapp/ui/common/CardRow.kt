@@ -33,7 +33,6 @@ import com.github.username.cardapp.ui.theme.GoldDark
 import com.github.username.cardapp.ui.theme.GoldMuted
 import com.github.username.cardapp.ui.theme.GoldPrimary
 import com.github.username.cardapp.ui.theme.Typography
-import com.github.username.cardapp.ui.theme.elementColor
 import com.github.username.cardapp.ui.theme.rarityColor
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -134,7 +133,8 @@ private fun CardInfoLine(card: CardEntity) {
             text = card.cardType,
             style = Typography.bodyMedium.copy(color = CreamFaded),
         )
-        val isSite = card.cardType.lowercase() == "site"
+        val isSite = card.cardType.equals("Site", ignoreCase = true)
+        val isAvatar = card.cardType.equals("Avatar", ignoreCase = true)
         val thresholds = buildList {
             if (card.airThreshold > 0) add("air" to card.airThreshold)
             if (card.earthThreshold > 0) add("earth" to card.earthThreshold)
@@ -143,45 +143,26 @@ private fun CardInfoLine(card: CardEntity) {
         }
         if (!isSite || thresholds.isNotEmpty()) {
             Spacer(Modifier.width(8.dp))
-            if (!isSite) {
+            if (!isSite && !isAvatar) {
                 Text(
                     text = "${card.cost}",
-                    style = Typography.labelMedium.copy(color = CreamPrimary),
+                    style = Typography.bodyLarge.copy(color = CreamPrimary),
                 )
                 Spacer(Modifier.width(4.dp))
             }
-            thresholds.forEachIndexed { index, (element, threshold) ->
-                if (index > 0) Spacer(Modifier.width(3.dp))
-                repeat(threshold) { i ->
-                    if (i > 0) Spacer(Modifier.width(1.dp))
-                    AlchemicalSymbol(element)
-                }
-            }
+            ElementThresholdGrid(
+                thresholds = thresholds,
+                singleSize = 16.sp,
+                gridSize = 11.sp,
+            )
         }
     }
 }
 
-@Composable
-private fun AlchemicalSymbol(element: String) {
-    val symbol = when (element.lowercase()) {
-        "air"   -> "\uD83D\uDF01" // 🜁 U+1F701
-        "fire"  -> "\uD83D\uDF02" // 🜂 U+1F702
-        "earth" -> "\uD83D\uDF03" // 🜃 U+1F703
-        "water" -> "\uD83D\uDF04" // 🜄 U+1F704
-        else -> return
-    }
-    Text(
-        text = symbol,
-        style = Typography.labelSmall.copy(
-            color = elementColor(element),
-            fontSize = 10.sp,
-        ),
-    )
-}
 
 private fun formatPrice(price: Double): String = when {
     price >= 1000 -> "$${price.toInt()}"
-    price >= 1 -> "${"$%.2f".format(price)}"
+    price >= 1 -> "$%.2f".format(price)
     else -> "${(price * 100).toInt()}\u00a2"
 }
 

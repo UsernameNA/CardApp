@@ -9,17 +9,22 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.github.username.cardapp.ui.cards.CardsScreen
 import com.github.username.cardapp.ui.collection.CollectionScreen
+import com.github.username.cardapp.ui.detail.CardDetailScreen
 import com.github.username.cardapp.ui.landing.LandingScreen
 import com.github.username.cardapp.ui.scan.ScanScreen
+import com.github.username.cardapp.ui.trackgame.TrackGameScreen
 import com.github.username.cardapp.ui.theme.CardAppTheme
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.serialization.Serializable
 
-private object Routes {
-    const val LANDING = "landing"
-    const val CARDS = "cards"
-    const val COLLECTION = "collection"
-    const val SCAN = "scan"
-}
+@Serializable object Landing
+@Serializable object Cards
+@Serializable object Collection
+@Serializable object Scan
+@Serializable data class CardDetail(val cardName: String)
+@Serializable object TrackGame
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,22 +32,36 @@ class MainActivity : ComponentActivity() {
         setContent {
             CardAppTheme {
                 val navController = rememberNavController()
-                NavHost(navController = navController, startDestination = Routes.LANDING) {
-                    composable(Routes.LANDING) {
+                NavHost(navController = navController, startDestination = Landing) {
+                    composable<Landing> {
                         LandingScreen(
-                            onViewCards = { navController.navigate(Routes.CARDS) },
-                            onViewCollection = { navController.navigate(Routes.COLLECTION) },
-                            onScanCards = { navController.navigate(Routes.SCAN) },
+                            onViewCards = { navController.navigate(Cards) },
+                            onViewCollection = { navController.navigate(Collection) },
+                            onScanCards = { navController.navigate(Scan) },
+                            onTrackGame = { navController.navigate(TrackGame) },
                         )
                     }
-                    composable(Routes.CARDS) {
-                        CardsScreen()
+                    composable<Cards> {
+                        CardsScreen(
+                            onCardClick = { cardName -> navController.navigate(CardDetail(cardName)) },
+                        )
                     }
-                    composable(Routes.COLLECTION) {
-                        CollectionScreen()
+                    composable<CardDetail> {
+                        CardDetailScreen(onBack = { navController.popBackStack() })
                     }
-                    composable(Routes.SCAN) {
-                        ScanScreen(onBack = { navController.popBackStack() })
+                    composable<Collection> {
+                        CollectionScreen(
+                            onCardClick = { cardName -> navController.navigate(CardDetail(cardName)) },
+                        )
+                    }
+                    composable<Scan> {
+                        ScanScreen(
+                            onBack = { navController.popBackStack() },
+                            onCardClick = { cardName -> navController.navigate(CardDetail(cardName)) },
+                        )
+                    }
+                    composable<TrackGame> {
+                        TrackGameScreen()
                     }
                 }
             }

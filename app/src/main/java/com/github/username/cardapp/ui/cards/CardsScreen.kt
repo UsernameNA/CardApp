@@ -8,6 +8,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,7 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import com.github.username.cardapp.ui.theme.CardAppTheme
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.github.username.cardapp.data.local.CardEntity
@@ -66,7 +67,7 @@ import com.github.username.cardapp.ui.theme.leatherBackground
 import com.github.username.cardapp.ui.theme.rarityColor
 
 @Composable
-fun CardsScreen(vm: CardsViewModel = viewModel()) {
+fun CardsScreen(onCardClick: (String) -> Unit = {}, vm: CardsViewModel = hiltViewModel()) {
     val cards by vm.cards.collectAsState()
     val totalCount by vm.totalCardCount.collectAsState()
     val syncState by vm.syncState.collectAsState()
@@ -104,7 +105,7 @@ fun CardsScreen(vm: CardsViewModel = viewModel()) {
                     } else if (cards.isEmpty()) {
                         CatalogueLoadingState(state = state)
                     } else {
-                        CardGrid(cards = cards, gridState = gridState)
+                        CardGrid(cards = cards, gridState = gridState, onCardClick = onCardClick)
                     }
                 }
                 else -> CatalogueLoadingState(state = state)
@@ -164,6 +165,7 @@ private fun CardsHeader(
 private fun CardGrid(
     cards: List<CardEntity>,
     gridState: androidx.compose.foundation.lazy.grid.LazyGridState = rememberLazyGridState(),
+    onCardClick: (String) -> Unit = {},
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
@@ -179,15 +181,18 @@ private fun CardGrid(
         modifier = Modifier.fillMaxSize(),
     ) {
         items(cards, key = { it.name }) { card ->
-            CardTile(card)
+            CardTile(card, onClick = { onCardClick(card.name) })
         }
     }
 }
 
 @Composable
-private fun CardTile(card: CardEntity) {
+private fun CardTile(card: CardEntity, onClick: () -> Unit = {}) {
     val context = LocalContext.current
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(onClick = onClick),
+    ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()

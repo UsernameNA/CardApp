@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<style>
+  * { margin: 0; padding: 0; }
+  html, body { background: transparent; overflow: hidden; }
+  #canvas { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
+  #canvas canvas { display: block; }
+</style>
+  <title></title>
+</head>
+<body>
+<div id="canvas"></div>
+
+<script src="three.min.js"></script>
+<script src="cannon.min.js"></script>
+<script src="teal.js"></script>
+<script src="dice.js"></script>
+<script>
+(function() {
+    var canvas = document.getElementById('canvas');
+    var w = window.innerWidth;
+    var h = window.innerHeight;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+
+    var box = new $t.dice.dieBox(canvas);
+
+    var notation = {
+        set: [{ type: 'd20', dieColor: '#0F0C09', labelColor: '#C9A84C' }],
+        constant: 0
+    };
+
+    // Throw from below the screen upward with horizontal variation
+    var baseAngle = Math.PI / 2;  // 90° = straight up
+    var spread = (Math.random() - 0.5) * (Math.PI / 3);  // ±30° horizontal
+    var angle = baseAngle + spread;
+    var coords = { x: Math.cos(angle), y: Math.sin(angle) };
+    var boost = (Math.random() * 0.5 + 1.0) * Math.min(w, h);
+
+    var reported = false;
+    function reportResult(value) {
+        if (reported) return;
+        reported = true;
+        if (window.Android && Android.onDiceResult) {
+            Android.onDiceResult(value);
+        }
+    }
+
+    function beforeRoll() { /* no UI to hide */ }
+
+    function afterRoll(notation, result) {
+        reportResult(result[0]);
+    }
+
+    // Safety timeout — if physics never settles, force a random result
+    setTimeout(function() {
+        reportResult(Math.floor(Math.random() * 20) + 1);
+    }, 10000);
+
+    // Auto-throw on load
+    box.rollDice(notation, coords, boost, beforeRoll, afterRoll);
+})();
+</script>
+</body>
+</html>
