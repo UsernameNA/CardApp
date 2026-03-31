@@ -12,6 +12,7 @@ import com.github.username.cardapp.ui.collection.CollectionScreen
 import com.github.username.cardapp.ui.detail.CardDetailScreen
 import com.github.username.cardapp.ui.landing.LandingScreen
 import com.github.username.cardapp.ui.scan.ScanScreen
+import com.github.username.cardapp.ui.trackgame.TrackGameScreen
 import com.github.username.cardapp.ui.theme.CardAppTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.serialization.Serializable
@@ -21,6 +22,7 @@ import kotlinx.serialization.Serializable
 @Serializable object Collection
 @Serializable object Scan
 @Serializable data class CardDetail(val cardName: String)
+@Serializable object TrackGame
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -36,6 +38,7 @@ class MainActivity : ComponentActivity() {
                             onViewCards = { navController.navigate(Cards) },
                             onViewCollection = { navController.navigate(Collection) },
                             onScanCards = { navController.navigate(Scan) },
+                            onTrackGame = { navController.navigate(TrackGame) },
                         )
                     }
                     composable<Cards> {
@@ -56,6 +59,9 @@ class MainActivity : ComponentActivity() {
                             onBack = { navController.popBackStack() },
                             onCardClick = { cardName -> navController.navigate(CardDetail(cardName)) },
                         )
+                    }
+                    composable<TrackGame> {
+                        TrackGameScreen()
                     }
                 }
             }
