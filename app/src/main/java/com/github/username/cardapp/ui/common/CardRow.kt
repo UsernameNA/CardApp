@@ -133,7 +133,8 @@ private fun CardInfoLine(card: CardEntity) {
             text = card.cardType,
             style = Typography.bodyMedium.copy(color = CreamFaded),
         )
-        val isSite = card.cardType.lowercase() == "site"
+        val isSite = card.cardType.equals("Site", ignoreCase = true)
+        val isAvatar = card.cardType.equals("Avatar", ignoreCase = true)
         val thresholds = buildList {
             if (card.airThreshold > 0) add("air" to card.airThreshold)
             if (card.earthThreshold > 0) add("earth" to card.earthThreshold)
@@ -142,7 +143,7 @@ private fun CardInfoLine(card: CardEntity) {
         }
         if (!isSite || thresholds.isNotEmpty()) {
             Spacer(Modifier.width(8.dp))
-            if (!isSite) {
+            if (!isSite && !isAvatar) {
                 Text(
                     text = "${card.cost}",
                     style = Typography.bodyLarge.copy(color = CreamPrimary),

@@ -33,6 +33,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -51,6 +56,7 @@ import com.github.username.cardapp.ui.theme.GoldPrimary
 import com.github.username.cardapp.ui.theme.LeatherLight
 import com.github.username.cardapp.ui.theme.LeatherMid
 import com.github.username.cardapp.ui.theme.Typography
+import com.github.username.cardapp.ui.common.AlchemicalSymbol
 import com.github.username.cardapp.ui.common.ElementThresholdGrid
 import com.github.username.cardapp.ui.theme.leatherBackground
 import com.github.username.cardapp.ui.theme.rarityColor
@@ -152,18 +158,15 @@ private fun CardDetailContent(
             Spacer(Modifier.height(16.dp))
 
             // Stats row
-            if (card.cardType.lowercase() != "site") {
-                StatsRow(card)
-                Spacer(Modifier.height(16.dp))
-                GoldDivider()
-                Spacer(Modifier.height(16.dp))
-            }
+            StatsRow(card)
+            Spacer(Modifier.height(16.dp))
+            GoldDivider()
+            Spacer(Modifier.height(16.dp))
 
             // Rules text
             if (card.rulesText.isNotBlank()) {
-                Text(
+                RulesText(
                     text = card.rulesText,
-                    style = Typography.bodyLarge.copy(color = CreamPrimary),
                 )
                 Spacer(Modifier.height(16.dp))
                 GoldDivider()
@@ -187,24 +190,6 @@ private fun CardDetailContent(
                 }
                 Spacer(Modifier.height(16.dp))
                 GoldDivider()
-                Spacer(Modifier.height(16.dp))
-            }
-
-            // Variants / printings
-            if (variants.isNotEmpty()) {
-                Text(
-                    text = "PRINTINGS",
-                    style = Typography.labelLarge.copy(color = CreamFaded),
-                )
-                Spacer(Modifier.height(8.dp))
-                variants.forEach { variant ->
-                    VariantRow(
-                        variant = variant,
-                        isSelected = variant.slug == selectedSlug,
-                        onClick = { selectedSlug = variant.slug },
-                    )
-                    Spacer(Modifier.height(6.dp))
-                }
                 Spacer(Modifier.height(16.dp))
             }
 
@@ -238,6 +223,30 @@ private fun CardDetailContent(
                     text = "ADD TO COLLECTION",
                     style = Typography.labelLarge.copy(color = CreamMuted),
                 )
+            }
+
+            // Variants / printings (collapsible)
+            if (variants.isNotEmpty()) {
+                var printingsExpanded by remember { mutableStateOf(false) }
+                Spacer(Modifier.height(16.dp))
+                GoldDivider()
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = if (printingsExpanded) "PRINTINGS  \u25B2" else "PRINTINGS  \u25BC",
+                    style = Typography.labelLarge.copy(color = CreamFaded),
+                    modifier = Modifier.clickable { printingsExpanded = !printingsExpanded },
+                )
+                if (printingsExpanded) {
+                    Spacer(Modifier.height(8.dp))
+                    variants.forEach { variant ->
+                        VariantRow(
+                            variant = variant,
+                            isSelected = variant.slug == selectedSlug,
+                            onClick = { selectedSlug = variant.slug },
+                        )
+                        Spacer(Modifier.height(6.dp))
+                    }
+                }
             }
 
             Spacer(Modifier.height(80.dp))
@@ -283,10 +292,29 @@ private fun StatsRow(card: CardEntity) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        CostBlock(cost = card.cost, thresholds = thresholds)
-        StatBlock(label = "ATK", value = "${card.attack}")
-        StatBlock(label = "DEF", value = "${card.defence}")
-        if (card.life != null) {
+        val isSite = card.cardType.equals("Site", ignoreCase = true)
+        val isAvatar = card.cardType.equals("Avatar", ignoreCase = true)
+        if (!isAvatar && !isSite) {
+            CostBlock(cost = card.cost, thresholds = thresholds)
+        }
+        if (isSite && thresholds.isNotEmpty()) {
+            ElementThresholdGrid(
+                thresholds = thresholds,
+                singleSize = 22.sp,
+                gridSize = 15.sp,
+            )
+        }
+        val hasAtkDef = card.cardType.equals("Minion", ignoreCase = true) ||
+            card.cardType.equals("Avatar", ignoreCase = true)
+        if (hasAtkDef) {
+            if (card.attack == card.defence) {
+                StatBlock(label = "POWER", value = "${card.attack}")
+            } else {
+                StatBlock(label = "ATK", value = "${card.attack}")
+                StatBlock(label = "DEF", value = "${card.defence}")
+            }
+        }
+        if (card.life != null && !isSite) {
             StatBlock(label = "LIFE", value = "${card.life}")
         }
     }
@@ -399,6 +427,61 @@ private fun GoldDivider() {
     HorizontalDivider(
         thickness = 0.5.dp,
         color = GoldMuted.copy(alpha = 0.3f),
+    )
+}
+
+private val circledDigits = (1..20).associate { "($it)" to (0x2460 + it - 1).toChar().toString() }
+
+private val elementPlaceholders = mapOf(
+    "(A)" to "air",
+    "(E)" to "earth",
+    "(F)" to "fire",
+    "(W)" to "water",
+)
+
+@Composable
+private fun RulesText(text: String) {
+    val style = Typography.bodyLarge.copy(color = CreamPrimary)
+    val fontSize = style.fontSize
+
+    // Strip "UPDATED: " prefix from errata'd cards, append asterisk
+    val isErrata = text.startsWith("UPDATED: ")
+    val cleaned = if (isErrata) text.removePrefix("UPDATED: ") + " *" else text
+    // Normalize (1) (2) etc. to circled Unicode digits ① ②
+    val normalized = circledDigits.entries.fold(cleaned) { acc, (token, circled) -> acc.replace(token, circled) }
+
+    // Build annotated string replacing element tokens with inline content IDs
+    val annotated = buildAnnotatedString {
+        var remaining = normalized
+        while (remaining.isNotEmpty()) {
+            val nextMatch = elementPlaceholders.keys
+                .mapNotNull { token -> remaining.indexOf(token).takeIf { it >= 0 }?.let { token to it } }
+                .minByOrNull { it.second }
+
+            if (nextMatch == null) {
+                append(remaining)
+                break
+            }
+
+            val (token, index) = nextMatch
+            append(remaining.substring(0, index))
+            appendInlineContent(elementPlaceholders[token]!!, token)
+            remaining = remaining.substring(index + token.length)
+        }
+    }
+
+    val inlineContent = elementPlaceholders.values.associateWith { element ->
+        InlineTextContent(
+            placeholder = Placeholder(fontSize, fontSize * 1.4, PlaceholderVerticalAlign.Center),
+        ) {
+            AlchemicalSymbol(element = element, fontSize = fontSize)
+        }
+    }
+
+    Text(
+        text = annotated,
+        style = style,
+        inlineContent = inlineContent,
     )
 }
 
