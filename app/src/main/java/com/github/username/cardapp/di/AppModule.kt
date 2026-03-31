@@ -16,7 +16,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
 import retrofit2.Retrofit
+import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
 @Module
@@ -44,9 +46,18 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideSorceryApi(json: Json): SorceryApi =
+    fun provideOkHttpClient(): OkHttpClient =
+        OkHttpClient.Builder()
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            .build()
+
+    @Provides
+    @Singleton
+    fun provideSorceryApi(client: OkHttpClient, json: Json): SorceryApi =
         Retrofit.Builder()
             .baseUrl("https://api.sorcerytcg.com/")
+            .client(client)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
             .create(SorceryApi::class.java)
