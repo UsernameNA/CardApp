@@ -20,4 +20,5 @@ interface CardRepository {
     fun getCardByName(name: String): Flow<CardEntity?>
     fun getVariantsByCardName(cardName: String): Flow<List<CardVariantEntity>>
     suspend fun getFaqs(cardName: String): List<FaqEntry>
+    fun ensureDataLoaded()
 }

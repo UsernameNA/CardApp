@@ -40,11 +40,15 @@ class CardRepositoryImpl @Inject constructor(
     private val _prices = MutableStateFlow<Map<String, PriceInfo>>(emptyMap())
     override val prices: StateFlow<Map<String, PriceInfo>> = _prices.asStateFlow()
 
-    init {
+    private val ensureDataOnce by lazy {
         appScope.launch {
             if (needsCardSync()) syncCards()
             loadPrices()
         }
+    }
+
+    override fun ensureDataLoaded() {
+        ensureDataOnce
     }
 
     override suspend fun needsCardSync(): Boolean = dao.getCardCount() == 0

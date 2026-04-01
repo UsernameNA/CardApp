@@ -1,0 +1,2115 @@
+[
+    {
+        "rawText": "Poison Nova\nExceponal ilags of mephitic muasna\nLethal\nDeal 1 damage to each\nother nearby minion.",
+        "costCandidates": [
+            1
+        ],
+        "bestMatch": "Poison Nova",
+        "bestScore": 128,
+        "top3": [
+            {
+                "name": "Poison Nova",
+                "score": 128
+            },
+            {
+                "name": "Sawbones",
+                "score": 59
+            },
+            {
+                "name": "Redbreast Robin",
+                "score": 57
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "King's Council\n3\nElite htagic. the gathering of nobie minds\nDraw a card for each Unique ally.\nArt©Truit Parrish )",
+        "costCandidates": [
+            3
+        ],
+        "bestMatch": "King's Council",
+        "bestScore": 155,
+        "top3": [
+            {
+                "name": "King's Council",
+                "score": 155
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 85
+            },
+            {
+                "name": "The Round Table",
+                "score": 68
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Kings Council\nElite hMagic. the gathering of ncble mids\nDraw a card for each Unique aly.\nWhot\nArtO Truitt Parrişh )",
+        "costCandidates": [],
+        "bestMatch": "King's Council",
+        "bestScore": 68,
+        "top3": [
+            {
+                "name": "King's Council",
+                "score": 68
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 50
+            },
+            {
+                "name": "King of the Realm",
+                "score": 45
+            }
+        ],
+        "actualCard": ""
+    },
+  
+    {
+        "rawText": "elp Cavwen\nGenesis Look yr btm three spells Put one on tp o yr spelk",
+        "costCandidates": [],
+        "bestMatch": "Kelp Cavern",
+        "bestScore": 31,
+        "top3": [
+            {
+                "name": "Kelp Cavern",
+                "score": 31
+            },
+            {
+                "name": "Great Old One",
+                "score": 29
+            },
+            {
+                "name": "Hollow One",
+                "score": 25
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Sylvan Splendor\nAn Elite Aura unites the forest folk\nWhenever you cast a Beast or Faerie to\nsite, draw a spell Dispel if\nan affected site is successfully attacked.\naffected site\nAr",
+        "costCandidates": [],
+        "bestMatch": "Sylvan Splendor",
+        "bestScore": 154,
+        "top3": [
+            {
+                "name": "Sylvan Splendor",
+                "score": 154
+            },
+            {
+                "name": "Dispel",
+                "score": 102
+            },
+            {
+                "name": "The Faerie Queene",
+                "score": 62
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "WizArd s Dn An Ete Ste fondurtwd uey\nGeneis -Drae a spell Discard a spell when this she is first atacked succeshuly",
+        "costCandidates": [],
+        "bestMatch": "Wizard's Den",
+        "bestScore": 68,
+        "top3": [
+            {
+                "name": "Wizard's Den",
+                "score": 68
+            },
+            {
+                "name": "Flame of the First Ones",
+                "score": 42
+            },
+            {
+                "name": "Old Mortimer's Den",
+                "score": 37
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Vamint Warrensa sSee\nnSNty\nBeasts here can't be targeted by enemies",
+        "costCandidates": [],
+        "bestMatch": "Varmint Warrens",
+        "bestScore": 55,
+        "top3": [
+            {
+                "name": "Varmint Warrens",
+                "score": 55
+            },
+            {
+                "name": "Questing Beast",
+                "score": 30
+            },
+            {
+                "name": "Beast of Burden",
+                "score": 28
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "puncrnt PoFpelth a\nWedding Hall n Eae See o vl u and clerrl wwa AVA\nPrevdes no mana lbut if Arthur and Galnevere start your turn here, you win",
+        "costCandidates": [],
+        "bestMatch": "Wedding Hall",
+        "bestScore": 124,
+        "top3": [
+            {
+                "name": "Wedding Hall",
+                "score": 124
+            },
+            {
+                "name": "Call of the Sea",
+                "score": 32
+            },
+            {
+                "name": "Falling Star",
+                "score": 30
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "6Siehdordreda\nite ilsd dttthtene\nGenesis & Deathrite Kill target\nadjacent enemy minion.\nAr© jisi Pykas@",
+        "costCandidates": [],
+        "bestMatch": "Death Dealer",
+        "bestScore": 40,
+        "top3": [
+            {
+                "name": "Death Dealer",
+                "score": 40
+            },
+            {
+                "name": "Sir Mordred",
+                "score": 38
+            },
+            {
+                "name": "Far East Assassin",
+                "score": 33
+            }
+        ],
+        "actualCard": "Sir Mordred"
+    },
+    {
+        "rawText": "OSir ay\nWhenever Sir Kay targets a\nweaker minion, he untaps\nnn y the ng d i a herd on\nArt©Melissa A. Benson",
+        "costCandidates": [],
+        "bestMatch": "Sir Kay",
+        "bestScore": 130,
+        "top3": [
+            {
+                "name": "Sir Kay",
+                "score": 130
+            },
+            {
+                "name": "Sir Bors the Younger",
+                "score": 60
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 60
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "O Bal Lightning\nElite hfagic of penpatetic plasma\ndirection\nlts\nShoot a projectile. It deals 4 damage\nthen changes\non ihipaeals 2. then it changs\ndirection lts linal impact deals 1.\nhext lhpact\nArt©Alaa Pollack b",
+        "costCandidates": [
+            4,
+            2,
+            1
+        ],
+        "bestMatch": "Arc Lightning",
+        "bestScore": 81,
+        "top3": [
+            {
+                "name": "Arc Lightning",
+                "score": 81
+            },
+            {
+                "name": "Ball Lightning",
+                "score": 76
+            },
+            {
+                "name": "Pact with the Devil",
+                "score": 70
+            }
+        ],
+        "actualCard": "Ball Lightning"
+    },
+    {
+        "rawText": "Ribble Boggart\nAn\nawfully unpredictable Elte faerie\nAt the start of your turn, Bogart gains a\ndom mutation until the end of turn:\nAirborne, Ranged, Lethal, or+s power",
+        "costCandidates": [],
+        "bestMatch": "Ribble Boggart",
+        "bestScore": 146,
+        "top3": [
+            {
+                "name": "Ribble Boggart",
+                "score": 146
+            },
+            {
+                "name": "Bog",
+                "score": 108
+            },
+            {
+                "name": "The Faerie Queene",
+                "score": 66
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "5Sir Trstan 0\ndShtag iotchtecuiechrsmart\nOnce on your turn, Sir Tristan may tap target\nHeaty ey minion. Thal enemy doesnt\nuntap the next timne it would.\nArtHeidi Tailefer D",
+        "costCandidates": [],
+        "bestMatch": "Sir Tristan",
+        "bestScore": 152,
+        "top3": [
+            {
+                "name": "Sir Tristan",
+                "score": 152
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 64
+            },
+            {
+                "name": "Sir Bors the Younger",
+                "score": 60
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Brotfier\nKnight\nAn Eite Mertal bound by blood\nGenesis Yoa may search your spellbook\nor hand for another Brother Knight and\nsummon it here. Shuftle it needed.",
+        "costCandidates": [],
+        "bestMatch": "Brother Knight",
+        "bestScore": 154,
+        "top3": [
+            {
+                "name": "Brother Knight",
+                "score": 154
+            },
+            {
+                "name": "Highland Falconer",
+                "score": 42
+            },
+            {
+                "name": "Search Party",
+                "score": 41
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Ivasion\nAn Eite ura oerwhcims an empire\nAt the end of your turn, suramon a Foot\nSoldier token to each aliected enemy\nsite with no units Lasts ot your turns,\nDJetA. Min",
+        "costCandidates": [],
+        "bestMatch": "Invasion",
+        "bestScore": 67,
+        "top3": [
+            {
+                "name": "Invasion",
+                "score": 67
+            },
+            {
+                "name": "The Great Drowning of Men",
+                "score": 60
+            },
+            {
+                "name": "Pact with the Devil",
+                "score": 54
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "3 Salmon of Knowledge 0\nAn Elite Beast offers elusive insight\nSubmerge, Waterbound\nOther units at this site may fish: Tap\nRoll a d20. On a 14+, banish Salmon of\nKnowledge and draw three spells",
+        "costCandidates": [
+            3,
+            14
+        ],
+        "bestMatch": "Salmon of Knowledge",
+        "bestScore": 195,
+        "top3": [
+            {
+                "name": "Salmon of Knowledge",
+                "score": 195
+            },
+            {
+                "name": "Rat King",
+                "score": 70
+            },
+            {
+                "name": "Lugbog Cat",
+                "score": 62
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "6*A Midsunner ights Dream\nA\nUnicue Aura delights in man smisfortune\nMortals here are disabled and each\ngives +1 power to all Faeries here.\nDispel if there are no Faeries here\nArtSeb Mckinaon @\nAt GSéinsT",
+        "costCandidates": [
+            6,
+            1
+        ],
+        "bestMatch": "Dispel",
+        "bestScore": 102,
+        "top3": [
+            {
+                "name": "Dispel",
+                "score": 102
+            },
+            {
+                "name": "A Midsummer Night's Dream",
+                "score": 99
+            },
+            {
+                "name": "All Mortals Gone",
+                "score": 54
+            }
+        ],
+        "actualCard": "A Midsummer Night's Dream"
+    },
+    {
+        "rawText": "5Sir Yain\nLance, Genesis Choose an allied Beast.\nSir Yvain and his least\ncompanion have\n+2 power while adjacent to each other\nArlovincenl Auipen",
+        "costCandidates": [
+            2
+        ],
+        "bestMatch": "Sir Yvain",
+        "bestScore": 152,
+        "top3": [
+            {
+                "name": "Sir Yvain",
+                "score": 152
+            },
+            {
+                "name": "Lance",
+                "score": 104
+            },
+            {
+                "name": "Sir Tom Thumb",
+                "score": 81
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Sir Gawain\nSir Gawain takes damage for other\nadjacent allies, if he dies from\ndamage taken this way, drawa card.\nAtLindey Crummet@\niNNVETine Pineaux",
+        "costCandidates": [],
+        "bestMatch": "Sir Gawain",
+        "bestScore": 146,
+        "top3": [
+            {
+                "name": "Sir Gawain",
+                "score": 146
+            },
+            {
+                "name": "Goat for Azazel",
+                "score": 41
+            },
+            {
+                "name": "Sir Bors the Younger",
+                "score": 40
+            }
+        ],
+        "actualCard": ""
+    },
+ 
+    {
+        "rawText": "Sir-oren\nsSummon\ntwo oot Soldier\nhere.\nGenesis\ntokens\nEnemy projectiles can't enter here.\nArteBwia Plwka",
+        "costCandidates": [],
+        "bestMatch": "Sir Morien",
+        "bestScore": 61,
+        "top3": [
+            {
+                "name": "Sir Morien",
+                "score": 61
+            },
+            {
+                "name": "Foot Soldier (English)",
+                "score": 40
+            },
+            {
+                "name": "Foot Soldier (Saracen)",
+                "score": 40
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Viie imp\nAn Crdinary inestarter of a Deon\nehesis\nMay deal\n2 damage\no target adjacent unit.\nOeegiet bun deerves ancher\nArt leflA. Menges",
+        "costCandidates": [
+            2
+        ],
+        "bestMatch": "Vile Imp",
+        "bestScore": 105,
+        "top3": [
+            {
+                "name": "Vile Imp",
+                "score": 105
+            },
+            {
+                "name": "Instigator Imp",
+                "score": 74
+            },
+            {
+                "name": "Dead of Night Demon",
+                "score": 73
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "MSirTom Thumb 0\nMay be carried by any Beast.\nDeathrite Return to hand.\nAiOMarparet Organ Kean)",
+        "costCandidates": [],
+        "bestMatch": "Sir Tom Thumb",
+        "bestScore": 56,
+        "top3": [
+            {
+                "name": "Sir Tom Thumb",
+                "score": 56
+            },
+            {
+                "name": "Questing Beast",
+                "score": 37
+            },
+            {
+                "name": "Morgana le Fay",
+                "score": 36
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Peasant Revolt\nUnioue hagie to level the playing field\nDestroy evérything Unique\nor Elite in the realn.\nearyGd e ctof the yokr boeN\nArt©Andrea Modesti@",
+        "costCandidates": [],
+        "bestMatch": "Peasant Revolt",
+        "bestScore": 114,
+        "top3": [
+            {
+                "name": "Peasant Revolt",
+                "score": 114
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 52
+            },
+            {
+                "name": "Thing in the Ice",
+                "score": 47
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Castle's Ablazel\nAn Aura of Alite\nincendiarism\nConjure atop an Elite or Unique site.\nAt the start of your turn, destroy this site\nand minions atop it, and Castle's Ablaze.\nArtGAndrea Modesti G)",
+        "costCandidates": [],
+        "bestMatch": "Blaze",
+        "bestScore": 104,
+        "top3": [
+            {
+                "name": "Blaze",
+                "score": 104
+            },
+            {
+                "name": "Castle's Ablaze!",
+                "score": 98
+            },
+            {
+                "name": "Year of the Blaze",
+                "score": 71
+            }
+        ],
+        "actualCard": "Castle's Ablaze!"
+    },
+    {
+        "rawText": "OSirIronside\nataamsyththgieh sawnnen\nHas +3 power during enemy turns.\nMslry ie Mrte ivarture he arun\nAneArea Möd",
+        "costCandidates": [
+            3
+        ],
+        "bestMatch": "The Lady of the Lake",
+        "bestScore": 65,
+        "top3": [
+            {
+                "name": "The Lady of the Lake",
+                "score": 65
+            },
+            {
+                "name": "Thing in the Ice",
+                "score": 65
+            },
+            {
+                "name": "Iron Shackles",
+                "score": 59
+            }
+        ],
+        "actualCard": "Sir Ironside"
+    },
+    {
+        "rawText": "ONSiLamoraka x8,\nDeathrite - Strike each nearby eneny.\nae hem and her be\nArteBwira Pawlikowska@",
+        "costCandidates": [],
+        "bestMatch": "Sir Lamorak",
+        "bestScore": 38,
+        "top3": [
+            {
+                "name": "Sir Lamorak",
+                "score": 38
+            },
+            {
+                "name": "Flame Strike",
+                "score": 29
+            },
+            {
+                "name": "Shatter Strike",
+                "score": 29
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Pendragon Banner\nAn Elite Relic\ninspires the chivalrous\nNearby allies have l power while\nthere are no enemies here.",
+        "costCandidates": [],
+        "bestMatch": "Pendragon Banner",
+        "bestScore": 140,
+        "top3": [
+            {
+                "name": "Pendragon Banner",
+                "score": 140
+            },
+            {
+                "name": "Spire",
+                "score": 100
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 50
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "hMagic Missiles\nOrdinany Magic of arcane arrows\nShoot three projectiles in the same\ndirection, one at a time. Each deals\n1 damage.\nArn© Bryon Wackwitz @",
+        "costCandidates": [
+            1
+        ],
+        "bestMatch": "Magic Missiles",
+        "bestScore": 146,
+        "top3": [
+            {
+                "name": "Magic Missiles",
+                "score": 146
+            },
+            {
+                "name": "Bone Spear",
+                "score": 74
+            },
+            {
+                "name": "Arcane Barrage",
+                "score": 67
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "PondAn Crdnary Stu rcle gety\nese Ths tun the net Beatt cat to this cite cots\nan sp\nless ignortng thresheld",
+        "costCandidates": [],
+        "bestMatch": "Pond",
+        "bestScore": 134,
+        "top3": [
+            {
+                "name": "Pond",
+                "score": 134
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 50
+            },
+            {
+                "name": "Pigs of the Sounder",
+                "score": 45
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Art © DrwTurke\nMisnanaged Mortuary an Eate Ste ard macabre mur up\nFlooded Treat your opponent's cemetery as yors, and vice versa.",
+        "costCandidates": [],
+        "bestMatch": "Flood",
+        "bestScore": 104,
+        "top3": [
+            {
+                "name": "Flood",
+                "score": 104
+            },
+            {
+                "name": "Mismanaged Mortuary",
+                "score": 80
+            },
+            {
+                "name": "Sold-out Cemetery",
+                "score": 39
+            }
+        ],
+        "actualCard": "Mismanaged Mortuary"
+    },
+    {
+        "rawText": "Betrayal\n5\nEite ags of brohen broeheriood\nGain control of target\nenemny\nminion\nthis turn and untapit\nage\nArt©jussi Pylas",
+        "costCandidates": [
+            5
+        ],
+        "bestMatch": "Betrayal",
+        "bestScore": 157,
+        "top3": [
+            {
+                "name": "Betrayal",
+                "score": 157
+            },
+            {
+                "name": "Lacuna Entity",
+                "score": 55
+            },
+            {
+                "name": "Sir Tristan",
+                "score": 55
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Betrayal\nElite hagic of brohen brotherhood\nGain control of target enemy\nminion this turn and untap it\nhaje\nArt©ssiPylkas",
+        "costCandidates": [],
+        "bestMatch": "Betrayal",
+        "bestScore": 138,
+        "top3": [
+            {
+                "name": "Betrayal",
+                "score": 138
+            },
+            {
+                "name": "Brother Knight",
+                "score": 34
+            },
+            {
+                "name": "Stone Rain",
+                "score": 31
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Plaque Pits an Eite Ste to burn cut t5e bght\nGeness there are three or more dead minios, banish all cemeteries",
+        "costCandidates": [],
+        "bestMatch": "Plague Pits",
+        "bestScore": 78,
+        "top3": [
+            {
+                "name": "Plague Pits",
+                "score": 78
+            },
+            {
+                "name": "Army of the Dead",
+                "score": 50
+            },
+            {
+                "name": "Book of the Dead",
+                "score": 48
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "At lrian Smithe\nHorns of Behemotha inoe Site of Serroe interred A6\n-May transform into a bemon. Place Rubble underneath.",
+        "costCandidates": [],
+        "bestMatch": "Rubble",
+        "bestScore": 110,
+        "top3": [
+            {
+                "name": "Rubble",
+                "score": 110
+            },
+            {
+                "name": "Horns of Behemoth",
+                "score": 50
+            },
+            {
+                "name": "Cast into Exile",
+                "score": 33
+            }
+        ],
+        "actualCard": "Horns of Behemoth"
+    },
+    {
+        "rawText": "Evil Twin\nA Unicue twin hales its kin\nEnters the realm as an Evil copy of an\nenemy minion, and strikes first if they fght.\nerywypr nd ync in n\nkndelnd i\nArt© Mittias Frisk @",
+        "costCandidates": [],
+        "bestMatch": "Evil Twin",
+        "bestScore": 148,
+        "top3": [
+            {
+                "name": "Evil Twin",
+                "score": 148
+            },
+            {
+                "name": "King of the Realm",
+                "score": 75
+            },
+            {
+                "name": "Balor of the Evil Eye",
+                "score": 60
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Cage of Sidrak\nA Unicie ilenment lo beo ihe botinerome\nGenesis Lock all minions with 2 or less\npower in this cage, tapped and disabled.\nTe sa e mete ay ere\nArt© Dan Seagrave 0",
+        "costCandidates": [
+            2
+        ],
+        "bestMatch": "Cage of Sidrak",
+        "bestScore": 140,
+        "top3": [
+            {
+                "name": "Cage of Sidrak",
+                "score": 140
+            },
+            {
+                "name": "Sea Witch",
+                "score": 75
+            },
+            {
+                "name": "Wall of Air",
+                "score": 68
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Call of thie Sea\nThe seas Eite htagic bechons us home\nMinions adjacent to target Water site step\ntowards it. Then\nsubmerge all minions there.\nM od and ede they hed with he e\nArt©AronjaArt",
+        "costCandidates": [],
+        "bestMatch": "Call of the Sea",
+        "bestScore": 115,
+        "top3": [
+            {
+                "name": "Call of the Sea",
+                "score": 115
+            },
+            {
+                "name": "Wrath of the Sea",
+                "score": 74
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 64
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "v Angel Ascendant\nAn Eite hlortal's aith unfurts\nHas Airborne and +1 power while Warded.\ndeslesorender\nAn©Lindsey Crumette",
+        "costCandidates": [
+            1
+        ],
+        "bestMatch": "Angel Ascendant",
+        "bestScore": 114,
+        "top3": [
+            {
+                "name": "Angel Ascendant",
+                "score": 114
+            },
+            {
+                "name": "Desecrator Kite",
+                "score": 54
+            },
+            {
+                "name": "Hand of Glory",
+                "score": 54
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "3 Blightstone\nAn Elite Relic of unbearable scrutiny\nThis site is disabled.\nArt©Michal Nagypäl",
+        "costCandidates": [
+            3
+        ],
+        "bestMatch": "Blightstone",
+        "bestScore": 155,
+        "top3": [
+            {
+                "name": "Blightstone",
+                "score": 155
+            },
+            {
+                "name": "Kite Archer",
+                "score": 52
+            },
+            {
+                "name": "Buried Treasure",
+                "score": 51
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "1Blightstone\nAn ite Rehc ef unbearable\nscrutiy\nThis site is disabled.\nAt©Michal Nagypäl",
+        "costCandidates": [],
+        "bestMatch": "Blightstone",
+        "bestScore": 112,
+        "top3": [
+            {
+                "name": "Blightstone",
+                "score": 112
+            },
+            {
+                "name": "Thin Ice",
+                "score": 48
+            },
+            {
+                "name": "Stone Rain",
+                "score": 24
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Char Ompialos\nA Unicue honument and ignited nexus\nAir and Fire Spellcaster\nAt the end of your turn, this Omphalos\ndraws a spell which only it can cast, and\nminions it casts must be summoned here.\nAr© Dan Seagrave &",
+        "costCandidates": [],
+        "bestMatch": "Char Omphalos",
+        "bestScore": 118,
+        "top3": [
+            {
+                "name": "Char Omphalos",
+                "score": 118
+            },
+            {
+                "name": "Ignited",
+                "score": 114
+            },
+            {
+                "name": "Dank Omphalos",
+                "score": 104
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Hellfire\nElite hlagic of burning brimstone\nDestroy everything below sites, then\ndeal 2 damage to each minion above.\nArt©AronaArt @",
+        "costCandidates": [
+            2
+        ],
+        "bestMatch": "Hellfire",
+        "bestScore": 140,
+        "top3": [
+            {
+                "name": "Hellfire",
+                "score": 140
+            },
+            {
+                "name": "Fire Harpoons!",
+                "score": 77
+            },
+            {
+                "name": "Ormund Harpooneers",
+                "score": 67
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "4Hellfire\nElite Magic of burning brimsłone\nDestroy everything below sites, then\ndeal 2 damage to each minion above.\nArt©AronjaArt ®",
+        "costCandidates": [
+            2
+        ],
+        "bestMatch": "Hellfire",
+        "bestScore": 150,
+        "top3": [
+            {
+                "name": "Hellfire",
+                "score": 150
+            },
+            {
+                "name": "Fire Harpoons!",
+                "score": 87
+            },
+            {
+                "name": "Magic Missiles",
+                "score": 80
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Art D Caio Calazans\nStream- An Ordinary Sez mbucd with brdkess afe\nYour atlas may include any number of Streams.",
+        "costCandidates": [],
+        "bestMatch": "Stream",
+        "bestScore": 100,
+        "top3": [
+            {
+                "name": "Stream",
+                "score": 100
+            },
+            {
+                "name": "Sea Witch",
+                "score": 30
+            },
+            {
+                "name": "Pact with the Devil",
+                "score": 29
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "aaq uayo Bog e uouuns on) Aed áeu nog Ss39",
+        "costCandidates": [],
+        "bestMatch": "Bog",
+        "bestScore": 100,
+        "top3": [
+            {
+                "name": "Bog",
+                "score": 100
+            },
+            {
+                "name": "Alabaster Box",
+                "score": 15
+            },
+            {
+                "name": "Fail-not Bow",
+                "score": 15
+            }
+        ],
+        "actualCard": "Croaking Swamp"
+    },
+    {
+        "rawText": "Arne Cao Ota\nAutumn Bloom- An Ordinary Ste of transient uster\nGenesisProvides athis turn",
+        "costCandidates": [],
+        "bestMatch": "Autumn Bloom",
+        "bestScore": 112,
+        "top3": [
+            {
+                "name": "Autumn Bloom",
+                "score": 112
+            },
+            {
+                "name": "Algae Bloom",
+                "score": 37
+            },
+            {
+                "name": "Desert Bloom",
+                "score": 37
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Art Caio Calazans\nStream An Crdinary Sa mbued wth boudkss afe\nYour atlas may include any number of Streams",
+        "costCandidates": [],
+        "bestMatch": "Stream",
+        "bestScore": 100,
+        "top3": [
+            {
+                "name": "Stream",
+                "score": 100
+            },
+            {
+                "name": "Atlas Wanderers",
+                "score": 25
+            },
+            {
+                "name": "Pact with the Devil",
+                "score": 19
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Valley an Crdinary See embraced by gent hilb\nYour atlas may include any number of Valleys",
+        "costCandidates": [],
+        "bestMatch": "Valley",
+        "bestScore": 100,
+        "top3": [
+            {
+                "name": "Valley",
+                "score": 100
+            },
+            {
+                "name": "Atlas Wanderers",
+                "score": 25
+            },
+            {
+                "name": "Rift Valley",
+                "score": 25
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Art Caio Calazans\nStream An Crdinary Ste imbaed with boundiess I\nYour atlas may include any number of Streams.",
+        "costCandidates": [],
+        "bestMatch": "Stream",
+        "bestScore": 110,
+        "top3": [
+            {
+                "name": "Stream",
+                "score": 110
+            },
+            {
+                "name": "Pact with the Devil",
+                "score": 29
+            },
+            {
+                "name": "Atlas Wanderers",
+                "score": 27
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "ArtlelfA Menges\nBlessed Village An Crdinary Ste of pastoral providence\nWard The dayz henet laberends As ening' qalt peer bei",
+        "costCandidates": [],
+        "bestMatch": "Blessed Village",
+        "bestScore": 114,
+        "top3": [
+            {
+                "name": "Blessed Village",
+                "score": 114
+            },
+            {
+                "name": "Bless",
+                "score": 106
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 50
+            }
+        ],
+        "actualCard": ""
+    },
+        {
+        "rawText": "Valey An Crdinary Ste enbrked by gentle hits\nYour atlas may include any number of Valleys",
+        "costCandidates": [],
+        "bestMatch": "Valley",
+        "bestScore": 110,
+        "top3": [
+            {
+                "name": "Valley",
+                "score": 110
+            },
+            {
+                "name": "Valley of Delight",
+                "score": 32
+            },
+            {
+                "name": "Dark Alley",
+                "score": 30
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "AtMarta Mol\nBog An Crdinary Se of moiderning uch\neesl t urs, s are mmote we atop Larget nearby sibe",
+        "costCandidates": [],
+        "bestMatch": "Bog",
+        "bestScore": 122,
+        "top3": [
+            {
+                "name": "Bog",
+                "score": 122
+            },
+            {
+                "name": "Sea of Ash",
+                "score": 29
+            },
+            {
+                "name": "Deep Sea",
+                "score": 25
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Art © Marta Molimid\nBog: An Crdinary Se of mlderng h\nGenesis Until your next tur, units are Immobile while atop target nearby site",
+        "costCandidates": [],
+        "bestMatch": "Bog",
+        "bestScore": 156,
+        "top3": [
+            {
+                "name": "Bog",
+                "score": 156
+            },
+            {
+                "name": "Quagmire",
+                "score": 46
+            },
+            {
+                "name": "Babbling Brook",
+                "score": 42
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "At © Marta MoilG\nBog- An Crdiary Se of modening muck\nGenesi t your set tus, its ae\nlbe while aeg target nearby site",
+        "costCandidates": [],
+        "bestMatch": "Bog",
+        "bestScore": 132,
+        "top3": [
+            {
+                "name": "Bog",
+                "score": 132
+            },
+            {
+                "name": "Four Fat Frogs",
+                "score": 36
+            },
+            {
+                "name": "Sea of Ash",
+                "score": 31
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Aut Marta Molin\nBog An Crdinary Sa of mldening ack\nGenesiUntilyur Best turs, units are lmmohile whle atop target nearty site",
+        "costCandidates": [],
+        "bestMatch": "Bog",
+        "bestScore": 134,
+        "top3": [
+            {
+                "name": "Bog",
+                "score": 134
+            },
+            {
+                "name": "Baba Yaga's Hut",
+                "score": 33
+            },
+            {
+                "name": "Sea of Ash",
+                "score": 29
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Common Village An Grdinary Sle of fruits\nGenesis You may pay ) to summon a Foot Soldier token here.",
+        "costCandidates": [],
+        "bestMatch": "Common Village",
+        "bestScore": 124,
+        "top3": [
+            {
+                "name": "Common Village",
+                "score": 124
+            },
+            {
+                "name": "Humble Village",
+                "score": 57
+            },
+            {
+                "name": "Rustic Village",
+                "score": 57
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Common Village an Grtinary Site of frunfuiness\nGenesis You may pay D to summon a Foot Soldier token here.",
+        "costCandidates": [],
+        "bestMatch": "Common Village",
+        "bestScore": 134,
+        "top3": [
+            {
+                "name": "Common Village",
+                "score": 134
+            },
+            {
+                "name": "Humble Village",
+                "score": 67
+            },
+            {
+                "name": "Rustic Village",
+                "score": 67
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Common Village- An Crdinary Sste of fruits\nGenesisYou may pay )to summon a Foot Soldier token here.",
+        "costCandidates": [],
+        "bestMatch": "Common Village",
+        "bestScore": 130,
+        "top3": [
+            {
+                "name": "Common Village",
+                "score": 130
+            },
+            {
+                "name": "Humble Village",
+                "score": 63
+            },
+            {
+                "name": "Rustic Village",
+                "score": 63
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Common Village-An Crdinary Ste of fruitfnesa\nGenesis You may pay) to summon a Foot Soldier token here",
+        "costCandidates": [],
+        "bestMatch": "Common Village",
+        "bestScore": 134,
+        "top3": [
+            {
+                "name": "Common Village",
+                "score": 134
+            },
+            {
+                "name": "Humble Village",
+                "score": 67
+            },
+            {
+                "name": "Rustic Village",
+                "score": 67
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Hunters Lodge An Crdinary Ste suirrounded by snares\nGenesis Enemies lose Stealth",
+        "costCandidates": [],
+        "bestMatch": "Hunter's Lodge",
+        "bestScore": 66,
+        "top3": [
+            {
+                "name": "Hunter's Lodge",
+                "score": 66
+            },
+            {
+                "name": "Lone Tower",
+                "score": 31
+            },
+            {
+                "name": "Heirloom Lost",
+                "score": 27
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Land Surweyor\nAn Ordinary hortal proalgates royal decree\nGenesis Draw a site.\nack\nland\nche broeherl\nare li\ntleied la\nAnd o",
+        "costCandidates": [],
+        "bestMatch": "Land Surveyor",
+        "bestScore": 60,
+        "top3": [
+            {
+                "name": "Land Surveyor",
+                "score": 60
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 44
+            },
+            {
+                "name": "Jack the Ripper",
+                "score": 40
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Chaos Twister\nElite Magie of orbital dexterity\nPlace target minion on the back of your hand,\nthen blow it off from a height of at least one\nfoot. Deal damage equal to its power to each\nunit atop the site it lands on, incuding itselt.\nArt ansesa Eta",
+        "costCandidates": [],
+        "bestMatch": "Chaos Twister",
+        "bestScore": 198,
+        "top3": [
+            {
+                "name": "Chaos Twister",
+                "score": 198
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 68
+            },
+            {
+                "name": "Pigs of the Sounder",
+                "score": 61
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Ring of Meorrigan\n1\nA Unicue Relic of deathly fate\nBearer has \"Whenever this unit casts a\nspell, they may deal 1 damage to target\nnearby unit to have you gain 1 life.\"\nArtOSéverine Pineaux &",
+        "costCandidates": [
+            1
+        ],
+        "bestMatch": "Ring of Morrigan",
+        "bestScore": 139,
+        "top3": [
+            {
+                "name": "Ring of Morrigan",
+                "score": 139
+            },
+            {
+                "name": "Key to the City",
+                "score": 62
+            },
+            {
+                "name": "Sensu of the Fang",
+                "score": 62
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Toolbox\nA\nRelic offers Exceptionaly simple sokutions\nSacrifice Bearer may cast an\nOrdinary spell from your collection.\nArtO Drew Tucker",
+        "costCandidates": [],
+        "bestMatch": "Toolbox",
+        "bestScore": 140,
+        "top3": [
+            {
+                "name": "Toolbox",
+                "score": 140
+            },
+            {
+                "name": "Four Waters of Paradise",
+                "score": 39
+            },
+            {
+                "name": "Silver Bullet",
+                "score": 38
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "3A Apprentice Wizard\nAn Ordinary ortal new to power\nSpellcaster\nGenesis → Draw a spell.\nArt @ Ossi Hiekkala",
+        "costCandidates": [],
+        "bestMatch": "Apprentice Wizard",
+        "bestScore": 124,
+        "top3": [
+            {
+                "name": "Apprentice Wizard",
+                "score": 124
+            },
+            {
+                "name": "Grandmaster Wizard",
+                "score": 47
+            },
+            {
+                "name": "One-shot Wizard",
+                "score": 41
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "GArgantula\nAn Eite Beast and mother ot hunger\nGenesis→Gargantula may drag an adjacent\na\no\nfoh until a\nihere, disabling it in\nunit at its location taps to\nminion\nArtOAronjaArt",
+        "costCandidates": [],
+        "bestMatch": "Gargantula",
+        "bestScore": 160,
+        "top3": [
+            {
+                "name": "Gargantula",
+                "score": 160
+            },
+            {
+                "name": "Questing Beast",
+                "score": 47
+            },
+            {
+                "name": "Beast of Burden",
+                "score": 45
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Browse\nUnicue Magic to probe the possible\nLook at your next seven spells. Put\none in your hand and the rest on the\nbottom of your spellbook in any order.\nArt B Elwira PawiikOwskae",
+        "costCandidates": [],
+        "bestMatch": "Browse",
+        "bestScore": 150,
+        "top3": [
+            {
+                "name": "Browse",
+                "score": 150
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 58
+            },
+            {
+                "name": "Order of the Sacred Oak",
+                "score": 54
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Jach the Ripper\nA Unicue Mortal of Monstrous mind\nStealth\nMay be cast to any Mortal, silencing then\nkilling them, without breaking Stealth.\nArt©Heidi Tailefer",
+        "costCandidates": [],
+        "bestMatch": "Jack the Ripper",
+        "bestScore": 109,
+        "top3": [
+            {
+                "name": "Jack the Ripper",
+                "score": 109
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 62
+            },
+            {
+                "name": "King of the Realm",
+                "score": 55
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Root Spider\nAn Exceptional Beast with a snare of sitk\nBurrowing\nWhile Root Spider is burrowed,\nminions directly above it are disabled.",
+        "costCandidates": [],
+        "bestMatch": "Root Spider",
+        "bestScore": 154,
+        "top3": [
+            {
+                "name": "Root Spider",
+                "score": 154
+            },
+            {
+                "name": "Beast of Burden",
+                "score": 47
+            },
+            {
+                "name": "Order of the White Wing",
+                "score": 47
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "0 Pendragon Legacy\nThe Unice htagic of enduring stories\nShuftle any number of Unique cards from\nyour cemetery into your decks, Drawa card.\nMee an Baefs\nake d cd nt\n-d See he Fwre ne\nAneut bäntona3",
+        "costCandidates": [],
+        "bestMatch": "Pendragon Legacy",
+        "bestScore": 140,
+        "top3": [
+            {
+                "name": "Pendragon Legacy",
+                "score": 140
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 83
+            },
+            {
+                "name": "Into the Abyss",
+                "score": 54
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Cave In\nExceptional htagic of falling prospects\nBurrow all minions and artifacts\noccupying target land site.\nArt Michal Nagypál",
+        "costCandidates": [],
+        "bestMatch": "No Man's Land",
+        "bestScore": 43,
+        "top3": [
+            {
+                "name": "No Man's Land",
+                "score": 43
+            },
+            {
+                "name": "Cursed Land",
+                "score": 39
+            },
+            {
+                "name": "Land Deed",
+                "score": 39
+            }
+        ],
+        "actualCard": "Cave-in"
+    },
+    {
+        "rawText": "Legion of Gal\nElite Demons scorch self rom soul\nAirborne\nGenesis → Look at a collection\nand banish three cards from it.\nArt©Melissa A, Benson 8",
+        "costCandidates": [
+            8
+        ],
+        "bestMatch": "Legion of Gall",
+        "bestScore": 78,
+        "top3": [
+            {
+                "name": "Legion of Gall",
+                "score": 78
+            },
+            {
+                "name": "Bull Demons of Adum",
+                "score": 41
+            },
+            {
+                "name": "Ultimate Horror",
+                "score": 41
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "6 Master Necromancer\nThe dead stir around this Elite Mortal\nSpellcaster\nGenesis → Summon a Skeleton\ntoken to each other adjacent site.\nArt©jittA. Menges8",
+        "costCandidates": [
+            6
+        ],
+        "bestMatch": "Master Necromancer",
+        "bestScore": 144,
+        "top3": [
+            {
+                "name": "Master Necromancer",
+                "score": 144
+            },
+            {
+                "name": "Necromancer",
+                "score": 116
+            },
+            {
+                "name": "Skeleton",
+                "score": 100
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "36 Apprentice Wizard\nAn\nOrdinary\nhortal, new to power\nSpellcaster\nGenesis - Draw a spell.\nArt Ossi Hiekkala",
+        "costCandidates": [],
+        "bestMatch": "Apprentice Wizard",
+        "bestScore": 124,
+        "top3": [
+            {
+                "name": "Apprentice Wizard",
+                "score": 124
+            },
+            {
+                "name": "Grandmaster Wizard",
+                "score": 47
+            },
+            {
+                "name": "One-shot Wizard",
+                "score": 41
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "3AA Sir Bors.the Younggr\nAhioteiorzl andaceonplished hunter\nRanged 2\nEnemies lose Stealth.\nAn©Margaret Organ- Kean",
+        "costCandidates": [
+            2
+        ],
+        "bestMatch": "Sir Bors the Younger",
+        "bestScore": 106,
+        "top3": [
+            {
+                "name": "Sir Bors the Younger",
+                "score": 106
+            },
+            {
+                "name": "The Rack",
+                "score": 70
+            },
+            {
+                "name": "Flame of the First Ones",
+                "score": 62
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Oy King of tie Realn\nA Unicue Mortal triumphant and true\nOther Mortals have +1 power.\nYou control all Mortals.\nArt Tony Suczudlo",
+        "costCandidates": [
+            1
+        ],
+        "bestMatch": "King of the Realm",
+        "bestScore": 83,
+        "top3": [
+            {
+                "name": "King of the Realm",
+                "score": 83
+            },
+            {
+                "name": "All Mortals Gone",
+                "score": 54
+            },
+            {
+                "name": "Hand of Glory",
+                "score": 54
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Art © Brian Smitho\nFertile Earth An Exceptional Ste of plenteous manna v\ne lly emeined udespoet La the pesple fed an fuit and meat and hu",
+        "costCandidates": [],
+        "bestMatch": "Fertile Earth",
+        "bestScore": 110,
+        "top3": [
+            {
+                "name": "Fertile Earth",
+                "score": 110
+            },
+            {
+                "name": "Sow the Earth",
+                "score": 58
+            },
+            {
+                "name": "Salt the Earth",
+                "score": 56
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Annual Fair An Ecepvnal Site of tradtinsnd trade\nGain,A or Wthis turn.",
+        "costCandidates": [],
+        "bestMatch": "Annual Fair",
+        "bestScore": 116,
+        "top3": [
+            {
+                "name": "Annual Fair",
+                "score": 116
+            },
+            {
+                "name": "Trade Encampment",
+                "score": 39
+            },
+            {
+                "name": "Dragonlord's Lair",
+                "score": 31
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "EArt ta Seagrave\nBoneyard a Unicue Ste brimming with deathi\nGenesis - Each player may summon a minion from their cemetery here.",
+        "costCandidates": [],
+        "bestMatch": "Boneyard",
+        "bestScore": 146,
+        "top3": [
+            {
+                "name": "Boneyard",
+                "score": 146
+            },
+            {
+                "name": "Bone Rabble",
+                "score": 46
+            },
+            {
+                "name": "Bone Jumble",
+                "score": 44
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Art © Marta Mol\nwn death cats\nbere and gain Ward\ndount Ussar Sanctuary a Linoe Se sBers\n-When your Avatar arrives at Death's Door they flee",
+        "costCandidates": [],
+        "bestMatch": "Mount Ussar Sanctuary",
+        "bestScore": 107,
+        "top3": [
+            {
+                "name": "Mount Ussar Sanctuary",
+                "score": 107
+            },
+            {
+                "name": "Avatar of Fire",
+                "score": 41
+            },
+            {
+                "name": "Avatar of Water",
+                "score": 41
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Art © Drew Tucker\nWuthiering Heights An Elte Sae and lempest in a teacup\nOnce on your turn you may fly a minion atop here onto a nearby site.",
+        "costCandidates": [],
+        "bestMatch": "Wuthering Heights",
+        "bestScore": 82,
+        "top3": [
+            {
+                "name": "Wuthering Heights",
+                "score": 82
+            },
+            {
+                "name": "Fey Changeling",
+                "score": 39
+            },
+            {
+                "name": "Witherwing Hero",
+                "score": 35
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "ArtOMssaABgsn\nThe hanor at Daperyll HillClaret Pows at ths Unscue SeA\nH-ce on yur turs, this may deal 3 damage to target enemy here to heal you3",
+        "costCandidates": [
+            3
+        ],
+        "bestMatch": "The Manor at Daperyll Hill",
+        "bestScore": 117,
+        "top3": [
+            {
+                "name": "The Manor at Daperyll Hill",
+                "score": 117
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 87
+            },
+            {
+                "name": "Thing in the Ice",
+                "score": 83
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Art © Brian Smith\nFertile Earth An Eacephional Ste of plenteous manna\na ie aned undoled La the people fd on fruit and meat an hone",
+        "costCandidates": [],
+        "bestMatch": "Fertile Earth",
+        "bestScore": 110,
+        "top3": [
+            {
+                "name": "Fertile Earth",
+                "score": 110
+            },
+            {
+                "name": "Sow the Earth",
+                "score": 58
+            },
+            {
+                "name": "Salt the Earth",
+                "score": 56
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "AtOLDD Smith\ntountain Peaks- An Eaceptional Site of rugged grandeur ê\nCopriiu winds had scwlpted the crog, arched and spired ike a grand cuthedral",
+        "costCandidates": [],
+        "bestMatch": "Spire",
+        "bestScore": 110,
+        "top3": [
+            {
+                "name": "Spire",
+                "score": 110
+            },
+            {
+                "name": "Mountain Peaks",
+                "score": 50
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 50
+            }
+        ],
+        "actualCard": "Mountain Peaks"
+    },
+    {
+        "rawText": "Art e Mattias Frisk\nGnome Hollows An Ecephonal Ste of cuxtnt constructon\nUnits with 3 or more power can't enter this site.",
+        "costCandidates": [
+            3
+        ],
+        "bestMatch": "Gnome Hollows",
+        "bestScore": 138,
+        "top3": [
+            {
+                "name": "Gnome Hollows",
+                "score": 138
+            },
+            {
+                "name": "Orm Infestor",
+                "score": 58
+            },
+            {
+                "name": "Hollow One",
+                "score": 55
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Windmill- An Eaceptional Ste of Larth and Ar\nThe wind s wild words, in uncertain surges, whisper how the world was made",
+        "costCandidates": [],
+        "bestMatch": "Windmill",
+        "bestScore": 110,
+        "top3": [
+            {
+                "name": "Windmill",
+                "score": 110
+            },
+            {
+                "name": "Edge of the World",
+                "score": 60
+            },
+            {
+                "name": "Sow the Earth",
+                "score": 59
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Art DMichal Nagypál\nLone Tower An Crdinary Ste of introspechon\nGenesis f this is the only Lone Tower you control, gain O)this turn",
+        "costCandidates": [],
+        "bestMatch": "Lone Tower",
+        "bestScore": 138,
+        "top3": [
+            {
+                "name": "Lone Tower",
+                "score": 138
+            },
+            {
+                "name": "Dark Tower",
+                "score": 59
+            },
+            {
+                "name": "Gothic Tower",
+                "score": 59
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Lon\nGeDesis\nAtO MafAA Molina\nForgotten Tomb - an Elhe Ste ionors a long kost past\nGenesis Search your top five spells for a minion to discard. Bottom the rest.",
+        "costCandidates": [],
+        "bestMatch": "Forgotten Tomb",
+        "bestScore": 146,
+        "top3": [
+            {
+                "name": "Forgotten Tomb",
+                "score": 146
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 68
+            },
+            {
+                "name": "Pigs of the Sounder",
+                "score": 61
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Art © Maa Molina\nForgotten Tomb An Elite Site honors a long lost pastv\nGenesis -- Search your top five spells for a minion to discard Bottom the rest",
+        "costCandidates": [],
+        "bestMatch": "Forgotten Tomb",
+        "bestScore": 146,
+        "top3": [
+            {
+                "name": "Forgotten Tomb",
+                "score": 146
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 68
+            },
+            {
+                "name": "Pigs of the Sounder",
+                "score": 63
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "At Qlon Sm th\ndountain Peaks - &n Excephional Sate of rugged grandeur A\nCapricewads had scalpted the crag arched and spired ike a grand cuthedral",
+        "costCandidates": [],
+        "bestMatch": "Spire",
+        "bestScore": 110,
+        "top3": [
+            {
+                "name": "Spire",
+                "score": 110
+            },
+            {
+                "name": "Mountain Peaks",
+                "score": 50
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 50
+            }
+        ],
+        "actualCard": "Mountain Peaks"
+    },
+    {
+        "rawText": "Art Michal Nagypal\nGothic Tower An Crdinary Ste cf rurminabon\nA\nGenesis - if this is the only Gothic Tower you control, gain (Dthis turn",
+        "costCandidates": [],
+        "bestMatch": "Gothic Tower",
+        "bestScore": 138,
+        "top3": [
+            {
+                "name": "Gothic Tower",
+                "score": 138
+            },
+            {
+                "name": "Dark Tower",
+                "score": 59
+            },
+            {
+                "name": "Lone Tower",
+                "score": 59
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "Windmill - An Exceptional Site of Earth and air\nThe windswlid words in uncertain Suraes whisper how the world ws made",
+        "costCandidates": [],
+        "bestMatch": "Windmill",
+        "bestScore": 110,
+        "top3": [
+            {
+                "name": "Windmill",
+                "score": 110
+            },
+            {
+                "name": "Sow the Earth",
+                "score": 73
+            },
+            {
+                "name": "Edge of the World",
+                "score": 60
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "AVAS\nCity of Glass - A unicue Site of delicate. gleaming struchures\n6-Provides instead but is destroyed when damaged",
+        "costCandidates": [
+            6
+        ],
+        "bestMatch": "City of Glass",
+        "bestScore": 130,
+        "top3": [
+            {
+                "name": "City of Glass",
+                "score": 130
+            },
+            {
+                "name": "City of Souls",
+                "score": 49
+            },
+            {
+                "name": "City of Traitors",
+                "score": 47
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "At OuSith\nMountain Peaks- An Exceptional Site of rugged grandeur A\nCapricious winds had sculpted the crag, arched and spired like a grand cathedral",
+        "costCandidates": [],
+        "bestMatch": "Mountain Peaks",
+        "bestScore": 110,
+        "top3": [
+            {
+                "name": "Mountain Peaks",
+                "score": 110
+            },
+            {
+                "name": "Spire",
+                "score": 110
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 65
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "ATt OBD Sith\nIdountain Peaks an Exceptional Site of rugged grandeur A\nGapricious winds hod sculpted the crag, arched and spired ike o grand cathedral",
+        "costCandidates": [],
+        "bestMatch": "Spire",
+        "bestScore": 110,
+        "top3": [
+            {
+                "name": "Spire",
+                "score": 110
+            },
+            {
+                "name": "Mountain Peaks",
+                "score": 50
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 50
+            }
+        ],
+        "actualCard": "Mountain Peaks"
+    },
+    {
+        "rawText": "Landmass\nOrdinary Magic breaks new ground\nDraw a site. You may play a land site.\nLet the dry land appear and it ws s0Genesis 1-9\nArt© Brian Smith",
+        "costCandidates": [
+            1,
+            9
+        ],
+        "bestMatch": "Landmass",
+        "bestScore": 126,
+        "top3": [
+            {
+                "name": "Landmass",
+                "score": 126
+            },
+            {
+                "name": "Lord of the Void",
+                "score": 66
+            },
+            {
+                "name": "Key to the City",
+                "score": 64
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "OBane of Aventis\nA Unique Undead persuades the pious\nGenesis → Gain control of\nnearby Warded minions.\nFaith perverted to unhoy purpase\nArtOSéverine Pineaux",
+        "costCandidates": [],
+        "bestMatch": "Bane of Aventis",
+        "bestScore": 142,
+        "top3": [
+            {
+                "name": "Bane of Aventis",
+                "score": 142
+            },
+            {
+                "name": "The Lady of the Lake",
+                "score": 64
+            },
+            {
+                "name": "Army of the Dead",
+                "score": 63
+            }
+        ],
+        "actualCard": ""
+    },
+    {
+        "rawText": "3A Apprentice Wizard\nAn Ordinary Mortal, new to power\nSpellcaster\nGenesis - Draw a spell.\nArt @ Ossi Hiekkala",
+        "costCandidates": [],
+        "bestMatch": "Apprentice Wizard",
+        "bestScore": 124,
+        "top3": [
+            {
+                "name": "Apprentice Wizard",
+                "score": 124
+            },
+            {
+                "name": "Grandmaster Wizard",
+                "score": 47
+            },
+            {
+                "name": "One-shot Wizard",
+                "score": 41
+            }
+        ],
+        "actualCard": ""
+    }
+]

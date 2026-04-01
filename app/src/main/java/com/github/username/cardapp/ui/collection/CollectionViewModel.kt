@@ -49,6 +49,7 @@ class CollectionViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     init {
+        repository.ensureDataLoaded()
         viewModelScope.launch {
             val savedSort = sortPreferences.sortState.first()
             _filterState.value = _filterState.value.copy(sort = savedSort)

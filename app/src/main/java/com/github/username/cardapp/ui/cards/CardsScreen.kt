@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -72,6 +73,7 @@ fun CardsScreen(onCardClick: (String) -> Unit = {}, vm: CardsViewModel = hiltVie
     val totalCount by vm.totalCardCount.collectAsState()
     val syncState by vm.syncState.collectAsState()
     val filterState by vm.filterState.collectAsState()
+    val collectedQuantities by vm.collectedQuantities.collectAsState()
 
     val gridState = rememberLazyGridState()
     // Scroll key: everything except filtersExpanded
@@ -105,7 +107,7 @@ fun CardsScreen(onCardClick: (String) -> Unit = {}, vm: CardsViewModel = hiltVie
                     } else if (cards.isEmpty()) {
                         CatalogueLoadingState(state = state)
                     } else {
-                        CardGrid(cards = cards, gridState = gridState, onCardClick = onCardClick)
+                        CardGrid(cards = cards, collectedQuantities = collectedQuantities, gridState = gridState, onCardClick = onCardClick)
                     }
                 }
                 else -> CatalogueLoadingState(state = state)
@@ -164,6 +166,7 @@ private fun CardsHeader(
 @Composable
 private fun CardGrid(
     cards: List<CardEntity>,
+    collectedQuantities: Map<String, Int> = emptyMap(),
     gridState: androidx.compose.foundation.lazy.grid.LazyGridState = rememberLazyGridState(),
     onCardClick: (String) -> Unit = {},
 ) {
@@ -181,13 +184,13 @@ private fun CardGrid(
         modifier = Modifier.fillMaxSize(),
     ) {
         items(cards, key = { it.name }) { card ->
-            CardTile(card, onClick = { onCardClick(card.name) })
+            CardTile(card, collected = collectedQuantities[card.name] ?: 0, onClick = { onCardClick(card.name) })
         }
     }
 }
 
 @Composable
-private fun CardTile(card: CardEntity, onClick: () -> Unit = {}) {
+private fun CardTile(card: CardEntity, collected: Int = 0, onClick: () -> Unit = {}) {
     val context = LocalContext.current
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -210,13 +213,7 @@ private fun CardTile(card: CardEntity, onClick: () -> Unit = {}) {
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
-            // Rarity color stripe at the bottom of the card image
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .background(rarityColor(card.rarity).copy(alpha = 0.85f)),
-            )
+            RaritySegments(rarity = card.rarity, collected = collected)
         }
         Spacer(Modifier.height(5.dp))
         Text(
@@ -237,6 +234,36 @@ private fun CardTile(card: CardEntity, onClick: () -> Unit = {}) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+private fun raritySegmentCount(rarity: String): Int = when (rarity) {
+    "Ordinary" -> 4
+    "Exceptional" -> 3
+    "Elite" -> 2
+    "Unique" -> 1
+    else -> 4
+}
+
+@Composable
+private fun RaritySegments(rarity: String, collected: Int) {
+    val color = rarityColor(rarity)
+    val segments = raritySegmentCount(rarity)
+    val filled = collected.coerceIn(0, segments)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        for (i in 0 until segments) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .background(color.copy(alpha = if (i < filled) 0.85f else 0.25f)),
+            )
+        }
     }
 }
 
@@ -354,7 +381,10 @@ private fun CardListGridPreview() {
                     hasFilter = false,
                     modifier = Modifier.statusBarsPadding(),
                 )
-                CardGrid(cards = fakeCards)
+                CardGrid(
+                    cards = fakeCards,
+                    collectedQuantities = mapOf("Ember Drake" to 2, "Iron Sentinel" to 1),
+                )
             }
         }
     }

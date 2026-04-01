@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -41,10 +42,15 @@ class CardsViewModel @Inject constructor(
 
     val prices: StateFlow<Map<String, PriceInfo>> = repository.prices
 
+    val collectedQuantities: StateFlow<Map<String, Int>> = repository.collection
+        .map { entries -> entries.associate { it.card.name to it.quantity } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
     init {
+        repository.ensureDataLoaded()
         viewModelScope.launch {
             val savedSort = sortPreferences.sortState.first()
             _filterState.value = _filterState.value.copy(sort = savedSort)

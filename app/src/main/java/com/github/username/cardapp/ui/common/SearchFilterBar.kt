@@ -51,7 +51,7 @@ import com.github.username.cardapp.ui.theme.Typography
 
 import com.github.username.cardapp.ui.theme.CreamMuted
 
-private val CARD_TYPES = listOf("Minion", "Spell", "Site", "Aura", "Avatar", "Artifact", "Magic")
+private val CARD_TYPES = listOf("Minion", "Site", "Aura", "Avatar", "Artifact", "Magic")
 private val RARITIES = listOf("Ordinary", "Exceptional", "Elite", "Unique")
 private val ELEMENTS = listOf("Fire", "Water", "Earth", "Air", "None")
 

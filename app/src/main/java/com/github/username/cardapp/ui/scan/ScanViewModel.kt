@@ -3,14 +3,18 @@ package com.github.username.cardapp.ui.scan
 import androidx.camera.core.ImageProxy
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.content.Context
+import android.util.Log
 import com.github.username.cardapp.data.CardRepository
 import com.github.username.cardapp.data.PriceInfo
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CollectionEntryEntity
+import com.google.mlkit.common.MlKit
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,8 +31,18 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ScanViewModel @Inject constructor(
+    @ApplicationContext context: Context,
     private val repository: CardRepository,
 ) : ViewModel() {
+
+    init {
+        try {
+            MlKit.initialize(context)
+        } catch (e: Exception) {
+            Log.w("ScanViewModel", "ML Kit initialization failed", e)
+        }
+        repository.ensureDataLoaded()
+    }
 
     private val allCards: StateFlow<List<CardEntity>> = repository.cards
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -45,6 +59,9 @@ class ScanViewModel @Inject constructor(
 
     private val _debugInfo = MutableStateFlow<ScanDebugInfo?>(null)
     val debugInfo: StateFlow<ScanDebugInfo?> = _debugInfo.asStateFlow()
+
+    private val _scanLog = mutableListOf<ScanDebugInfo>()
+    val scanLogSize: Int get() = _scanLog.size
 
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     private val pendingScan = AtomicBoolean(false)
@@ -218,116 +235,175 @@ class ScanViewModel @Inject constructor(
     }
 
     // ── OCR scoring ─────────────────────────────────────────────────────────────
+    //
+    // The OCR text is split into a "name zone" (first 1–2 lines, where the card
+    // name appears) and a "body zone" (rules, flavor, artist text). Name matches
+    // in the name zone score 3–6× higher than in the body, preventing rules-text
+    // keywords (e.g. "Dispel", "Rubble") from outscoring the actual card name.
 
     private fun scoreOcrText(rawText: String): CardEntity? {
         val cards = allCards.value
         if (cards.isEmpty()) return null
 
-        val normalized = normalizeOcr(rawText.lowercase())
+        // Split into name zone (top of card) and body zone (rules/flavor/artist)
+        val lines = rawText.split('\n').filter { it.isNotBlank() }
 
-        val costCandidates = Regex("""\b(\d{1,2})\b""").findAll(rawText)
+        // Skip leading artist-credit lines (OCR sometimes places "Art © ..." first)
+        val firstContentIdx = lines.indexOfFirst { !isLikelyArtistCredit(it) }
+        val contentLines = if (firstContentIdx > 0) lines.drop(firstContentIdx) else lines
+
+        val nameZoneRaw: String
+        val bodyZoneRaw: String
+        val nameLineCount: Int
+        if (contentLines.size <= 1) {
+            nameZoneRaw = contentLines.firstOrNull() ?: rawText
+            bodyZoneRaw = ""
+            nameLineCount = contentLines.size
+        } else {
+            // Use first content line as name zone; if it's very short (< 12 chars),
+            // include the second line too (handles leading noise/digits).
+            if (contentLines[0].length < 12) {
+                nameZoneRaw = contentLines[0] + " " + contentLines[1]
+                nameLineCount = 2
+            } else {
+                nameZoneRaw = contentLines[0]
+                nameLineCount = 1
+            }
+            bodyZoneRaw = contentLines.drop(nameLineCount).joinToString(" ")
+        }
+
+        val nameZone = normalizeOcr(nameZoneRaw.lowercase())
+        val bodyZone = normalizeOcr(bodyZoneRaw.lowercase())
+        val fullText = normalizeOcr(rawText.lowercase())
+
+        // Extract cost from name area only — not rules text where damage
+        // numbers (e.g. "deals 4 damage") create false cost matches
+        val costArea = contentLines.take(nameLineCount + 1).joinToString(" ")
+        val costCandidates = Regex("""\b(\d{1,2})\b""").findAll(costArea)
             .mapNotNull { it.value.toIntOrNull() }
             .filter { it in 1..15 }
             .toSet()
 
-        val ocrTokens = normalized.split(Regex("[^a-z0-9']+")).filter { it.isNotEmpty() }
-        val ocrWords = ocrTokens.filter { it.length > 3 }.toSet()
+        val nameTokens = tokenize(nameZone)
+        val bodyTokens = tokenize(bodyZone)
+        val allTokens = tokenize(fullText)
+        val allWords = allTokens.filter { it.length > 3 }.toSet()
 
-        val (best, bestScore) = cards
-            .map { it to scoreCard(it, normalized, costCandidates, ocrTokens, ocrWords) }
-            .maxByOrNull { it.second }
-            ?: (null to 0)
+        val scored = cards
+            .map { it to scoreCard(it, nameZone, bodyZone, costCandidates, nameTokens, bodyTokens, allTokens, allWords) }
+            .sortedByDescending { it.second }
 
-        _debugInfo.value = ScanDebugInfo(
+        val best = scored.firstOrNull()
+        val top3 = scored.take(3).map { ScanCandidate(it.first.name, it.second) }
+
+        val info = ScanDebugInfo(
             rawText = rawText,
             costCandidates = costCandidates,
-            bestCardName = best?.name,
-            bestScore = bestScore,
+            bestCardName = best?.first?.name,
+            bestScore = best?.second ?: 0,
+            top3 = top3,
         )
+        _debugInfo.value = info
+        _scanLog.add(info)
 
-        return if (best != null && bestScore >= SCORE_THRESHOLD) best else null
+        return if (best != null && best.second >= SCORE_THRESHOLD) best.first else null
     }
 
-    // Scores a card against OCR text using five signals:
+    // Scoring signals and their ranges:
     //
-    //   Name match — card names use a decorative font so OCR may garble individual
-    //   characters. We score in four tiers:
-    //     100 pts  exact full-name substring present in OCR text
-    //      25 pts  per name-word with an exact token match in the OCR text
-    //      20 pts  per name-word found as substring in the full text (catches merged words)
-    //      15 pts  per name-word with a fuzzy token match within edit-distance tolerance
-    //              (tolerance = 1 for 3–6 char words, 2 for 7+ char words)
+    //   Name in name zone    0–200  (dominant signal — where the card name actually appears)
+    //   Name in body only    0–30   (capped — prevents rules keywords outscoring real names)
+    //   Type match           0–10
+    //   Subtype match        0–8
+    //   Cost match           0–35
+    //   Rules overlap        0–N    (3 pts per word)
     //
-    //   Type match    — 10 pts if the card's type (Minion, Spell, Site, …) appears in
-    //                   the OCR text; supporting signal since the type line is scanned too
-    //
-    //   Subtype match — 8 pts if the card's subtype (Beast, Dragon, …) appears in
-    //                   the OCR text (fuzzy)
-    //
-    //   Cost match    — 35 pts if the card's cost appears as a number (non-site only)
-    //
-    //   Rules overlap — 4 pts per word shared between OCR and rules text (exact or fuzzy)
-    //
-    // Threshold 40: full name match always wins; partial fuzzy name + cost also wins;
-    // cost alone or rules overlap alone cannot produce a false positive.
+    // Threshold 50: a name-zone match on even a single word (50) clears it;
+    // body-only matches need cost + type to reach threshold.
     private fun scoreCard(
         card: CardEntity,
-        normalizedText: String,
+        nameZone: String,
+        bodyZone: String,
         costCandidates: Set<Int>,
-        ocrTokens: List<String>,
-        ocrWords: Set<String>,
+        nameTokens: List<String>,
+        bodyTokens: List<String>,
+        allTokens: List<String>,
+        allWords: Set<String>,
     ): Int {
         var score = 0
+        val cardNameClean = stripPunctuation(card.name.lowercase())
+        val nameWords = cardNameClean.split(" ").filter { it.length > 1 }
+        val nameZoneClean = stripPunctuation(nameZone)
 
-        // --- Name ---
-        // Levenshtein returns doubled values (OCR-confused subs cost 1 instead of 2),
-        // so tolerance thresholds are also doubled.
-        // normalizeOcr is only applied to the OCR side (normalizedText); card names
-        // are already correct and normalizing them corrupts names containing "cl".
-        val cardNameLower = card.name.lowercase()
-        if (normalizedText.contains(cardNameLower)) {
-            score += 100
+        // ── A. Name in name zone (HIGH weight) ─────────────────────────────────
+        var nameZoneScore = 0
+        if (nameZoneClean.contains(cardNameClean)) {
+            nameZoneScore = if (nameWords.size >= 2) {
+                200 // multi-word full-name substring match is very reliable
+            } else {
+                // Single-word names: require word-boundary match for full score
+                // to prevent "Blaze" matching inside "ablazel"
+                if (Regex("\\b${Regex.escape(cardNameClean)}\\b").containsMatchIn(nameZoneClean)) 200
+                else 60
+            }
         } else {
-            for (nameWord in cardNameLower.split(" ").filter { it.length > 2 }) {
-                val tol2 = if (nameWord.length >= 7) 4 else 2  // tolerance * 2
-                val bestDist = ocrTokens.minOfOrNull { levenshtein(nameWord, it) } ?: Int.MAX_VALUE
-                score += when {
-                    bestDist == 0 -> 25
-                    // Substring check: catches OCR merging adjacent words (e.g. "darkforest")
-                    nameWord.length >= 4 && normalizedText.contains(nameWord) -> 20
-                    bestDist <= tol2 -> 15
+            val nameZoneTokensClean = tokenize(nameZoneClean)
+            for (word in nameWords) {
+                val tol2 = if (word.length >= 7) 4 else 2
+                val bestDist = nameZoneTokensClean.minOfOrNull { levenshtein(word, it) } ?: Int.MAX_VALUE
+                nameZoneScore += when {
+                    bestDist == 0 -> 50
+                    word.length >= 3 && nameZoneClean.contains(word) -> 40 // merged tokens
+                    bestDist <= tol2 -> 30
                     else -> 0
                 }
             }
         }
+        score += nameZoneScore
 
-        // --- Type (both name and type use stylized fonts, so apply same fuzzy logic) ---
+        // ── B. Name in body zone (LOW weight, capped at 30) ────────────────────
+        // Only checked if name zone gave little signal.
+        if (nameZoneScore < 40) {
+            val bodyZoneClean = stripPunctuation(bodyZone)
+            var bodyNameScore = 0
+            if (bodyZoneClean.contains(cardNameClean)) {
+                bodyNameScore = 30
+            } else {
+                for (word in nameWords) {
+                    if (word.length <= 3) continue
+                    // Require word-boundary match in body to avoid "spired" → "spire"
+                    val pattern = "\\b${Regex.escape(word)}\\b"
+                    if (Regex(pattern).containsMatchIn(bodyZoneClean)) {
+                        bodyNameScore += 10
+                    }
+                }
+            }
+            score += bodyNameScore.coerceAtMost(30)
+        }
+
+        // ── C. Type match (fuzzy, anywhere in text) ────────────────────────────
         val cardTypeLower = card.cardType.lowercase()
         if (cardTypeLower.length > 3) {
             val tol2 = if (cardTypeLower.length >= 7) 4 else 2
-            val bestDist = ocrTokens.minOfOrNull { levenshtein(cardTypeLower, it) } ?: Int.MAX_VALUE
+            val bestDist = allTokens.minOfOrNull { levenshtein(cardTypeLower, it) } ?: Int.MAX_VALUE
             if (bestDist <= tol2) score += 10
         }
 
-        // --- Subtype ---
+        // ── D. Subtype match (fuzzy, anywhere in text) ─────────────────────────
         if (card.subTypes.isNotEmpty()) {
             for (sub in card.subTypes.lowercase().split(Regex("[,/\\s]+")).filter { it.length > 2 }) {
                 val tol2 = if (sub.length >= 7) 4 else 2
-                val bestDist = ocrTokens.minOfOrNull { levenshtein(sub, it) } ?: Int.MAX_VALUE
-                if (bestDist <= tol2) {
-                    score += 8
-                    break   // one subtype match is enough
-                }
+                val bestDist = allTokens.minOfOrNull { levenshtein(sub, it) } ?: Int.MAX_VALUE
+                if (bestDist <= tol2) { score += 8; break }
             }
         }
 
-        // --- Cost ---
-        val isSite = cardTypeLower == "site"
-        if (!isSite && costCandidates.contains(card.cost)) {
+        // ── E. Cost match ──────────────────────────────────────────────────────
+        if (cardTypeLower != "site" && costCandidates.contains(card.cost)) {
             score += 35
         }
 
-        // --- Rules text overlap (exact + fuzzy) ---
+        // ── F. Rules text overlap (exact + fuzzy, 3 pts per word) ──────────────
         if (card.rulesText.isNotEmpty()) {
             val rulesWords = card.rulesText.lowercase()
                 .split(Regex("[^a-z0-9']+"))
@@ -335,11 +411,11 @@ class ScanViewModel @Inject constructor(
                 .toSet()
             var rulesScore = 0
             for (rw in rulesWords) {
-                if (rw in ocrWords) {
-                    rulesScore += 4
+                if (rw in allWords) {
+                    rulesScore += 3
                 } else {
                     val tol2 = if (rw.length >= 7) 4 else 2
-                    val bestDist = ocrTokens.minOfOrNull { levenshtein(rw, it) } ?: Int.MAX_VALUE
+                    val bestDist = allTokens.minOfOrNull { levenshtein(rw, it) } ?: Int.MAX_VALUE
                     if (bestDist <= tol2) rulesScore += 2
                 }
             }
@@ -398,6 +474,22 @@ class ScanViewModel @Inject constructor(
         }
     }
 
+    // ── Export scan log ──────────────────────────────────────────────────────────
+
+    fun exportScanLog(): String {
+        val entries = _scanLog.map { info ->
+            ScanLogEntry(
+                rawText = info.rawText,
+                costCandidates = info.costCandidates,
+                bestMatch = info.bestCardName,
+                bestScore = info.bestScore,
+                top3 = info.top3,
+                actualCard = "",
+            )
+        }
+        return scanLogJson.encodeToString(entries)
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────────
 
     private fun setStatusTemporarily(status: ScanStatus) {
@@ -414,8 +506,9 @@ class ScanViewModel @Inject constructor(
     }
 
     companion object {
-        const val SCORE_THRESHOLD = 40
+        const val SCORE_THRESHOLD = 50
         private const val FOUND_BANNER_MS = 1200L
+        private val scanLogJson = kotlinx.serialization.json.Json { prettyPrint = true }
 
         // Frame fingerprinting — 16×16 grayscale grid sampled from center of frame
         private const val FINGERPRINT_SIZE = 16
@@ -495,6 +588,29 @@ class ScanViewModel @Inject constructor(
 
         private fun packChars(a: Char, b: Char): Long =
             (a.lowercaseChar().code.toLong() shl 16) or b.lowercaseChar().code.toLong()
+
+        /** Detect OCR lines that are artist credits rather than card content.
+         *  Common patterns: "Art © Name", "At Name" (garbled Art©), "AtOName" (merged Art©). */
+        fun isLikelyArtistCredit(line: String): Boolean {
+            if ('©' in line || '®' in line) return true
+            val trimmed = line.trim()
+            if (trimmed.length > 35) return false
+            val lower = trimmed.lowercase()
+            // "AtO..." — OCR garble of "Art©" where © merges into next characters
+            if (lower.startsWith("ato") && trimmed.length < 20) return true
+            val firstWord = lower.split(Regex("\\s+"), limit = 2).firstOrNull() ?: return false
+            // Common OCR garbles of "Art ©" as standalone first word
+            return firstWord in setOf("art", "at", "aut", "att", "arto")
+        }
+
+        /** Tokenize text into lowercase alphanumeric words. */
+        fun tokenize(text: String): List<String> =
+            text.split(Regex("[^a-z0-9']+")).filter { it.isNotEmpty() }
+
+        /** Strip punctuation that OCR may omit/garble (hyphens, apostrophes, !, etc.)
+         *  so "Cave-in" matches "Cave In" and "Castle's Ablaze!" matches "Castles Ablaze". */
+        fun stripPunctuation(text: String): String =
+            text.replace('-', ' ').replace(Regex("['!.,;:?]"), "")
 
         /**
          * Normalize OCR text by fixing common misreads:

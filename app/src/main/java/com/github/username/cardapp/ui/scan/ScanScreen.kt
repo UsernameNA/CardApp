@@ -1,6 +1,7 @@
 package com.github.username.cardapp.ui.scan
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.util.Log
 import android.view.WindowManager
@@ -83,7 +84,11 @@ import com.github.username.cardapp.ui.theme.LeatherMid
 import com.github.username.cardapp.ui.theme.Typography
 
 @Composable
-fun ScanScreen(onBack: () -> Unit, onCardClick: (String) -> Unit = {}, vm: ScanViewModel = hiltViewModel()) {
+fun ScanScreen(
+    onBack: () -> Unit,
+    onCardClick: (String) -> Unit = {},
+    vm: ScanViewModel = hiltViewModel()
+) {
     val context = LocalContext.current
     val scannedCards by vm.scannedCards.collectAsState()
     val scanStatus by vm.scanStatus.collectAsState()
@@ -94,7 +99,7 @@ fun ScanScreen(onBack: () -> Unit, onCardClick: (String) -> Unit = {}, vm: ScanV
     var hasCameraPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
-                PackageManager.PERMISSION_GRANTED,
+                    PackageManager.PERMISSION_GRANTED,
         )
     }
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -124,6 +129,7 @@ fun ScanScreen(onBack: () -> Unit, onCardClick: (String) -> Unit = {}, vm: ScanV
         scanMode = scanMode,
         debugInfo = debugInfo,
         prices = prices,
+        scanLogSize = vm.scanLogSize,
         hasCameraPermission = hasCameraPermission,
         onBack = onBack,
         onCardClick = onCardClick,
@@ -132,8 +138,22 @@ fun ScanScreen(onBack: () -> Unit, onCardClick: (String) -> Unit = {}, vm: ScanV
         onIncrement = vm::incrementCard,
         onDecrement = vm::decrementCard,
         onAddToCollection = vm::addScannedToCollection,
+        onExportScanLog = {
+            val json = vm.exportScanLog()
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(Intent.EXTRA_TEXT, json)
+                putExtra(Intent.EXTRA_SUBJECT, "scan_log.json")
+            }
+            context.startActivity(Intent.createChooser(intent, "Export Scan Log"))
+        },
         onRequestPermission = { permissionLauncher.launch(Manifest.permission.CAMERA) },
-        cameraContent = { CameraPreviewSurface(onFrame = vm::analyzeFrame, modifier = Modifier.fillMaxSize()) },
+        cameraContent = {
+            CameraPreviewSurface(
+                onFrame = vm::analyzeFrame,
+                modifier = Modifier.fillMaxSize()
+            )
+        },
     )
 }
 
@@ -144,6 +164,7 @@ private fun ScanScreenContent(
     scanMode: ScanMode,
     debugInfo: ScanDebugInfo?,
     prices: Map<String, PriceInfo> = emptyMap(),
+    scanLogSize: Int = 0,
     hasCameraPermission: Boolean,
     onBack: () -> Unit,
     onCardClick: (String) -> Unit = {},
@@ -152,6 +173,7 @@ private fun ScanScreenContent(
     onIncrement: (String) -> Unit,
     onDecrement: (String) -> Unit,
     onAddToCollection: () -> Unit,
+    onExportScanLog: () -> Unit = {},
     onRequestPermission: () -> Unit,
     cameraContent: @Composable () -> Unit,
 ) {
@@ -188,12 +210,14 @@ private fun ScanScreenContent(
             scanStatus = scanStatus,
             scanMode = scanMode,
             prices = prices,
+            scanLogSize = scanLogSize,
             onCardClick = onCardClick,
             onScanTap = onScanTap,
             onToggleScanMode = onToggleScanMode,
             onIncrement = onIncrement,
             onDecrement = onDecrement,
             onAddToCollection = onAddToCollection,
+            onExportScanLog = onExportScanLog,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
@@ -263,13 +287,38 @@ private fun ReticleOverlay(modifier: Modifier = Modifier) {
         drawLine(goldColor, Offset(right, top), Offset(right, top + bracketLen), strokePx)
 
         // ── Inner accent L-brackets (thinner, inset) ──
-        drawLine(goldFaint, Offset(left + inset, top + inset), Offset(left + inset, top + inset + bracketLen * 0.5f), thinStroke)
-        drawLine(goldFaint, Offset(left + inset, top + inset), Offset(left + inset + bracketLen * 0.5f, top + inset), thinStroke)
-        drawLine(goldFaint, Offset(right - inset, top + inset), Offset(right - inset, top + inset + bracketLen * 0.5f), thinStroke)
-        drawLine(goldFaint, Offset(right - inset, top + inset), Offset(right - inset - bracketLen * 0.5f, top + inset), thinStroke)
+        drawLine(
+            goldFaint,
+            Offset(left + inset, top + inset),
+            Offset(left + inset, top + inset + bracketLen * 0.5f),
+            thinStroke
+        )
+        drawLine(
+            goldFaint,
+            Offset(left + inset, top + inset),
+            Offset(left + inset + bracketLen * 0.5f, top + inset),
+            thinStroke
+        )
+        drawLine(
+            goldFaint,
+            Offset(right - inset, top + inset),
+            Offset(right - inset, top + inset + bracketLen * 0.5f),
+            thinStroke
+        )
+        drawLine(
+            goldFaint,
+            Offset(right - inset, top + inset),
+            Offset(right - inset - bracketLen * 0.5f, top + inset),
+            thinStroke
+        )
 
         // ── Connecting line between brackets (faint horizontal rule) ──
-        drawLine(goldFaint, Offset(left + bracketLen + dSize * 2, top), Offset(right - bracketLen - dSize * 2, top), thinStroke)
+        drawLine(
+            goldFaint,
+            Offset(left + bracketLen + dSize * 2, top),
+            Offset(right - bracketLen - dSize * 2, top),
+            thinStroke
+        )
 
         // ── Corner diamonds ──
         listOf(Offset(left, top), Offset(right, top)).forEach { corner ->
@@ -298,7 +347,12 @@ private fun ReticleOverlay(modifier: Modifier = Modifier) {
         val tickPositions = listOf(0.25f, 0.4f, 0.6f, 0.75f)
         for (frac in tickPositions) {
             val tx = left + (right - left) * frac
-            drawLine(goldFaint, Offset(tx, top - tickLen * 0.5f), Offset(tx, top + tickLen * 0.5f), thinStroke)
+            drawLine(
+                goldFaint,
+                Offset(tx, top - tickLen * 0.5f),
+                Offset(tx, top + tickLen * 0.5f),
+                thinStroke
+            )
         }
 
         // ── Bracket end nubs ──
@@ -320,12 +374,14 @@ private fun ScannedCardsPanel(
     scanMode: ScanMode,
     modifier: Modifier = Modifier,
     prices: Map<String, PriceInfo> = emptyMap(),
+    scanLogSize: Int = 0,
     onCardClick: (String) -> Unit = {},
     onScanTap: () -> Unit = {},
     onToggleScanMode: () -> Unit = {},
     onIncrement: (String) -> Unit = {},
     onDecrement: (String) -> Unit = {},
     onAddToCollection: () -> Unit = {},
+    onExportScanLog: () -> Unit = {},
 ) {
     var selectedCardName by remember { mutableStateOf<String?>(null) }
     Column(
@@ -368,12 +424,19 @@ private fun ScannedCardsPanel(
             val autoActive = scanMode == ScanMode.Auto
             Box(
                 modifier = Modifier
-                    .border(1.dp, if (autoActive) GoldPrimary else GoldDark, RoundedCornerShape(2.dp))
+                    .border(
+                        1.dp,
+                        if (autoActive) GoldPrimary else GoldDark,
+                        RoundedCornerShape(2.dp)
+                    )
                     .background(if (autoActive) GoldDark.copy(alpha = 0.35f) else Color.Transparent)
                     .clickable(onClick = onToggleScanMode)
                     .padding(horizontal = 10.dp, vertical = 6.dp),
             ) {
-                Text("AUTO", style = Typography.labelLarge.copy(color = if (autoActive) GoldPrimary else GoldDark))
+                Text(
+                    "AUTO",
+                    style = Typography.labelLarge.copy(color = if (autoActive) GoldPrimary else GoldDark)
+                )
             }
 
             Spacer(Modifier.width(8.dp))
@@ -392,7 +455,11 @@ private fun ScannedCardsPanel(
                 }
                 Box(
                     modifier = Modifier
-                        .border(1.dp, if (scanPressed) GoldLight else GoldMuted, RoundedCornerShape(2.dp))
+                        .border(
+                            1.dp,
+                            if (scanPressed) GoldLight else GoldMuted,
+                            RoundedCornerShape(2.dp)
+                        )
                         .background(if (scanPressed) GoldDark.copy(alpha = 0.35f) else Color.Transparent)
                         .clickable(
                             interactionSource = scanInteraction,
@@ -402,7 +469,10 @@ private fun ScannedCardsPanel(
                         )
                         .padding(horizontal = 16.dp, vertical = 6.dp),
                 ) {
-                    Text(buttonLabel, style = Typography.labelLarge.copy(color = if (scanPressed) GoldLight else buttonColor))
+                    Text(
+                        buttonLabel,
+                        style = Typography.labelLarge.copy(color = if (scanPressed) GoldLight else buttonColor)
+                    )
                 }
             } else {
                 // Auto mode: show current watch status
@@ -421,18 +491,44 @@ private fun ScannedCardsPanel(
             }
         }
 
-        // Add to collection button (only visible when there are scanned cards)
-        if (cards.isNotEmpty()) {
-            Box(
+        // Action buttons row
+        if (cards.isNotEmpty() || scanLogSize > 0) {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
-                    .border(1.dp, GoldPrimary, RoundedCornerShape(2.dp))
-                    .clickable(onClick = onAddToCollection)
-                    .padding(vertical = 8.dp),
-                contentAlignment = Alignment.Center,
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text("ADD TO COLLECTION", style = Typography.labelLarge.copy(color = GoldPrimary))
+                if (cards.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .border(1.dp, GoldPrimary, RoundedCornerShape(2.dp))
+                            .clickable(onClick = onAddToCollection)
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            "ADD TO COLLECTION",
+                            style = Typography.labelLarge.copy(color = GoldPrimary)
+                        )
+                    }
+                }
+                if (scanLogSize > 0) {
+                    Box(
+                        modifier = Modifier
+                            .then(if (cards.isEmpty()) Modifier.fillMaxWidth() else Modifier)
+                            .border(1.dp, GoldMuted, RoundedCornerShape(2.dp))
+                            .clickable(onClick = onExportScanLog)
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            "EXPORT ($scanLogSize)",
+                            style = Typography.labelLarge.copy(color = GoldMuted)
+                        )
+                    }
+                }
             }
         }
 
@@ -448,7 +544,8 @@ private fun ScannedCardsPanel(
                     count = entry.count,
                     isSelected = selectedCardName == entry.card.name,
                     onToggle = {
-                        selectedCardName = if (selectedCardName == entry.card.name) null else entry.card.name
+                        selectedCardName =
+                            if (selectedCardName == entry.card.name) null else entry.card.name
                     },
                     onLongPress = { onCardClick(entry.card.name) },
                     onIncrement = { onIncrement(entry.card.name) },
@@ -481,10 +578,13 @@ private fun ScanDebugOverlay(debugInfo: ScanDebugInfo, modifier: Modifier = Modi
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            text = "COSTS DETECTED  ${debugInfo.costCandidates.sorted().joinToString(" ").ifEmpty { "none" }}",
+            text = "COSTS DETECTED  ${
+                debugInfo.costCandidates.sorted().joinToString(" ").ifEmpty { "none" }
+            }",
             style = Typography.labelSmall.copy(color = GoldMuted),
         )
-        val scoreColor = if (debugInfo.bestScore >= ScanViewModel.SCORE_THRESHOLD) GoldLight else CreamFaded
+        val scoreColor =
+            if (debugInfo.bestScore >= ScanViewModel.SCORE_THRESHOLD) GoldLight else CreamFaded
         Text(
             text = "BEST  ${debugInfo.bestCardName ?: "—"}  (${debugInfo.bestScore})",
             style = Typography.labelSmall.copy(color = scoreColor),
@@ -625,10 +725,21 @@ private fun previewScannedCards() = listOf(
     ),
     ScannedEntry(
         card = CardEntity(
-            name = "Ruby Core Werewolf", primarySlug = "ruby-core-werewolf-alpha", elements = "Fire",
-            subTypes = "Beast", cardType = "Minion", rarity = "Ordinary", cost = 4,
-            attack = 4, defence = 3, life = null, rulesText = "",
-            airThreshold = 0, earthThreshold = 0, fireThreshold = 1, waterThreshold = 0,
+            name = "Ruby Core Werewolf",
+            primarySlug = "ruby-core-werewolf-alpha",
+            elements = "Fire",
+            subTypes = "Beast",
+            cardType = "Minion",
+            rarity = "Ordinary",
+            cost = 4,
+            attack = 4,
+            defence = 3,
+            life = null,
+            rulesText = "",
+            airThreshold = 0,
+            earthThreshold = 0,
+            fireThreshold = 1,
+            waterThreshold = 0,
         ),
         count = 1,
     ),
