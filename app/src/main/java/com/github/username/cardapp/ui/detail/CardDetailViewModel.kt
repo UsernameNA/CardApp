@@ -7,7 +7,6 @@ import androidx.navigation.toRoute
 import com.github.username.cardapp.CardDetail
 import com.github.username.cardapp.data.CardRepository
 import com.github.username.cardapp.data.FaqEntry
-import com.github.username.cardapp.data.PriceInfo
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CardVariantEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -34,7 +34,8 @@ class CardDetailViewModel @Inject constructor(
     val variants: StateFlow<List<CardVariantEntity>> = repository.getVariantsByCardName(cardName)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val prices: StateFlow<Map<String, PriceInfo>> = repository.prices
+    val prices: StateFlow<Map<String, Double>> = repository.priceMap
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     private val _faqs = MutableStateFlow<List<FaqEntry>>(emptyList())
     val faqs: StateFlow<List<FaqEntry>> = _faqs.asStateFlow()

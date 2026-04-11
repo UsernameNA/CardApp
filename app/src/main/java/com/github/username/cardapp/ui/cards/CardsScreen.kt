@@ -52,6 +52,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.github.username.cardapp.data.local.CardEntity
+import com.github.username.cardapp.data.local.CardWithPrice
 import com.github.username.cardapp.ui.common.CardFilterState
 import com.github.username.cardapp.ui.common.NoFilterResults
 import com.github.username.cardapp.ui.common.SearchFilterBar
@@ -74,6 +75,7 @@ fun CardsScreen(onCardClick: (String) -> Unit = {}, vm: CardsViewModel = hiltVie
     val syncState by vm.syncState.collectAsState()
     val filterState by vm.filterState.collectAsState()
     val collectedQuantities by vm.collectedQuantities.collectAsState()
+    val sets by vm.sets.collectAsState()
 
     val gridState = rememberLazyGridState()
     // Scroll key: everything except filtersExpanded
@@ -99,6 +101,7 @@ fun CardsScreen(onCardClick: (String) -> Unit = {}, vm: CardsViewModel = hiltVie
             SearchFilterBar(
                 state = filterState,
                 onUpdate = { newState -> vm.updateFilter { newState } },
+                availableSets = sets.map { it.name },
             )
             when (val state = syncState) {
                 is SyncState.Complete, is SyncState.Idle -> {
@@ -165,7 +168,7 @@ private fun CardsHeader(
 
 @Composable
 private fun CardGrid(
-    cards: List<CardEntity>,
+    cards: List<CardWithPrice>,
     collectedQuantities: Map<String, Int> = emptyMap(),
     gridState: androidx.compose.foundation.lazy.grid.LazyGridState = rememberLazyGridState(),
     onCardClick: (String) -> Unit = {},
@@ -183,8 +186,8 @@ private fun CardGrid(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        items(cards, key = { it.name }) { card ->
-            CardTile(card, collected = collectedQuantities[card.name] ?: 0, onClick = { onCardClick(card.name) })
+        items(cards, key = { it.card.name }) { cwp ->
+            CardTile(cwp.card, collected = collectedQuantities[cwp.card.name] ?: 0, onClick = { onCardClick(cwp.card.name) })
         }
     }
 }
@@ -364,9 +367,9 @@ private fun CatalogueLoadingState(state: SyncState) {
 @Composable
 private fun CardListGridPreview() {
     val fakeCards = listOf(
-        CardEntity(name = "Ember Drake", primarySlug = "alp-ember_drake-b-s", elements = "Fire", subTypes = "", cardType = "Minion", rarity = "Exceptional", cost = 3, attack = 2, defence = 1, life = null, rulesText = "", airThreshold = 0, earthThreshold = 0, fireThreshold = 2, waterThreshold = 0),
-        CardEntity(name = "Tide Caller", primarySlug = "alp-tide_caller-b-s", elements = "Water", subTypes = "", cardType = "Spell", rarity = "Ordinary", cost = 2, attack = 0, defence = 0, life = null, rulesText = "", airThreshold = 0, earthThreshold = 0, fireThreshold = 0, waterThreshold = 2),
-        CardEntity(name = "Iron Sentinel", primarySlug = "alp-iron_sentinel-b-s", elements = "Earth", subTypes = "Guardian", cardType = "Minion", rarity = "Unique", cost = 5, attack = 4, defence = 4, life = null, rulesText = "", airThreshold = 0, earthThreshold = 3, fireThreshold = 0, waterThreshold = 0),
+        CardWithPrice(card = CardEntity(name = "Ember Drake", primarySlug = "alp-ember_drake-b-s", elements = "Fire", subTypes = "", cardType = "Minion", rarity = "Exceptional", cost = 3, attack = 2, defence = 1, life = null, rulesText = "", airThreshold = 0, earthThreshold = 0, fireThreshold = 2, waterThreshold = 0), marketPrice = 5.0, lowPrice = 4.0),
+        CardWithPrice(card = CardEntity(name = "Tide Caller", primarySlug = "alp-tide_caller-b-s", elements = "Water", subTypes = "", cardType = "Spell", rarity = "Ordinary", cost = 2, attack = 0, defence = 0, life = null, rulesText = "", airThreshold = 0, earthThreshold = 0, fireThreshold = 0, waterThreshold = 2), marketPrice = 1.0, lowPrice = 0.8),
+        CardWithPrice(card = CardEntity(name = "Iron Sentinel", primarySlug = "alp-iron_sentinel-b-s", elements = "Earth", subTypes = "Guardian", cardType = "Minion", rarity = "Unique", cost = 5, attack = 4, defence = 4, life = null, rulesText = "", airThreshold = 0, earthThreshold = 3, fireThreshold = 0, waterThreshold = 0), marketPrice = 20.0, lowPrice = 18.0),
     )
     CardAppTheme {
         Box(

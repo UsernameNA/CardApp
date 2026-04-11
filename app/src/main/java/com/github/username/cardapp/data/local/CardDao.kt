@@ -4,7 +4,9 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.RawQuery
 import androidx.room.Transaction
+import androidx.sqlite.db.SupportSQLiteQuery
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -14,13 +16,22 @@ interface CardDao {
     fun getAllCards(): Flow<List<CardEntity>>
 
     @Query("SELECT * FROM sets ORDER BY releaseOrder ASC")
-    suspend fun getAllSets(): List<SetEntity>
+    fun getAllSets(): Flow<List<SetEntity>>
 
     @Query("SELECT COUNT(*) FROM cards")
     suspend fun getCardCount(): Int
 
+    @Query("SELECT COUNT(*) FROM cards")
+    fun observeCardCount(): Flow<Int>
+
     @Query("SELECT * FROM cards WHERE name = :name LIMIT 1")
     fun getCardByName(name: String): Flow<CardEntity?>
+
+    @RawQuery(observedEntities = [CardEntity::class, PriceEntity::class])
+    fun filteredCards(query: SupportSQLiteQuery): Flow<List<CardWithPrice>>
+
+    @RawQuery(observedEntities = [CardEntity::class, PriceEntity::class, CollectionEntryEntity::class])
+    fun filteredCollectionCards(query: SupportSQLiteQuery): Flow<List<CollectionCardWithPrice>>
 
     @Query("SELECT * FROM variants WHERE cardName = :cardName ORDER BY setName, finish")
     fun getVariantsByCardName(cardName: String): Flow<List<CardVariantEntity>>
@@ -97,4 +108,12 @@ interface CardDao {
         val deleted = deleteCollectionEntryIfSingle(cardName)
         if (deleted == 0) decrementCollectionEntry(cardName)
     }
+
+    // --- Prices ---
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertPrices(prices: List<PriceEntity>)
+
+    @Query("SELECT * FROM prices")
+    fun getAllPrices(): Flow<List<PriceEntity>>
 }

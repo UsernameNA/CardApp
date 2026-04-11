@@ -13,12 +13,14 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview as CameraPreview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +28,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -42,6 +45,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,15 +56,18 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -69,16 +76,22 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import coil.compose.AsyncImage
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
-import com.github.username.cardapp.data.PriceInfo
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.ui.common.CardRow
+import com.github.username.cardapp.ui.theme.BurgundyAccent
 import com.github.username.cardapp.ui.theme.CardAppTheme
 import com.github.username.cardapp.ui.theme.CreamFaded
+import com.github.username.cardapp.ui.theme.CreamMuted
+import com.github.username.cardapp.ui.theme.CreamPrimary
 import com.github.username.cardapp.ui.theme.GoldDark
 import com.github.username.cardapp.ui.theme.GoldLight
 import com.github.username.cardapp.ui.theme.GoldMuted
 import com.github.username.cardapp.ui.theme.GoldPrimary
+import com.github.username.cardapp.ui.theme.LeatherDark
 import com.github.username.cardapp.ui.theme.LeatherDeep
 import com.github.username.cardapp.ui.theme.LeatherMid
 import com.github.username.cardapp.ui.theme.Typography
@@ -95,6 +108,9 @@ fun ScanScreen(
     val scanMode by vm.scanMode.collectAsState()
     val debugInfo by vm.debugInfo.collectAsState()
     val prices by vm.prices.collectAsState()
+    val lastScanCard by vm.lastScanCard.collectAsState()
+    val unmatchedScan by vm.unmatchedScan.collectAsState()
+    val correctionResults by vm.correctionResults.collectAsState()
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -127,7 +143,6 @@ fun ScanScreen(
         scannedCards = scannedCards,
         scanStatus = scanStatus,
         scanMode = scanMode,
-        debugInfo = debugInfo,
         prices = prices,
         scanLogSize = vm.scanLogSize,
         hasCameraPermission = hasCameraPermission,
@@ -147,6 +162,13 @@ fun ScanScreen(
             }
             context.startActivity(Intent.createChooser(intent, "Export Scan Log"))
         },
+        lastScanCard = lastScanCard,
+        unmatchedScan = unmatchedScan,
+        correctionResults = correctionResults,
+        latestTop3 = debugInfo?.top3 ?: emptyList(),
+        onCorrectLastScan = vm::correctLastScan,
+        onCorrectionOpenChanged = { vm.correctionOpen = it },
+        onCorrectionQueryChanged = vm::updateCorrectionQuery,
         onRequestPermission = { permissionLauncher.launch(Manifest.permission.CAMERA) },
         cameraContent = {
             CameraPreviewSurface(
@@ -162,8 +184,7 @@ private fun ScanScreenContent(
     scannedCards: List<ScannedEntry>,
     scanStatus: ScanStatus,
     scanMode: ScanMode,
-    debugInfo: ScanDebugInfo?,
-    prices: Map<String, PriceInfo> = emptyMap(),
+    prices: Map<String, Double> = emptyMap(),
     scanLogSize: Int = 0,
     hasCameraPermission: Boolean,
     onBack: () -> Unit,
@@ -174,6 +195,13 @@ private fun ScanScreenContent(
     onDecrement: (String) -> Unit,
     onAddToCollection: () -> Unit,
     onExportScanLog: () -> Unit = {},
+    lastScanCard: CardEntity? = null,
+    unmatchedScan: Boolean = false,
+    correctionResults: List<CardEntity> = emptyList(),
+    latestTop3: List<ScanCandidate> = emptyList(),
+    onCorrectLastScan: (String) -> Unit = {},
+    onCorrectionOpenChanged: (Boolean) -> Unit = {},
+    onCorrectionQueryChanged: (String) -> Unit = {},
     onRequestPermission: () -> Unit,
     cameraContent: @Composable () -> Unit,
 ) {
@@ -193,16 +221,20 @@ private fun ScanScreenContent(
             )
         }
 
-        // Layer 3: Debug overlay (shown after any scan attempt)
-        if (debugInfo != null) {
-            ScanDebugOverlay(
-                debugInfo = debugInfo,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .statusBarsPadding()
-                    .padding(start = 56.dp, end = 16.dp, top = 8.dp),
-            )
-        }
+        // Layer 3: Scan result overlay (replaces debug overlay)
+        ScanResultOverlay(
+            lastScanCard = lastScanCard,
+            unmatchedScan = unmatchedScan,
+            top3 = latestTop3,
+            correctionResults = correctionResults,
+            onCorrect = onCorrectLastScan,
+            onCorrectionOpenChanged = onCorrectionOpenChanged,
+            onCorrectionQueryChanged = onCorrectionQueryChanged,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = 8.dp, start = 56.dp, end = 16.dp),
+        )
 
         // Layer 4: Bottom panel
         ScannedCardsPanel(
@@ -211,6 +243,7 @@ private fun ScanScreenContent(
             scanMode = scanMode,
             prices = prices,
             scanLogSize = scanLogSize,
+            lastScanCardName = lastScanCard?.name,
             onCardClick = onCardClick,
             onScanTap = onScanTap,
             onToggleScanMode = onToggleScanMode,
@@ -225,18 +258,26 @@ private fun ScanScreenContent(
         )
 
         // Layer 5: Back button
+        val backInteraction = remember { MutableInteractionSource() }
+        val backPressed by backInteraction.collectIsPressedAsState()
         Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .statusBarsPadding()
                 .padding(8.dp)
                 .size(40.dp)
-                .clickable(onClick = onBack),
+                .clickable(
+                    interactionSource = backInteraction,
+                    indication = null,
+                    onClick = onBack,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = "\u2190",
-                style = Typography.titleLarge.copy(color = GoldPrimary),
+                style = Typography.titleLarge.copy(
+                    color = if (backPressed) GoldLight else GoldPrimary,
+                ),
             )
         }
     }
@@ -373,7 +414,7 @@ private fun ScannedCardsPanel(
     scanStatus: ScanStatus,
     scanMode: ScanMode,
     modifier: Modifier = Modifier,
-    prices: Map<String, PriceInfo> = emptyMap(),
+    prices: Map<String, Double> = emptyMap(),
     scanLogSize: Int = 0,
     onCardClick: (String) -> Unit = {},
     onScanTap: () -> Unit = {},
@@ -382,8 +423,10 @@ private fun ScannedCardsPanel(
     onDecrement: (String) -> Unit = {},
     onAddToCollection: () -> Unit = {},
     onExportScanLog: () -> Unit = {},
+    lastScanCardName: String? = null,
 ) {
     var selectedCardName by remember { mutableStateOf<String?>(null) }
+
     Column(
         modifier = modifier
             .background(LeatherMid.copy(alpha = 0.93f))
@@ -422,20 +465,28 @@ private fun ScannedCardsPanel(
 
             // AUTO mode toggle
             val autoActive = scanMode == ScanMode.Auto
+            val autoInteraction = remember { MutableInteractionSource() }
+            val autoPressed by autoInteraction.collectIsPressedAsState()
             Box(
                 modifier = Modifier
                     .border(
                         1.dp,
-                        if (autoActive) GoldPrimary else GoldDark,
-                        RoundedCornerShape(2.dp)
+                        if (autoPressed) GoldLight else if (autoActive) GoldPrimary else GoldDark,
+                        RoundedCornerShape(2.dp),
                     )
-                    .background(if (autoActive) GoldDark.copy(alpha = 0.35f) else Color.Transparent)
-                    .clickable(onClick = onToggleScanMode)
+                    .background(if (autoPressed || autoActive) GoldDark.copy(alpha = 0.35f) else Color.Transparent)
+                    .clickable(
+                        interactionSource = autoInteraction,
+                        indication = null,
+                        onClick = onToggleScanMode,
+                    )
                     .padding(horizontal = 10.dp, vertical = 6.dp),
             ) {
                 Text(
                     "AUTO",
-                    style = Typography.labelLarge.copy(color = if (autoActive) GoldPrimary else GoldDark)
+                    style = Typography.labelLarge.copy(
+                        color = if (autoPressed) GoldLight else if (autoActive) GoldPrimary else GoldDark,
+                    ),
                 )
             }
 
@@ -500,32 +551,58 @@ private fun ScannedCardsPanel(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 if (cards.isNotEmpty()) {
+                    val addInteraction = remember { MutableInteractionSource() }
+                    val addPressed by addInteraction.collectIsPressedAsState()
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .border(1.dp, GoldPrimary, RoundedCornerShape(2.dp))
-                            .clickable(onClick = onAddToCollection)
+                            .border(
+                                1.dp,
+                                if (addPressed) GoldLight else GoldPrimary,
+                                RoundedCornerShape(2.dp),
+                            )
+                            .background(if (addPressed) GoldDark.copy(alpha = 0.35f) else Color.Transparent)
+                            .clickable(
+                                interactionSource = addInteraction,
+                                indication = null,
+                                onClick = onAddToCollection,
+                            )
                             .padding(vertical = 8.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             "ADD TO COLLECTION",
-                            style = Typography.labelLarge.copy(color = GoldPrimary)
+                            style = Typography.labelLarge.copy(
+                                color = if (addPressed) GoldLight else GoldPrimary,
+                            ),
                         )
                     }
                 }
                 if (scanLogSize > 0) {
+                    val exportInteraction = remember { MutableInteractionSource() }
+                    val exportPressed by exportInteraction.collectIsPressedAsState()
                     Box(
                         modifier = Modifier
                             .then(if (cards.isEmpty()) Modifier.fillMaxWidth() else Modifier)
-                            .border(1.dp, GoldMuted, RoundedCornerShape(2.dp))
-                            .clickable(onClick = onExportScanLog)
+                            .border(
+                                1.dp,
+                                if (exportPressed) GoldLight else GoldMuted,
+                                RoundedCornerShape(2.dp),
+                            )
+                            .background(if (exportPressed) GoldDark.copy(alpha = 0.35f) else Color.Transparent)
+                            .clickable(
+                                interactionSource = exportInteraction,
+                                indication = null,
+                                onClick = onExportScanLog,
+                            )
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             "EXPORT ($scanLogSize)",
-                            style = Typography.labelLarge.copy(color = GoldMuted)
+                            style = Typography.labelLarge.copy(
+                                color = if (exportPressed) GoldLight else GoldMuted,
+                            ),
                         )
                     }
                 }
@@ -534,11 +611,11 @@ private fun ScannedCardsPanel(
 
         // Scanned cards list (newest first)
         val listState = rememberLazyListState()
-        LaunchedEffect(cards.size) {
+        LaunchedEffect(lastScanCardName, cards.size) {
             if (cards.isNotEmpty()) listState.animateScrollToItem(0)
         }
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-            itemsIndexed(cards.reversed(), key = { _, entry -> entry.card.name }) { _, entry ->
+            itemsIndexed(cards, key = { _, entry -> entry.card.name }) { _, entry ->
                 CardRow(
                     card = entry.card,
                     count = entry.count,
@@ -553,7 +630,7 @@ private fun ScannedCardsPanel(
                         if (entry.count <= 1) selectedCardName = null
                         onDecrement(entry.card.name)
                     },
-                    marketPrice = prices[entry.card.name]?.marketPrice,
+                    marketPrice = prices[entry.card.name],
                 )
                 HorizontalDivider(color = GoldDark.copy(alpha = 0.25f), thickness = 0.5.dp)
             }
@@ -562,33 +639,108 @@ private fun ScannedCardsPanel(
 }
 
 @Composable
-private fun ScanDebugOverlay(debugInfo: ScanDebugInfo, modifier: Modifier = Modifier) {
+private fun ScanResultOverlay(
+    lastScanCard: CardEntity?,
+    unmatchedScan: Boolean,
+    top3: List<ScanCandidate>,
+    correctionResults: List<CardEntity>,
+    onCorrect: (String) -> Unit,
+    onCorrectionOpenChanged: (Boolean) -> Unit,
+    onCorrectionQueryChanged: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Track whether a scan result is active (matched or unmatched)
+    val hasResult = lastScanCard != null || unmatchedScan
+    var correctionExpanded by remember { mutableStateOf(false) }
+    val overlayAlpha = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+
+    // Each new scan: pop in, auto-fade after delay
+    LaunchedEffect(lastScanCard, unmatchedScan) {
+        if (hasResult) {
+            correctionExpanded = false
+            onCorrectionOpenChanged(false)
+            overlayAlpha.snapTo(1f)
+            delay(3000)
+            if (!correctionExpanded) {
+                overlayAlpha.animateTo(0f, tween(500))
+            }
+        } else {
+            overlayAlpha.snapTo(0f)
+        }
+    }
+
+    if (overlayAlpha.value == 0f && !hasResult) return
+
+    val overlayInteraction = remember { MutableInteractionSource() }
+    val overlayPressed by overlayInteraction.collectIsPressedAsState()
     Column(
         modifier = modifier
-            .background(LeatherDeep.copy(alpha = 0.85f), RoundedCornerShape(4.dp))
-            .border(0.5.dp, GoldDark.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+            .fillMaxWidth()
+            .graphicsLayer { alpha = overlayAlpha.value }
+            .background(
+                if (overlayPressed) LeatherMid.copy(alpha = 0.95f)
+                else LeatherDeep.copy(alpha = 0.9f),
+                RoundedCornerShape(4.dp),
+            )
+            .border(
+                0.5.dp,
+                if (overlayPressed) GoldMuted else GoldDark.copy(alpha = 0.4f),
+                RoundedCornerShape(4.dp),
+            )
+            .clickable(
+                interactionSource = overlayInteraction,
+                indication = null,
+            ) {
+                correctionExpanded = !correctionExpanded
+                onCorrectionOpenChanged(correctionExpanded)
+                if (correctionExpanded) {
+                    scope.launch { overlayAlpha.snapTo(1f) }
+                }
+            }
+            .padding(10.dp),
     ) {
-        Text("OCR TEXT", style = Typography.labelSmall.copy(color = GoldMuted))
-        Text(
-            text = debugInfo.rawText.take(200).replace('\n', ' '),
-            style = Typography.bodySmall.copy(color = CreamFaded),
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = "COSTS DETECTED  ${
-                debugInfo.costCandidates.sorted().joinToString(" ").ifEmpty { "none" }
-            }",
-            style = Typography.labelSmall.copy(color = GoldMuted),
-        )
-        val scoreColor =
-            if (debugInfo.bestScore >= ScanViewModel.SCORE_THRESHOLD) GoldLight else CreamFaded
-        Text(
-            text = "BEST  ${debugInfo.bestCardName ?: "—"}  (${debugInfo.bestScore})",
-            style = Typography.labelSmall.copy(color = scoreColor),
-        )
+        if (lastScanCard != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                AsyncImage(
+                    model = "file:///android_asset/images/${lastScanCard.primarySlug}.webp",
+                    contentDescription = lastScanCard.name,
+                    modifier = Modifier
+                        .size(width = 48.dp, height = 67.dp)
+                        .border(0.5.dp, GoldDark, RoundedCornerShape(2.dp)),
+                )
+                Column {
+                    Text(
+                        text = lastScanCard.name.uppercase(),
+                        style = Typography.labelMedium.copy(color = CreamPrimary),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = "Tap to correct",
+                        style = Typography.labelSmall.copy(color = GoldMuted),
+                    )
+                }
+            }
+        } else {
+            Text(
+                text = "NO MATCH \u2014 tap to correct",
+                style = Typography.labelMedium.copy(color = BurgundyAccent),
+            )
+        }
+
+        AnimatedVisibility(visible = correctionExpanded) {
+            CorrectionPanel(
+                top3 = top3,
+                correctionResults = correctionResults,
+                currentCardName = lastScanCard?.name,
+                onCorrect = onCorrect,
+                onQueryChanged = onCorrectionQueryChanged,
+            )
+        }
     }
 }
 
@@ -617,15 +769,28 @@ private fun PermissionDeniedContent(
             ),
         )
         Spacer(Modifier.height(24.dp))
+        val permInteraction = remember { MutableInteractionSource() }
+        val permPressed by permInteraction.collectIsPressedAsState()
         Box(
             modifier = Modifier
-                .border(1.dp, GoldMuted, RoundedCornerShape(2.dp))
-                .clickable(onClick = onRequestAgain)
+                .border(
+                    1.dp,
+                    if (permPressed) GoldLight else GoldMuted,
+                    RoundedCornerShape(2.dp),
+                )
+                .background(if (permPressed) GoldDark.copy(alpha = 0.35f) else Color.Transparent)
+                .clickable(
+                    interactionSource = permInteraction,
+                    indication = null,
+                    onClick = onRequestAgain,
+                )
                 .padding(horizontal = 20.dp, vertical = 8.dp),
         ) {
             Text(
                 text = "GRANT PERMISSION",
-                style = Typography.labelMedium.copy(color = GoldPrimary),
+                style = Typography.labelMedium.copy(
+                    color = if (permPressed) GoldLight else GoldPrimary,
+                ),
             )
         }
     }
@@ -674,6 +839,117 @@ private fun CameraPreviewSurface(onFrame: (ImageProxy) -> Unit, modifier: Modifi
     )
 }
 
+@Composable
+private fun CorrectionPanel(
+    top3: List<ScanCandidate>,
+    correctionResults: List<CardEntity>,
+    currentCardName: String?,
+    onCorrect: (String) -> Unit,
+    onQueryChanged: (String) -> Unit,
+) {
+    var searchText by remember { mutableStateOf(TextFieldValue("")) }
+    LaunchedEffect(searchText.text) {
+        if (searchText.text.length < 2) {
+            onQueryChanged("")
+        } else {
+            delay(200)
+            onQueryChanged(searchText.text)
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(LeatherDeep.copy(alpha = 0.8f))
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        // Candidate chips
+        val candidates = top3.filter { it.name != currentCardName }
+        if (candidates.isNotEmpty()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                for (candidate in candidates) {
+                    val chipInteraction = remember { MutableInteractionSource() }
+                    val chipPressed by chipInteraction.collectIsPressedAsState()
+                    Box(
+                        modifier = Modifier
+                            .border(
+                                1.dp,
+                                if (chipPressed) GoldLight else GoldMuted,
+                                RoundedCornerShape(2.dp),
+                            )
+                            .background(if (chipPressed) GoldDark.copy(alpha = 0.35f) else LeatherMid)
+                            .clickable(
+                                interactionSource = chipInteraction,
+                                indication = null,
+                            ) { onCorrect(candidate.name) }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    ) {
+                        Text(
+                            text = "${candidate.name} (${candidate.score})",
+                            style = Typography.labelSmall.copy(
+                                color = if (chipPressed) CreamPrimary else CreamMuted,
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
+
+        // Search field
+        BasicTextField(
+            value = searchText,
+            onValueChange = { searchText = it },
+            textStyle = Typography.bodyMedium.copy(color = CreamPrimary),
+            singleLine = true,
+            decorationBox = { innerTextField ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, GoldDark, RoundedCornerShape(2.dp))
+                        .background(LeatherDark, RoundedCornerShape(2.dp))
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                ) {
+                    if (searchText.text.isEmpty()) {
+                        Text(
+                            text = "Search cards\u2026",
+                            style = Typography.bodyMedium.copy(color = GoldDark),
+                        )
+                    }
+                    innerTextField()
+                }
+            },
+        )
+
+        // Search results dropdown
+        for (card in correctionResults) {
+            val resultInteraction = remember { MutableInteractionSource() }
+            val resultPressed by resultInteraction.collectIsPressedAsState()
+            Text(
+                text = card.name,
+                style = Typography.bodyMedium.copy(
+                    color = if (resultPressed) CreamPrimary else CreamMuted,
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(if (resultPressed) GoldDark.copy(alpha = 0.2f) else Color.Transparent)
+                    .clickable(
+                        interactionSource = resultInteraction,
+                        indication = null,
+                    ) { onCorrect(card.name) }
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
 @Preview(showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 private fun ScanScreenPreview() {
@@ -682,12 +958,6 @@ private fun ScanScreenPreview() {
             scannedCards = previewScannedCards(),
             scanStatus = ScanStatus.Idle,
             scanMode = ScanMode.Manual,
-            debugInfo = ScanDebugInfo(
-                rawText = "Abundance\nWhen this enters play, draw a card.",
-                costCandidates = setOf(3),
-                bestCardName = "Abundance",
-                bestScore = 135,
-            ),
             hasCameraPermission = true,
             onBack = {},
             onScanTap = {},
@@ -695,6 +965,12 @@ private fun ScanScreenPreview() {
             onIncrement = {},
             onDecrement = {},
             onAddToCollection = {},
+            lastScanCard = previewScannedCards().first().card,
+            latestTop3 = listOf(
+                ScanCandidate("Abundance", 135),
+                ScanCandidate("Ruby Core Werewolf", 42),
+                ScanCandidate("Volcanic Dragon", 31),
+            ),
             onRequestPermission = {},
             cameraContent = {
                 Box(

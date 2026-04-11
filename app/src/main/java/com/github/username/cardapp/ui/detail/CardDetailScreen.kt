@@ -80,7 +80,7 @@ fun CardDetailScreen(
             CardDetailContent(
                 card = card!!,
                 variants = variants,
-                marketPrice = prices[card!!.name]?.marketPrice,
+                marketPrice = prices[card!!.name],
                 faqs = faqs,
                 onBack = onBack,
                 onAddToCollection = vm::addToCollection,

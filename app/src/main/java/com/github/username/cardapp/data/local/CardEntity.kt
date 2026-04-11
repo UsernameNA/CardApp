@@ -20,4 +20,5 @@ data class CardEntity(
     val earthThreshold: Int,
     val fireThreshold: Int,
     val waterThreshold: Int,
+    val setNames: String = "",
 )

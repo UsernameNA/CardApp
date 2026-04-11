@@ -3,19 +3,19 @@ package com.github.username.cardapp.ui.collection
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.username.cardapp.data.CardRepository
-import com.github.username.cardapp.data.PriceInfo
 import com.github.username.cardapp.data.SortPreferences
-import com.github.username.cardapp.data.local.CollectionCardRow
+import com.github.username.cardapp.data.local.CollectionCardWithPrice
 import com.github.username.cardapp.data.local.CollectionEntryEntity
+import com.github.username.cardapp.data.local.SetEntity
 import com.github.username.cardapp.ui.common.CardFilterState
-import com.github.username.cardapp.ui.common.applyFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -26,27 +26,19 @@ class CollectionViewModel @Inject constructor(
     private val sortPreferences: SortPreferences,
 ) : ViewModel() {
 
-    val allEntries: StateFlow<List<CollectionCardRow>> = repository.collection
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
     private val _filterState = MutableStateFlow(CardFilterState())
     val filterState: StateFlow<CardFilterState> = _filterState.asStateFlow()
 
-    val entries: StateFlow<List<CollectionCardRow>> = combine(allEntries, _filterState, repository.prices) { entries, filter, priceMap ->
-        val quantityByName = entries.associate { it.card.name to it.quantity }
-        val sortedCards = entries.map { it.card }.applyFilter(filter, priceMap)
-        sortedCards.map { card -> CollectionCardRow(card, quantityByName[card.name] ?: 0) }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val entries: StateFlow<List<CollectionCardWithPrice>> = _filterState
+        .flatMapLatest { filter -> repository.filteredCollection(filter) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val totalUniqueCount: StateFlow<Int> = allEntries
-        .combine(_filterState) { entries, _ -> entries.size }
+    val totalCardCount: StateFlow<Int> = repository.totalCollectionQuantity
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
-    val prices: StateFlow<Map<String, PriceInfo>> = repository.prices
-
-    val totalCardCount: StateFlow<Int> = allEntries
-        .combine(_filterState) { entries, _ -> entries.sumOf { it.quantity } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    val sets: StateFlow<List<SetEntity>> = repository.sets
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     init {
         repository.ensureDataLoaded()

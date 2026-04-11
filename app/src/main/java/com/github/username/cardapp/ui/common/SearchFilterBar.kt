@@ -59,6 +59,7 @@ private val ELEMENTS = listOf("Fire", "Water", "Earth", "Air", "None")
 fun SearchFilterBar(
     state: CardFilterState,
     onUpdate: (CardFilterState) -> Unit,
+    availableSets: List<String> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     val focusManager = LocalFocusManager.current
@@ -134,7 +135,7 @@ fun SearchFilterBar(
             Spacer(Modifier.width(8.dp))
 
             // Filter toggle button
-            val filterActive = state.types.isNotEmpty() || state.rarities.isNotEmpty() || state.elements.isNotEmpty()
+            val filterActive = state.sets.isNotEmpty() || state.types.isNotEmpty() || state.rarities.isNotEmpty() || state.elements.isNotEmpty()
             Box(
                 modifier = Modifier
                     .height(36.dp)
@@ -193,7 +194,7 @@ fun SearchFilterBar(
             enter = expandVertically(),
             exit = shrinkVertically(),
         ) {
-            FilterPanel(state = state, onUpdate = onUpdate)
+            FilterPanel(state = state, onUpdate = onUpdate, availableSets = availableSets)
         }
 
         Spacer(Modifier.height(8.dp))
@@ -212,6 +213,11 @@ private fun ActiveFilterSummary(
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        for (s in state.sets) {
+            DismissChip(label = s) {
+                onUpdate(state.copy(sets = state.sets - s))
+            }
+        }
         for (t in state.types) {
             DismissChip(label = t) {
                 onUpdate(state.copy(types = state.types - t))
@@ -229,7 +235,7 @@ private fun ActiveFilterSummary(
         }
         if (state.hasActiveFilters) {
             DismissChip(label = "CLEAR ALL") {
-                onUpdate(state.copy(types = emptySet(), rarities = emptySet(), elements = emptySet(), query = ""))
+                onUpdate(state.copy(sets = emptySet(), types = emptySet(), rarities = emptySet(), elements = emptySet(), query = ""))
             }
         }
     }
@@ -256,6 +262,7 @@ private fun DismissChip(label: String, onDismiss: () -> Unit) {
 private fun FilterPanel(
     state: CardFilterState,
     onUpdate: (CardFilterState) -> Unit,
+    availableSets: List<String>,
 ) {
     Column(
         modifier = Modifier
@@ -273,6 +280,28 @@ private fun FilterPanel(
             }
             .padding(top = 8.dp),
     ) {
+        // Set row
+        if (availableSets.isNotEmpty()) {
+            FilterSectionLabel("SET")
+            Spacer(Modifier.height(4.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                for (setName in availableSets) {
+                    FilterChip(
+                        label = setName.uppercase(),
+                        selected = setName in state.sets,
+                        onClick = {
+                            val newSets = if (setName in state.sets) state.sets - setName else state.sets + setName
+                            onUpdate(state.copy(sets = newSets))
+                        },
+                    )
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+
         // Type row
         FilterSectionLabel("TYPE")
         Spacer(Modifier.height(4.dp))

@@ -35,9 +35,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.github.username.cardapp.data.PriceInfo
 import com.github.username.cardapp.data.local.CardEntity
-import com.github.username.cardapp.data.local.CollectionCardRow
+import com.github.username.cardapp.data.local.CollectionCardWithPrice
 import com.github.username.cardapp.ui.common.CardFilterState
 import com.github.username.cardapp.ui.common.CardRow
 import com.github.username.cardapp.ui.common.NoFilterResults
@@ -54,10 +53,9 @@ import com.github.username.cardapp.ui.theme.leatherBackground
 @Composable
 fun CollectionScreen(onCardClick: (String) -> Unit = {}, vm: CollectionViewModel = hiltViewModel()) {
     val entries by vm.entries.collectAsState()
-    val allEntries by vm.allEntries.collectAsState()
     val filterState by vm.filterState.collectAsState()
     val totalCards by vm.totalCardCount.collectAsState()
-    val prices by vm.prices.collectAsState()
+    val sets by vm.sets.collectAsState()
     val context = LocalContext.current
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
@@ -71,14 +69,14 @@ fun CollectionScreen(onCardClick: (String) -> Unit = {}, vm: CollectionViewModel
         entries = entries,
         filterState = filterState,
         totalCards = totalCards,
-        prices = prices,
+        availableSets = sets.map { it.name },
         onUpdateFilter = { newState -> vm.updateFilter { newState } },
         onIncrement = { vm.increment(it) },
         onDecrement = { vm.decrement(it) },
         onCardClick = onCardClick,
         onImport = { importLauncher.launch("text/*") },
         onExport = {
-            val text = allEntries
+            val text = entries
                 .sortedBy { it.card.name }
                 .joinToString("\n") { "${it.quantity} ${it.card.name}" }
             val intent = Intent(Intent.ACTION_SEND).apply {
@@ -93,10 +91,10 @@ fun CollectionScreen(onCardClick: (String) -> Unit = {}, vm: CollectionViewModel
 
 @Composable
 private fun CollectionScreenContent(
-    entries: List<CollectionCardRow>,
+    entries: List<CollectionCardWithPrice>,
     filterState: CardFilterState = CardFilterState(),
     totalCards: Int = entries.sumOf { it.quantity },
-    prices: Map<String, PriceInfo> = emptyMap(),
+    availableSets: List<String> = emptyList(),
     onUpdateFilter: (CardFilterState) -> Unit = {},
     onIncrement: (String) -> Unit = {},
     onDecrement: (String) -> Unit = {},
@@ -116,7 +114,7 @@ private fun CollectionScreenContent(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             val totalValue = entries.sumOf { entry ->
-                val price = prices[entry.card.name]?.marketPrice ?: 0.0
+                val price = entry.marketPrice ?: 0.0
                 price * entry.quantity
             }
             CollectionHeader(
@@ -131,6 +129,7 @@ private fun CollectionScreenContent(
             SearchFilterBar(
                 state = filterState,
                 onUpdate = onUpdateFilter,
+                availableSets = availableSets,
             )
             if (entries.isEmpty() && filterState.hasActiveFilters) {
                 NoFilterResults(onClear = { onUpdateFilter(CardFilterState()) })
@@ -156,7 +155,7 @@ private fun CollectionScreenContent(
                                 if (entry.quantity <= 1) selectedCardName = null
                                 onDecrement(entry.card.name)
                             },
-                            marketPrice = prices[entry.card.name]?.marketPrice,
+                            marketPrice = entry.marketPrice,
                         )
                         HorizontalDivider(color = GoldDark.copy(alpha = 0.25f), thickness = 0.5.dp)
                     }
@@ -252,17 +251,23 @@ private fun EmptyCollectionMessage() {
 @Composable
 private fun CollectionListPreview() {
     val fakeEntries = listOf(
-        CollectionCardRow(
+        CollectionCardWithPrice(
             card = CardEntity(name = "Abundance", primarySlug = "abundance-alpha", elements = "Earth", subTypes = "", cardType = "Spell", rarity = "Elite", cost = 3, attack = 0, defence = 0, life = null, rulesText = "", airThreshold = 0, earthThreshold = 2, fireThreshold = 0, waterThreshold = 0),
             quantity = 2,
+            marketPrice = 5.0,
+            lowPrice = 4.0,
         ),
-        CollectionCardRow(
+        CollectionCardWithPrice(
             card = CardEntity(name = "Ruby Core Werewolf", primarySlug = "ruby-core-werewolf-alpha", elements = "Fire", subTypes = "Beast", cardType = "Minion", rarity = "Ordinary", cost = 4, attack = 4, defence = 3, life = null, rulesText = "", airThreshold = 0, earthThreshold = 0, fireThreshold = 1, waterThreshold = 0),
             quantity = 1,
+            marketPrice = 1.0,
+            lowPrice = 0.8,
         ),
-        CollectionCardRow(
+        CollectionCardWithPrice(
             card = CardEntity(name = "Volcanic Dragon", primarySlug = "volcanic-dragon-alpha", elements = "Fire", subTypes = "Dragon", cardType = "Minion", rarity = "Unique", cost = 8, attack = 7, defence = 7, life = null, rulesText = "", airThreshold = 0, earthThreshold = 0, fireThreshold = 3, waterThreshold = 0),
             quantity = 3,
+            marketPrice = 20.0,
+            lowPrice = 18.0,
         ),
     )
     CardAppTheme {

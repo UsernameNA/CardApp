@@ -2,6 +2,8 @@ package com.github.username.cardapp.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.github.username.cardapp.data.local.AppDatabase
 import com.github.username.cardapp.data.local.CardDao
 import com.github.username.cardapp.data.remote.SorceryApi
@@ -33,10 +35,34 @@ object AppModule {
     @Singleton
     fun provideJson(): Json = Json { ignoreUnknownKeys = true }
 
+    private val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE cards ADD COLUMN setNames TEXT NOT NULL DEFAULT ''")
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS prices (
+                    cardName TEXT NOT NULL PRIMARY KEY,
+                    marketPrice REAL,
+                    lowPrice REAL
+                )
+            """)
+            db.execSQL("""
+                UPDATE cards SET setNames = COALESCE(
+                    (SELECT ',' || GROUP_CONCAT(DISTINCT setName) || ',' FROM variants WHERE variants.cardName = cards.name),
+                    ''
+                )
+            """)
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_cards_cardType ON cards (cardType)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_cards_rarity ON cards (rarity)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_variants_cardName ON variants (cardName)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_variants_setName ON variants (setName)")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "cardapp.db")
+            .addMigrations(MIGRATION_4_5)
             .fallbackToDestructiveMigration(true)
             .build()
 

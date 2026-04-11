@@ -5,18 +5,19 @@ import android.util.Log
 import com.github.username.cardapp.data.local.CardDao
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CardVariantEntity
-import com.github.username.cardapp.data.local.CollectionCardRow
+import com.github.username.cardapp.data.local.CardWithPrice
+import com.github.username.cardapp.data.local.CollectionCardWithPrice
 import com.github.username.cardapp.data.local.CollectionEntryEntity
+import com.github.username.cardapp.data.local.PriceEntity
 import com.github.username.cardapp.data.local.SetEntity
 import com.github.username.cardapp.data.model.CardJson
 import com.github.username.cardapp.data.remote.SorceryApi
+import com.github.username.cardapp.ui.common.CardFilterState
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -34,11 +35,21 @@ class CardRepositoryImpl @Inject constructor(
     private val appScope: CoroutineScope,
 ) : CardRepository {
 
-    override val cards = dao.getAllCards()
-    override val collection: Flow<List<CollectionCardRow>> = dao.getCollectionEntries()
+    override fun filteredCards(filter: CardFilterState): Flow<List<CardWithPrice>> =
+        dao.filteredCards(FilterQueryBuilder.build(filter, collection = false))
 
-    private val _prices = MutableStateFlow<Map<String, PriceInfo>>(emptyMap())
-    override val prices: StateFlow<Map<String, PriceInfo>> = _prices.asStateFlow()
+    override fun filteredCollection(filter: CardFilterState): Flow<List<CollectionCardWithPrice>> =
+        dao.filteredCollectionCards(FilterQueryBuilder.build(filter, collection = true))
+
+    override val sets: Flow<List<SetEntity>> = dao.getAllSets()
+
+    override val priceMap: Flow<Map<String, Double>> = dao.getAllPrices()
+        .map { list -> list.mapNotNull { p -> p.marketPrice?.let { p.cardName to it } }.toMap() }
+
+    override val totalCardCount: Flow<Int> = dao.observeCardCount()
+
+    override val totalCollectionQuantity: Flow<Int> = dao.getCollectionEntries()
+        .map { entries -> entries.sumOf { it.quantity } }
 
     private val ensureDataOnce by lazy {
         appScope.launch {
@@ -87,12 +98,11 @@ class CardRepositoryImpl @Inject constructor(
         cache[cardName].orEmpty()
     }
 
-    override suspend fun loadPrices() = withContext(Dispatchers.IO) {
-        if (_prices.value.isNotEmpty()) return@withContext
+    override suspend fun loadPrices(): Unit = withContext(Dispatchers.IO) {
         try {
             val raw = context.assets.open("prices.json").bufferedReader().use { it.readText() }
             val data = json.decodeFromString<PricesJson>(raw)
-            val map = mutableMapOf<String, PriceInfo>()
+            val map = mutableMapOf<String, PriceEntity>()
             val promoSets = setOf("dust reward promos", "arthurian legends promo")
             for (entry in data.cards) {
                 val name = entry.productName ?: continue
@@ -100,19 +110,17 @@ class CardRepositoryImpl @Inject constructor(
                 val isPromo = entry.setName?.lowercase() in promoSets
                 val existing = map[name]
                 if (existing == null ||
-                    (existing.isPromo && !isPromo) ||
-                    (!isPromo && market < existing.marketPrice) ||
-                    (isPromo && existing.isPromo && market < existing.marketPrice)
+                    (existing.marketPrice != null && isPromo.not() && market < existing.marketPrice) ||
+                    existing.marketPrice == null
                 ) {
-                    map[name] = PriceInfo(
+                    map[name] = PriceEntity(
+                        cardName = name,
                         marketPrice = market,
-                        lowestPrice = entry.lowestPrice ?: market,
-                        setName = entry.setName.orEmpty(),
-                        isPromo = isPromo,
+                        lowPrice = entry.lowestPrice ?: market,
                     )
                 }
             }
-            _prices.value = map
+            dao.upsertPrices(map.values.toList())
         } catch (e: Exception) {
             Log.w("CardRepository", "Failed to load prices", e)
         }
@@ -152,6 +160,15 @@ class CardRepositoryImpl @Inject constructor(
             "Grandmaster Wizard" to "pro-grandmaster_wizard-wk-s",
         )
 
+        // Build setNames lookup: cardName -> ",Alpha,Beta,"
+        val cardSetNames = mutableMapOf<String, MutableSet<String>>()
+        for (card in cardList) {
+            for (set in card.sets) {
+                val setName = set.name ?: continue
+                cardSetNames.getOrPut(card.name) { mutableSetOf() }.add(setName)
+            }
+        }
+
         val cardEntities = cardList.map { card ->
             val g = card.guardian
             val primarySlug = primarySlugOverrides[card.name]
@@ -162,6 +179,9 @@ class CardRepositoryImpl @Inject constructor(
                             ?: set.variants.firstOrNull()?.slug
                     }
                     .orEmpty()
+
+            val setsForCard = cardSetNames[card.name]
+            val setNamesStr = if (setsForCard.isNullOrEmpty()) "" else ",${setsForCard.joinToString(",")},";
 
             CardEntity(
                 name = card.name,
@@ -179,6 +199,7 @@ class CardRepositoryImpl @Inject constructor(
                 earthThreshold = g?.thresholds?.earth ?: 0,
                 fireThreshold = g?.thresholds?.fire ?: 0,
                 waterThreshold = g?.thresholds?.water ?: 0,
+                setNames = setNamesStr,
             )
         }
 

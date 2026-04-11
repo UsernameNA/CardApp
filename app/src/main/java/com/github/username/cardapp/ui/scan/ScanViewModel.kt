@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import android.content.Context
 import android.util.Log
 import com.github.username.cardapp.data.CardRepository
-import com.github.username.cardapp.data.PriceInfo
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CollectionEntryEntity
 import com.google.mlkit.common.MlKit
@@ -21,6 +20,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -44,10 +45,28 @@ class ScanViewModel @Inject constructor(
         repository.ensureDataLoaded()
     }
 
-    private val allCards: StateFlow<List<CardEntity>> = repository.cards
+    private val allCards: StateFlow<List<CardEntity>> = repository.filteredCards(
+        com.github.username.cardapp.ui.common.CardFilterState()
+    ).map { list -> list.map { it.card } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    val prices: StateFlow<Map<String, PriceInfo>> = repository.prices
+    val prices: StateFlow<Map<String, Double>> = repository.priceMap
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    private val _correctionQuery = MutableStateFlow("")
+    val correctionResults: StateFlow<List<CardEntity>> = _correctionQuery
+        .combine(allCards) { query, cards ->
+            if (query.length < 2) emptyList()
+            else {
+                val lower = query.lowercase()
+                cards.filter { lower in it.name.lowercase() }.take(8)
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun updateCorrectionQuery(query: String) {
+        _correctionQuery.value = query
+    }
 
 
     private val _scannedCards = MutableStateFlow<List<ScannedEntry>>(emptyList())
@@ -60,8 +79,16 @@ class ScanViewModel @Inject constructor(
     private val _debugInfo = MutableStateFlow<ScanDebugInfo?>(null)
     val debugInfo: StateFlow<ScanDebugInfo?> = _debugInfo.asStateFlow()
 
+    private val scanLogLock = Any()
     private val _scanLog = mutableListOf<ScanDebugInfo>()
-    val scanLogSize: Int get() = _scanLog.size
+    private val _scanLogActualCards = mutableListOf<String>()
+    val scanLogSize: Int get() = synchronized(scanLogLock) { _scanLog.size }
+
+    private val _lastScanCard = MutableStateFlow<CardEntity?>(null)
+    val lastScanCard: StateFlow<CardEntity?> = _lastScanCard.asStateFlow()
+
+    private val _unmatchedScan = MutableStateFlow(false)
+    val unmatchedScan: StateFlow<Boolean> = _unmatchedScan.asStateFlow()
 
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     private val pendingScan = AtomicBoolean(false)
@@ -106,12 +133,16 @@ class ScanViewModel @Inject constructor(
         failedFingerprint = null
     }
 
+    @Volatile var correctionOpen = false
+
     fun requestScan() {
+        if (correctionOpen) return
         _scanStatus.value = ScanStatus.Scanning
         pendingScan.set(true)
     }
 
     fun analyzeFrame(imageProxy: ImageProxy) {
+        if (correctionOpen) { imageProxy.close(); return }
         when (_scanMode.value) {
             ScanMode.Manual -> analyzeFrameManual(imageProxy)
             ScanMode.Auto -> analyzeFrameAuto(imageProxy)
@@ -135,8 +166,12 @@ class ScanViewModel @Inject constructor(
                     val result = scoreOcrText(visionText.text)
                     if (result != null) {
                         addScannedCard(result)
+                        _lastScanCard.value = result
+                        _unmatchedScan.value = false
                         setStatusTemporarily(ScanStatus.Found(result.name))
                     } else {
+                        _lastScanCard.value = null
+                        _unmatchedScan.value = true
                         setStatusTemporarily(ScanStatus.NotFound)
                     }
                 }
@@ -186,6 +221,8 @@ class ScanViewModel @Inject constructor(
                                     val result = scoreOcrText(visionText.text)
                                     if (result != null) {
                                         addScannedCard(result)
+                                        _lastScanCard.value = result
+                                        _unmatchedScan.value = false
                                         scannedFingerprint = fingerprint
                                         autoState.set(AutoState.WaitingForChange)
                                         _scanStatus.value = ScanStatus.Found(result.name)
@@ -198,6 +235,8 @@ class ScanViewModel @Inject constructor(
                                             }
                                         }
                                     } else {
+                                        _lastScanCard.value = null
+                                        _unmatchedScan.value = true
                                         failedFingerprint = fingerprint
                                         autoState.set(AutoState.WaitingForCard)
                                         _scanStatus.value = ScanStatus.AutoWatching
@@ -284,13 +323,11 @@ class ScanViewModel @Inject constructor(
             .filter { it in 1..15 }
             .toSet()
 
-        val nameTokens = tokenize(nameZone)
-        val bodyTokens = tokenize(bodyZone)
         val allTokens = tokenize(fullText)
         val allWords = allTokens.filter { it.length > 3 }.toSet()
 
         val scored = cards
-            .map { it to scoreCard(it, nameZone, bodyZone, costCandidates, nameTokens, bodyTokens, allTokens, allWords) }
+            .map { it to scoreCard(it, nameZone, bodyZone, costCandidates, allTokens, allWords) }
             .sortedByDescending { it.second }
 
         val best = scored.firstOrNull()
@@ -304,7 +341,12 @@ class ScanViewModel @Inject constructor(
             top3 = top3,
         )
         _debugInfo.value = info
-        _scanLog.add(info)
+        synchronized(scanLogLock) {
+            _scanLog.add(info)
+            _scanLogActualCards.add(
+                if (best != null && best.second >= SCORE_THRESHOLD) best.first.name else ""
+            )
+        }
 
         return if (best != null && best.second >= SCORE_THRESHOLD) best.first else null
     }
@@ -325,8 +367,6 @@ class ScanViewModel @Inject constructor(
         nameZone: String,
         bodyZone: String,
         costCandidates: Set<Int>,
-        nameTokens: List<String>,
-        bodyTokens: List<String>,
         allTokens: List<String>,
         allWords: Set<String>,
     ): Int {
@@ -342,7 +382,7 @@ class ScanViewModel @Inject constructor(
                 200 // multi-word full-name substring match is very reliable
             } else {
                 // Single-word names: require word-boundary match for full score
-                // to prevent "Blaze" matching inside "ablazel"
+                // to prevent "Blaze" matching inside "ablaze"
                 if (Regex("\\b${Regex.escape(cardNameClean)}\\b").containsMatchIn(nameZoneClean)) 200
                 else 60
             }
@@ -454,9 +494,58 @@ class ScanViewModel @Inject constructor(
         scannedCardsMutex.withLock {
             val current = _scannedCards.value.toMutableList()
             val idx = current.indexOfFirst { it.card.name == card.name }
-            if (idx >= 0) current[idx] = current[idx].copy(count = current[idx].count + 1)
-            else current.add(ScannedEntry(card, 1))
+            if (idx >= 0) {
+                val updated = current[idx].copy(count = current[idx].count + 1)
+                current.removeAt(idx)
+                current.add(0, updated)
+            } else {
+                current.add(0, ScannedEntry(card, 1))
+            }
             _scannedCards.value = current
+        }
+    }
+
+    fun correctLastScan(actualCardName: String) {
+        val oldName = _lastScanCard.value?.name
+        val wasUnmatched = _unmatchedScan.value
+
+        viewModelScope.launch {
+            synchronized(scanLogLock) {
+                if (_scanLogActualCards.isNotEmpty()) {
+                    _scanLogActualCards[_scanLogActualCards.lastIndex] = actualCardName
+                }
+            }
+
+            val newCard = allCards.value.find { it.name == actualCardName } ?: return@launch
+
+            scannedCardsMutex.withLock {
+                val current = _scannedCards.value.toMutableList()
+
+                if (!wasUnmatched && oldName != null) {
+                    val oldIdx = current.indexOfFirst { it.card.name == oldName }
+                    if (oldIdx >= 0) {
+                        if (current[oldIdx].count <= 1) {
+                            current.removeAt(oldIdx)
+                        } else {
+                            current[oldIdx] = current[oldIdx].copy(count = current[oldIdx].count - 1)
+                        }
+                    }
+                }
+
+                val newIdx = current.indexOfFirst { it.card.name == actualCardName }
+                if (newIdx >= 0) {
+                    val updated = current[newIdx].copy(count = current[newIdx].count + 1)
+                    current.removeAt(newIdx)
+                    current.add(0, updated)
+                } else {
+                    current.add(0, ScannedEntry(newCard, 1))
+                }
+
+                _scannedCards.value = current
+            }
+
+            _lastScanCard.value = newCard
+            _unmatchedScan.value = false
         }
     }
 
@@ -477,15 +566,17 @@ class ScanViewModel @Inject constructor(
     // ── Export scan log ──────────────────────────────────────────────────────────
 
     fun exportScanLog(): String {
-        val entries = _scanLog.map { info ->
-            ScanLogEntry(
-                rawText = info.rawText,
-                costCandidates = info.costCandidates,
-                bestMatch = info.bestCardName,
-                bestScore = info.bestScore,
-                top3 = info.top3,
-                actualCard = "",
-            )
+        val entries = synchronized(scanLogLock) {
+            _scanLog.mapIndexed { index, info ->
+                ScanLogEntry(
+                    rawText = info.rawText,
+                    costCandidates = info.costCandidates,
+                    bestMatch = info.bestCardName,
+                    bestScore = info.bestScore,
+                    top3 = info.top3,
+                    actualCard = _scanLogActualCards.getOrElse(index) { "" },
+                )
+            }
         }
         return scanLogJson.encodeToString(entries)
     }

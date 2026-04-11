@@ -2,15 +2,20 @@ package com.github.username.cardapp.data
 
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CardVariantEntity
-import com.github.username.cardapp.data.local.CollectionCardRow
+import com.github.username.cardapp.data.local.CardWithPrice
+import com.github.username.cardapp.data.local.CollectionCardWithPrice
 import com.github.username.cardapp.data.local.CollectionEntryEntity
+import com.github.username.cardapp.data.local.SetEntity
+import com.github.username.cardapp.ui.common.CardFilterState
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.StateFlow
 
 interface CardRepository {
-    val cards: Flow<List<CardEntity>>
-    val collection: Flow<List<CollectionCardRow>>
-    val prices: StateFlow<Map<String, PriceInfo>>
+    fun filteredCards(filter: CardFilterState): Flow<List<CardWithPrice>>
+    fun filteredCollection(filter: CardFilterState): Flow<List<CollectionCardWithPrice>>
+    val sets: Flow<List<SetEntity>>
+    val priceMap: Flow<Map<String, Double>>
+    val totalCardCount: Flow<Int>
+    val totalCollectionQuantity: Flow<Int>
     suspend fun needsCardSync(): Boolean
     suspend fun syncCards()
     suspend fun loadPrices()
