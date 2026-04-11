@@ -397,7 +397,6 @@ private fun DiceOverlay(diceState: DiceState, onResult: (Parity, Int) -> Unit, o
     }
 
     if (overlayAlpha.value == 0f && diceState is DiceState.Idle) return
-
     val showScrim = diceState is DiceState.Result
     Box(
         modifier = Modifier

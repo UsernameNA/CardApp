@@ -8,7 +8,6 @@
 
     <application
         android:name=".CardAppApplication"
-        android:appCategory="game"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -38,15 +37,12 @@
             <meta-data
                 android:name="okhttp3.internal.platform.PlatformInitializer"
                 tools:node="remove" />
-            <meta-data
-                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
-                tools:node="remove" />
         </provider>
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@android:style/Theme.Material.NoActionBar">
+            android:theme="@style/Theme.CardApp.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

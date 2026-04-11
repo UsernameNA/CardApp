@@ -1,0 +1,28 @@
+# Baseline Profile — AOT-compile the app's startup-critical code paths.
+# Library profiles (Compose, Navigation, Lifecycle) are merged automatically
+# from their AARs; this file covers the app's own classes.
+
+# Application & Activity entry points
+HSPLcom/github/username/cardapp/CardAppApplication;->**(**)**
+HSPLcom/github/username/cardapp/Hilt_CardAppApplication;->**(**)**
+HSPLcom/github/username/cardapp/MainActivity;->**(**)**
+
+# Landing screen (start destination)
+HSPLcom/github/username/cardapp/ui/landing/**;->**(**)**
+
+# Theme & modifiers used by landing screen
+HSPLcom/github/username/cardapp/ui/theme/**;->**(**)**
+
+# Hilt DI graph resolved at startup
+HSPLcom/github/username/cardapp/di/**;->**(**)**
+
+# Navigation route objects (serialized on graph build)
+HSPLcom/github/username/cardapp/Landing;->**(**)**
+HSPLcom/github/username/cardapp/Cards;->**(**)**
+HSPLcom/github/username/cardapp/Collection;->**(**)**
+HSPLcom/github/username/cardapp/Scan;->**(**)**
+HSPLcom/github/username/cardapp/CardDetail;->**(**)**
+HSPLcom/github/username/cardapp/TrackGame;->**(**)**
+
+# Data layer singletons (Hilt resolves providers even if lazy)
+HSPLcom/github/username/cardapp/data/**;->**(**)**

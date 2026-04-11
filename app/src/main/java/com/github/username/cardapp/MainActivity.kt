@@ -3,7 +3,9 @@ package com.github.username.cardapp
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -27,9 +29,18 @@ import kotlinx.serialization.Serializable
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+
+        var isReady = false
+        splashScreen.setKeepOnScreenCondition { !isReady }
+        splashScreen.setOnExitAnimationListener { it.remove() }
         setContent {
+            LaunchedEffect(Unit) {
+                withFrameNanos { }
+                withFrameNanos { }
+                isReady = true
+            }
             CardAppTheme {
                 val navController = rememberNavController()
                 NavHost(navController = navController, startDestination = Landing) {
