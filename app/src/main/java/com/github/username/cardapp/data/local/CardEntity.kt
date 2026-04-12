@@ -1,5 +1,6 @@
 package com.github.username.cardapp.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -20,5 +21,5 @@ data class CardEntity(
     val earthThreshold: Int,
     val fireThreshold: Int,
     val waterThreshold: Int,
-    val setNames: String = "",
+    @ColumnInfo(defaultValue = "") val setNames: String = "",
 )
