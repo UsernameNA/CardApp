@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Post-splash theme for the Compose UI. enableEdgeToEdge() in MainActivity
+         controls system bar colors; this theme just supplies windowBackground
+         (matching LeatherDeep) so the gap between splash exit and the first
+         composed frame doesn't flash. -->
+    <style name="Theme.CardApp" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/leather_deep</item>
+    </style>
+
     <style name="Theme.CardApp.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#FF080705</item>
-        <item name="postSplashScreenTheme">@android:style/Theme.Material.NoActionBar</item>
+        <item name="windowSplashScreenBackground">@color/leather_deep</item>
+        <item name="postSplashScreenTheme">@style/Theme.CardApp</item>
     </style>
 </resources>

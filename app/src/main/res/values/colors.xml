@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mirror of LeatherDeep in ui/theme/Color.kt. Needed in XML because the splash
+         theme and windowBackground are consumed by the framework before Compose runs.
+         Keep these two values in sync. -->
+    <color name="leather_deep">#FF080705</color>
+</resources>
