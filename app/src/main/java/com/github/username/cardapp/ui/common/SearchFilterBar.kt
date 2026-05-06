@@ -59,8 +59,8 @@ private val ELEMENTS = listOf("Fire", "Water", "Earth", "Air", "None")
 fun SearchFilterBar(
     state: CardFilterState,
     onUpdate: (CardFilterState) -> Unit,
-    availableSets: List<String> = emptyList(),
     modifier: Modifier = Modifier,
+    availableSets: List<String> = emptyList(),
 ) {
     val focusManager = LocalFocusManager.current
     val focusRequester = remember { FocusRequester() }

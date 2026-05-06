@@ -15,11 +15,16 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -27,7 +32,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -61,14 +68,12 @@ fun TrackGameScreen() {
         onDispose { view.keepScreenOn = false }
     }
 
+    var uncapped by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
     var player1Life by remember { mutableIntStateOf(STARTING_LIFE) }
     var player2Life by remember { mutableIntStateOf(STARTING_LIFE) }
     var player1Delta by remember { mutableIntStateOf(0) }
     var player2Delta by remember { mutableIntStateOf(0) }
-    // Delta version counters — each tap increments the version, which restarts
-    // the fade animation in LifeDisplay. When the fade completes, delta is cleared.
-    var player1DeltaVersion by remember { mutableIntStateOf(0) }
-    var player2DeltaVersion by remember { mutableIntStateOf(0) }
 
     fun reset() {
         player1Life = STARTING_LIFE
@@ -77,30 +82,32 @@ fun TrackGameScreen() {
         player2Delta = 0
     }
 
+    val toggleUncapped = {
+        uncapped = !uncapped
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .leatherBackground(),
     ) {
-        // Top half — rotated 180° for opposing player
         Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .rotate(180f)
                 .pointerInput(Unit) {
-                    detectTapGestures { offset ->
+                    detectTapGestures(onLongPress = { toggleUncapped() }) { offset ->
                         if (offset.y > size.height / 2) {
                             if (player2Life > MIN_LIFE) {
                                 player2Life--
                                 player2Delta--
-                                player2DeltaVersion++
                             }
                         } else {
-                            if (player2Life < MAX_LIFE) {
+                            if (uncapped || player2Life < MAX_LIFE) {
                                 player2Life++
                                 player2Delta++
-                                player2DeltaVersion++
                             }
                         }
                     }
@@ -110,27 +117,23 @@ fun TrackGameScreen() {
             LifeDisplay(life = player2Life, delta = player2Delta, onDeltaCleared = { player2Delta = 0 })
         }
 
-        // Center divider with reset
-        ResetDivider(onReset = ::reset)
+        ResetDivider(onReset = ::reset, uncapped = uncapped)
 
-        // Bottom half — upright for near player
         Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .pointerInput(Unit) {
-                    detectTapGestures { offset ->
+                    detectTapGestures(onLongPress = { toggleUncapped() }) { offset ->
                         if (offset.y < size.height / 2) {
-                            if (player1Life < MAX_LIFE) {
+                            if (uncapped || player1Life < MAX_LIFE) {
                                 player1Life++
                                 player1Delta++
-                                player1DeltaVersion++
                             }
                         } else {
                             if (player1Life > MIN_LIFE) {
                                 player1Life--
                                 player1Delta--
-                                player1DeltaVersion++
                             }
                         }
                     }
@@ -210,7 +213,7 @@ private fun DeadImage() {
 }
 
 @Composable
-private fun ResetDivider(onReset: () -> Unit) {
+private fun ResetDivider(onReset: () -> Unit, uncapped: Boolean) {
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center,
@@ -295,15 +298,21 @@ private fun ResetDivider(onReset: () -> Unit) {
             drawCircle(GoldDark.copy(alpha = 0.5f), dotR * 0.7f, Offset(4.dp.toPx(), midY))
             drawCircle(GoldDark.copy(alpha = 0.5f), dotR * 0.7f, Offset(size.width - 4.dp.toPx(), midY))
         }
-        Text(
-            text = "RESET",
-            style = Typography.labelMedium.copy(
-                color = GoldMuted,
-                textAlign = TextAlign.Center,
-                letterSpacing = 3.sp,
-            ),
-            modifier = Modifier.pointerInput(Unit) { detectTapGestures { onReset() } },
-        )
+        AnimatedContent(
+            targetState = uncapped,
+            transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
+            label = "dividerLabel",
+        ) { isUncapped ->
+            Text(
+                text = if (isUncapped) "mtg" else "RESET",
+                style = Typography.labelMedium.copy(
+                    color = GoldMuted,
+                    textAlign = TextAlign.Center,
+                    letterSpacing = 3.sp,
+                ),
+                modifier = Modifier.pointerInput(Unit) { detectTapGestures { onReset() } },
+            )
+        }
     }
 }
 
