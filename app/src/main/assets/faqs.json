@@ -135,6 +135,12 @@
       "answer": "Yes!"
     }
   ],
+  "Apprentice Wizard": [
+    {
+      "question": "There's a promotional version of this card with the name \"Apurrentice Wizard.\" Since it has a different name, does that mean I can have four copies of each in my deck?",
+      "answer": "No, treat \"Apurrentice Wizard\" as being named \"Apprentice Wizard\" for all deck building and gameplay purposes."
+    }
+  ],
   "Aquamarine Core": [
     {
       "question": "When does this artifact provide mana?",
@@ -151,6 +157,12 @@
     {
       "question": "What does \"can't be targeted or damaged by magic\" mean?",
       "answer": "Magic can't target the card and the card can't be damaged by Magic (even without targeting). The card can still be targeted by non-Magic effects."
+    }
+  ],
+  "Archangel Gabriel": [
+    {
+      "question": "Does the chosen minion need to have the Spellcaster ability to cast the spell which they draw from this Genesis ability?",
+      "answer": "No, they gain the Spellcaster ability specifically for the purpose of casting that spell. See the rules for \"Only They Can Cast\" for specific details. "
     }
   ],
   "Archangel Michael": [
@@ -185,6 +197,10 @@
     {
       "question": "If the Army moves through many locations (e.g. Grapple Shot, Seven-league Boots), does it leave many Skeletons behind?",
       "answer": "Yes! Leave a Skeleton behind each time the Army enters a new location (or takes damage)."
+    },
+    {
+      "question": "If an effect grants this free movement (e.g. Arcade of Bones), can I spawn infinite Skeleton tokens?",
+      "answer": "No. Whenever you declare a movement path, you cannot repeat specific steps. Lets say we have sites arranged like this in a row, with Army of the Dead starting on site A, along with an [[Arcade of Bones]]:\nYou could declare the following movement path for the Army:\nA to B\nB to C\nC to B\nB to A\nNone of those steps repeat exactly, so it's all perfectly legal, and you would spawn a Skeleton for each of those steps, for a total of 4 Skeletons spawned. You cannot, however, put another A to B step on the path, since that would be a repeat of the first step."
     }
   ],
   "Askelon Phoenix": [
@@ -723,6 +739,10 @@
     {
       "question": "Does this carry along oversized units or auras that occupy more than one square?",
       "answer": "No."
+    },
+    {
+      "question": "What happens if an oversized avatar is occupying a site, and then some effect moves that site?",
+      "answer": "When a site moves, only things of \"normal\" size move with it. As the avatar is now oversized, it will not be moved.\nIn most cases when a site moves, another site will be left in its place (e.g. [[Rift Valley]]). In these situations, the avatar will end up occupying the surface of the new site. In the case of [[Cloud City]], which leaves a void location behind, the avatar will now be occupying that void square. See ((mandatory actions)) for what happens if your avatar is in the void.\nNote that in both cases the avatar does not \"enter\" the new location that it is occupying."
     }
   ],
   "Common Cottagers": [
@@ -935,12 +955,16 @@
       "answer": "You cast the minion spell.\nPay mana, meet threshold, banish it from the cemetery, identify where it will be summoned.\nThe minion enters the the realm. (It is a copy of the banished minion.)\n\"Enter the ))realm((\" effects trigger and resolve. These include:\nGenesis abilities.\nEffects like Wayfaring Pilgrim, Giant Shark, Mariner's Curse, Bottomless Pit, etc. See \"((Simultaneous Triggers))\" in the Codex for more details.\nThe minion is banished.\nThe intent is that the Deathspeaker can speak to the dead, invoke their abilities, and then release them into the afterlife (whatever that may be).\nSee also \"((Splitting Events on the Storyline))\" and the example with Tawny plus a site's genesis. The Deathspeaker's ability is analogous, since the minion will enter, splitting the Deathspeaker's ability on the Storyline, the genesis ability will resolve (along with any other triggered abilities based on a minion entering the ))realm((), then it will get banished."
     },
     {
+      "question": "Can I cast minions from my opponent’s cemetery?",
+      "answer": "Yes. You control it when it enters the realm, and then it gets banished."
+    },
+    {
       "question": "When using the Deathspeaker’s ability, do Genesis abilities trigger before the banishing effect?",
       "answer": "Yes, because events on the storyline are split up when a card enters the realm. See the \"((Splitting Events on the Storyline))\" codex entry for more details."
     },
     {
-      "question": "Can I cast minions from my opponent’s cemetery?",
-      "answer": "Yes. You control it when it enters the realm, and then it gets banished."
+      "question": "When using the Deathspeaker's ability, are passive abilities applied before the banishing effect? The updated text only mentions Genesis abilities.",
+      "answer": "Yes, the minion is in the realm for a brief moment, so any passive abilities it has will be applied during that window before it is banished."
     }
   ],
   "Deathwish": [
@@ -1297,6 +1321,12 @@
       "answer": "Yes, it will still gain stealth."
     }
   ],
+  "Fenvale Muse": [
+    {
+      "question": "What happens if I use this to trigger the Genesis ability of a site my opponent controls?",
+      "answer": "The controller of the site will be the one to resolve the Genesis ability. So in the case of a Desert, your opponent will choose the nearby site where damage is dealt. For a River, your opponent will be the one to look at their next spell and choose to put it on the bottom of their spellbook."
+    }
+  ],
   "Fey Changeling": [
     {
       "question": "Can this be summoned to an inhospitable location (e.g. underground) and die, but still have a chance to use its genesis ability first?",
@@ -1605,6 +1635,12 @@
     {
       "question": "Can I choose to banish only some minions from the targeted location?",
       "answer": "No, if you choose to use this ability you must banish all minions at the targeted location with 2 or less power."
+    }
+  ],
+  "Grandmaster Wizard": [
+    {
+      "question": "There's a promotional version of this card with the name \"Grandmeowster Wizard.\" Since it has a different name, does that mean I can have two copies of each in my deck?",
+      "answer": "No, treat \"Grandmeowster Wizard\" as being named \"Grandmaster Wizard\" for all deck building and gameplay purposes."
     }
   ],
   "Grapple Shot": [
@@ -2107,9 +2143,19 @@
       "answer": "The Flooded ability gives a site a minimum of 1 water threshold, making it a water site. Even a bearer of Key to the City will see the water threshold and treat it as a water site. e.g. It will die in the subsurface if it doesn't have Submerge, it can't be forcefully Burrowed, etc."
     }
   ],
+  "Khamaseen Mummy": [
+    {
+      "question": "What happens if I use this to trigger the Genesis ability of a site my opponent controls?",
+      "answer": "The controller of the site will be the one to resolve the Genesis ability. So in the case of a Desert, your opponent will choose the nearby site where damage is dealt. For a River, your opponent will be the one to look at their next spell and choose to put it on the bottom of their spellbook."
+    }
+  ],
   "King Arthur": [
     {
-      "question": "How does the Philosopher's Stone work with multi-element cards, such as King Arthur and Queen Guienevere? Would King Arthur, who requires 4 mana, cost 3 or 0 Mana to cast using the Stone",
+      "question": "What happens if King Arthur is in the realm and my opponent would control a card I own?",
+      "answer": "While King Arthur rules the realm, if your opponent would control a card you own, you control it instead (applying equally for both players). For example:\nMy opponent plays [[Lilith]] then summons a minion from my deck. My opponent would normally control a minion they summoned, but I control it while King Arthur is in the realm.\nI play [[Heirloom Lost]], [[Postern Gate]], [[Desecrate]] to get a [[Desecrated Ground]], etc. My opponent would normally control that site I own, but I control the site while King Arthur is in the realm.\nI play any Relic (e.g. [[Ring of Morrigan]]) and my opponent takes it somehow (e.g. [[Swap]]). My opponent would normally control that relic while carrying it, but I control it while King Arthur is in the realm.\nEven if I control it, my opponent's unit is still the bearer and can benefit from bearer abilities.\nSince I control it, terms like \"ally\" and \"enemy\" apply from my perspective (the controller).\nIf it's dropped, no one controls it, as normal.\nI animate my aura via Enchantress. You play [[Mesmerism]] on it. Even after it returns to being a normal aura, you would normally control it, but I control it while King Arthur is in the realm."
+    },
+    {
+      "question": "How does the Philosopher's Stone work with multi-element cards, such as King Arthur and Queen Guienevere? Would King Arthur, who requires 4 mana, cost 3 or 0 Mana to cast using the Stone?",
       "answer": "Cards that have different element symbols count as a spell of each of those affinities. So Arthur and Guinevere are each an Air spell, an Earth spell, a Fire spell, and a Water spell, all at the same time. But you are still casting them together as a single spell. So, assuming Arthur is your spellcaster’s first spell of the turn, the Stone will offer a discount of 1 mana for Arthur, making him cost 3 mana. \r\n\r\nThis also means that when Arthur is played he uses up the Stone for that spellcaster's turn because he’s simultaneously the first Air, Earth, Fire, and Water spell played this turn. So the Spellcaster cannot continue to use the stone that turn. "
     }
   ],
@@ -2159,6 +2205,10 @@
     {
       "question": "What happens if the power of one of the units changes during the resolution of this effect so that it's no longer weaker?",
       "answer": "Only check that the target is weaker when it is initially targeted, and when the effect first starts to resolve from the storyline. Once the effect is resolving and minions are moving, it does not matter if the relative powers change after that point."
+    },
+    {
+      "question": "What happens if I cast Lacuna Entity to a void location and then pull in a minion with a passive ability which will silence or disable the Entity?",
+      "answer": "If the Entity pulls in something which will remove its abilities (e.g. [[Sisters of Silence]]) then the Entity will briefly find itself in the void without the voidwalk ability, and will be banished. It will have already pulled the other minion to its location, however.\nNote that if it pulls in a minion which disables other minions \"at rest,\" such as a [[Hillock Basilisk]], the Entity will not be at rest until after that minion has finished moving and passives are applied. This means the Basilisk would be banished before it could disable the Entity."
     }
   ],
   "Land Deed": [
@@ -2629,6 +2679,10 @@
     {
       "question": "Does this ability prevent my opponent from rearranging sites? (e.g. Earthquake, Atlas Wanderers)",
       "answer": "No, your opponent can still rearrange sites, because that doesn't count as moving the units, just the sites."
+    },
+    {
+      "question": "Does this ability stop effects which cause an ally to take their own steps (e.g. Guile Sirens, Coy Nixie, Lure)?",
+      "answer": "No. Sailors historically have trouble resisting the siren's call."
     }
   ],
   "Onslaught": [
@@ -2659,6 +2713,10 @@
     {
       "question": "Can I target the same site twice when casting two copies of Craterize with Orb?",
       "answer": "You technically can, but beware! If the first Craterize successfully destroys the targeted site, the second Craterize will no longer have a valid target in the realm and will fail, resulting in no damage from that copy of Craterize."
+    },
+    {
+      "question": "Who controls the copied Magic?",
+      "answer": "The original caster of that Magic controls the copy made by the Orb."
     }
   ],
   "Order of the White Wing": [
@@ -2797,12 +2855,12 @@
   ],
   "Philosopher's Stone": [
     {
-      "question": "If I have two (e.g. via Replication), do the effects stack?",
-      "answer": "Yes."
+      "question": "How does the Philosopher's Stone work with multi-element cards, such as King Arthur and Queen Guienevere? Would King Arthur, who requires 4 mana, cost 3 or 0 Mana to cast using the Stone?",
+      "answer": "Cards that have different element symbols count as a spell of each of those affinities. So Arthur and Guinevere are each an Air spell, an Earth spell, a Fire spell, and a Water spell, all at the same time. But you are still casting them together as a single spell. So, assuming Arthur is your spellcaster’s first spell of the turn, the Stone will offer a discount of 1 mana for Arthur, making him cost 3 mana. \r\n\r\nThis also means that when Arthur is played he uses up the Stone for that spellcaster's turn because he’s simultaneously the first Air, Earth, Fire, and Water spell played this turn. So the Spellcaster cannot continue to use the stone that turn. "
     },
     {
-      "question": "How does the Philosopher's Stone work with multi-element cards, such as King Arthur and Queen Guienevere? Would King Arthur, who requires 4 mana, cost 3 or 0 Mana to cast using the Stone",
-      "answer": "Cards that have different element symbols count as a spell of each of those affinities. So Arthur and Guinevere are each an Air spell, an Earth spell, a Fire spell, and a Water spell, all at the same time. But you are still casting them together as a single spell. So, assuming Arthur is your spellcaster’s first spell of the turn, the Stone will offer a discount of 1 mana for Arthur, making him cost 3 mana. \r\n\r\nThis also means that when Arthur is played he uses up the Stone for that spellcaster's turn because he’s simultaneously the first Air, Earth, Fire, and Water spell played this turn. So the Spellcaster cannot continue to use the stone that turn. "
+      "question": "If I have two (e.g. via Replication), do the effects stack?",
+      "answer": "Yes."
     }
   ],
   "Pied Piper of Hameln": [
@@ -2869,7 +2927,7 @@
   ],
   "Queen Guinevere": [
     {
-      "question": "How does the Philosopher's Stone work with multi-element cards, such as King Arthur and Queen Guienevere? Would King Arthur, who requires 4 mana, cost 3 or 0 Mana to cast using the Stone",
+      "question": "How does the Philosopher's Stone work with multi-element cards, such as King Arthur and Queen Guienevere? Would King Arthur, who requires 4 mana, cost 3 or 0 Mana to cast using the Stone?",
       "answer": "Cards that have different element symbols count as a spell of each of those affinities. So Arthur and Guinevere are each an Air spell, an Earth spell, a Fire spell, and a Water spell, all at the same time. But you are still casting them together as a single spell. So, assuming Arthur is your spellcaster’s first spell of the turn, the Stone will offer a discount of 1 mana for Arthur, making him cost 3 mana. \r\n\r\nThis also means that when Arthur is played he uses up the Stone for that spellcaster's turn because he’s simultaneously the first Air, Earth, Fire, and Water spell played this turn. So the Spellcaster cannot continue to use the stone that turn. "
     }
   ],
@@ -2895,6 +2953,10 @@
     {
       "question": "How does this ability work?",
       "answer": "Whenever ))Realm-Eater(( attacks a site and strikes it, that site is destroyed and the ))Realm-Eater(( gains an ongoing effect causing it to be immobile. You can activate ))Realm-Eater's(( digest ability to remove one instance of this immobilizing effect, but if you have attacked and destroyed multiple sites you must digest each one."
+    },
+    {
+      "question": "What happens if Realm-Eater cannot be immobilized due to some effect (e.g. Tabula Rasa, Onslaught)?",
+      "answer": "For as long as the effect is being applied, ))Realm((-Eater can ignore the ongoing effect caused by eating sites. If that effect is removed, ))Realm((-Eater will no longer be immune to the lethargy caused by eating so much, and will be immobilized if they have not cleared the ongoing effects by digesting the sites."
     }
   ],
   "Red Rock of Ravannis": [
@@ -3108,7 +3170,7 @@
     },
     {
       "question": "Can I push something into another region?",
-      "answer": "No, this is forced movement, which cannot cause things to change regions unless specified."
+      "answer": "No, \"pushing\" is a form of forced movement which cannot cause something to change regions unless it specifically says so."
     }
   ],
   "Scent Hounds": [
@@ -3450,7 +3512,7 @@
     },
     {
       "question": "Can this effect swap cards into different regions?",
-      "answer": "No. You target both cards being swapped, and targets must be in the same region as the caster. Additionally, teleportation cannot cause cards to change regions unless specified."
+      "answer": "No. You target both cards being swapped, and targets must be in the same region as the caster. See ((Casting Spells)) for more information."
     },
     {
       "question": "What if one or both of the swapped cards were being carried?",
@@ -3591,12 +3653,20 @@
     {
       "question": "If Magellan Globe leaves play when a card is spanning the edge of the realm, what happens?",
       "answer": "Units cannot balance on the edge of the realm and an oversized unit that finds its way there falls to one side or the other. Its controller places it in the closest legal position, controller's choice if tied.\nIf there's no legal position anywhere in the realm for a minion, it dies. If there's no legal position anywhere in the realm for an avatar, shrink it until there is a legal position (Avatar controller's choice), and place it there."
+    },
+    {
+      "question": "When an avatar is stretched by this effect, does it count as entering the new location?",
+      "answer": "Yes! The avatar has to be able to enter the location for the effect to work, and then it will trigger any effects caused by entering. It does not count as moving, however."
+    },
+    {
+      "question": "What happens if an oversized avatar is occupying a site, and then some effect moves that site?",
+      "answer": "When a site moves, only things of \"normal\" size move with it. As the avatar is now oversized, it will not be moved.\nIn most cases when a site moves, another site will be left in its place (e.g. [[Rift Valley]]). In these situations, the avatar will end up occupying the surface of the new site. In the case of [[Cloud City]], which leaves a void location behind, the avatar will now be occupying that void square. See ((mandatory actions)) for what happens if your avatar is in the void.\nNote that in both cases the avatar does not \"enter\" the new location that it is occupying."
     }
   ],
   "The Void": [
     {
       "question": "How does this site work?",
-      "answer": "The site still has both a surface and subsurface, but those locations also count as void simultaneously. It has a surface + void location, and a subsurface + void location.\nMinions without voidwalk that enter the site will immediately be banished.\nSpells cast from the surface + void location can target cards that are in the surface or the void, for example.\nProjectiles can travel from the surface + void location into the void."
+      "answer": "The site still has both a surface and subsurface, but those locations also count as void simultaneously. It has a surface + void location, and a subsurface + void location.\nMinions without voidwalk that enter the site will be banished.\nSpells cast from the surface + void location can target cards that are in the surface or the void, for example.\nProjectiles can travel from the surface + void location into the void."
     },
     {
       "question": "Can my avatar enter this site?",
