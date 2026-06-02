@@ -1,7 +1,7 @@
 package com.github.username.cardapp
 
-import com.github.username.cardapp.ui.scan.ScanViewModel.Companion.levenshtein
-import com.github.username.cardapp.ui.scan.ScanViewModel.Companion.normalizeOcr
+import com.github.username.cardapp.ui.scan.OcrCardScorer.levenshtein
+import com.github.username.cardapp.ui.scan.OcrCardScorer.normalizeOcr
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
