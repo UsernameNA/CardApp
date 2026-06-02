@@ -12,15 +12,13 @@ plugins {
 android {
     namespace = "com.github.username.cardapp"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        version = release(37)
     }
 
     defaultConfig {
         applicationId = "com.github.username.cardapp"
         minSdk = 36
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 2
         versionName = "1.3.0"
 
