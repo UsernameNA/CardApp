@@ -63,7 +63,11 @@ object AppModule {
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "cardapp.db")
             .addMigrations(MIGRATION_4_5)
-            .fallbackToDestructiveMigration(true)
+            // Pre-collection schemas (v1–v3, before CollectionEntryEntity existed at v4)
+            // hold only the re-syncable card catalog, so wiping them loses nothing.
+            // From v4 onward a real migration is REQUIRED — a missing one now throws at
+            // startup instead of silently destroying the user's collection.
+            .fallbackToDestructiveMigrationFrom(true, 1, 2, 3)
             .build()
 
     @Provides

@@ -96,6 +96,8 @@ kotlin {
 
 ksp {
     arg("room.generateKotlin", "true")
+    // Export schema JSONs so future migrations can be validated with MigrationTestHelper.
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
