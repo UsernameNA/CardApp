@@ -2,6 +2,7 @@ package com.github.username.cardapp.data.local
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
@@ -14,6 +15,7 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE,
         ),
     ],
+    indices = [Index("cardName")],
 )
 data class CollectionEntryEntity(
     @PrimaryKey val cardName: String,

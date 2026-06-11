@@ -1,6 +1,5 @@
 package com.github.username.cardapp.data
 
-import android.content.Context
 import android.util.Log
 import com.github.username.cardapp.data.local.CardDao
 import com.github.username.cardapp.data.local.CardEntity
@@ -13,10 +12,12 @@ import com.github.username.cardapp.data.local.SetEntity
 import com.github.username.cardapp.data.model.CardJson
 import com.github.username.cardapp.data.remote.SorceryApi
 import com.github.username.cardapp.ui.common.CardFilterState
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -28,7 +29,7 @@ import javax.inject.Singleton
 
 @Singleton
 class CardRepositoryImpl @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    private val assets: AssetTextReader,
     private val dao: CardDao,
     private val api: SorceryApi,
     private val json: Json,
@@ -51,10 +52,22 @@ class CardRepositoryImpl @Inject constructor(
     override val totalCollectionQuantity: Flow<Int> = dao.getCollectionEntries()
         .map { entries -> entries.sumOf { it.quantity } }
 
+    private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
+    override val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
+
     private val ensureDataOnce by lazy {
         appScope.launch {
-            if (needsCardSync()) syncCards()
-            loadPrices()
+            try {
+                if (needsCardSync()) {
+                    _syncState.value = SyncState.SyncingCards
+                    syncCards()
+                }
+                loadPrices()
+                _syncState.value = SyncState.Complete
+            } catch (e: Exception) {
+                Log.w("CardRepository", "Initial data load failed", e)
+                _syncState.value = SyncState.Error(e.message ?: "Failed to load card catalogue")
+            }
         }
     }
 
@@ -63,6 +76,8 @@ class CardRepositoryImpl @Inject constructor(
     }
 
     override suspend fun needsCardSync(): Boolean = dao.getCardCount() == 0
+
+    override suspend fun getAllCardNames(): List<String> = dao.getAllCardNames()
 
     override suspend fun addToCollection(entries: List<CollectionEntryEntity>) {
         dao.upsertCollectionEntries(entries)
@@ -86,7 +101,7 @@ class CardRepositoryImpl @Inject constructor(
     override suspend fun getFaqs(cardName: String): List<FaqEntry> = withContext(Dispatchers.IO) {
         val cache = faqMutex.withLock {
             faqCache ?: try {
-                val raw = context.assets.open("faqs.json").bufferedReader().use { it.readText() }
+                val raw = assets.read("faqs.json")
                 val map = json.decodeFromString<Map<String, List<FaqEntry>>>(raw)
                 faqCache = map
                 map
@@ -100,27 +115,32 @@ class CardRepositoryImpl @Inject constructor(
 
     override suspend fun loadPrices(): Unit = withContext(Dispatchers.IO) {
         try {
-            val raw = context.assets.open("prices.json").bufferedReader().use { it.readText() }
+            val raw = assets.read("prices.json")
             val data = json.decodeFromString<PricesJson>(raw)
-            val map = mutableMapOf<String, PriceEntity>()
+            // Prefer the cheapest non-promo printing; fall back to promo prices
+            // only for cards that exist solely as promos.
             val promoSets = setOf("dust reward promos", "arthurian legends promo")
+            val best = mutableMapOf<String, Pair<PriceEntity, Boolean>>() // entity to isPromo
             for (entry in data.cards) {
                 val name = entry.productName ?: continue
                 val market = entry.marketPrice ?: continue
                 val isPromo = entry.setName?.lowercase() in promoSets
-                val existing = map[name]
-                if (existing == null ||
-                    (existing.marketPrice != null && isPromo.not() && market < existing.marketPrice) ||
-                    existing.marketPrice == null
-                ) {
-                    map[name] = PriceEntity(
+                val (existing, existingIsPromo) = best[name] ?: (null to false)
+                val replace = when {
+                    existing == null -> true
+                    existingIsPromo && !isPromo -> true
+                    existingIsPromo == isPromo && market < (existing.marketPrice ?: Double.MAX_VALUE) -> true
+                    else -> false
+                }
+                if (replace) {
+                    best[name] = PriceEntity(
                         cardName = name,
                         marketPrice = market,
                         lowPrice = entry.lowestPrice ?: market,
-                    )
+                    ) to isPromo
                 }
             }
-            dao.upsertPrices(map.values.toList())
+            dao.upsertPrices(best.values.map { it.first })
         } catch (e: Exception) {
             Log.w("CardRepository", "Failed to load prices", e)
         }
@@ -133,7 +153,7 @@ class CardRepositoryImpl @Inject constructor(
             remote
         } catch (e: Exception) {
             Log.d("CardRepository", "API unavailable, using bundled data: ${e.message}")
-            val raw = context.assets.open("cards.json").bufferedReader().use { it.readText() }
+            val raw = assets.read("cards.json")
             json.decodeFromString<List<CardJson>>(raw)
         }
     }

@@ -7,6 +7,10 @@ import com.github.username.cardapp.ui.common.SortDir
 
 object FilterQueryBuilder {
 
+    /** Escape LIKE wildcards so user input matches literally; pair with `ESCAPE '\'`. */
+    private fun String.escapeLike(): String =
+        replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
     fun build(filter: CardFilterState, collection: Boolean = false): SupportSQLiteQuery {
         val args = mutableListOf<Any>()
         val where = mutableListOf<String>()
@@ -22,16 +26,17 @@ object FilterQueryBuilder {
 
         // Text search
         if (filter.query.isNotBlank()) {
-            val pattern = "%${filter.query}%"
-            where += "(cards.name LIKE ? OR cards.cardType LIKE ? OR cards.subTypes LIKE ? OR cards.rulesText LIKE ?)"
+            val pattern = "%${filter.query.escapeLike()}%"
+            where += "(cards.name LIKE ? ESCAPE '\\' OR cards.cardType LIKE ? ESCAPE '\\' " +
+                "OR cards.subTypes LIKE ? ESCAPE '\\' OR cards.rulesText LIKE ? ESCAPE '\\')"
             args += pattern; args += pattern; args += pattern; args += pattern
         }
 
         // Set filter (match any)
         if (filter.sets.isNotEmpty()) {
             val setClauses = filter.sets.map {
-                args += "%,$it,%"
-                "cards.setNames LIKE ?"
+                args += "%,${it.escapeLike()},%"
+                "cards.setNames LIKE ? ESCAPE '\\'"
             }
             where += "(${setClauses.joinToString(" OR ")})"
         }

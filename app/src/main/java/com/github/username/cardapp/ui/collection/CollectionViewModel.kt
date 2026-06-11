@@ -1,11 +1,13 @@
 package com.github.username.cardapp.ui.collection
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.username.cardapp.data.CardRepository
+import com.github.username.cardapp.data.CollectionImportParser
+import com.github.username.cardapp.data.CollectionImportResult
 import com.github.username.cardapp.data.SortPreferences
 import com.github.username.cardapp.data.local.CollectionCardWithPrice
-import com.github.username.cardapp.data.local.CollectionEntryEntity
 import com.github.username.cardapp.data.local.SetEntity
 import com.github.username.cardapp.ui.common.CardFilterState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,6 +42,9 @@ class CollectionViewModel @Inject constructor(
     val sets: StateFlow<List<SetEntity>> = repository.sets
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    private val _importResult = MutableStateFlow<CollectionImportResult?>(null)
+    val importResult: StateFlow<CollectionImportResult?> = _importResult.asStateFlow()
+
     init {
         repository.ensureDataLoaded()
         viewModelScope.launch {
@@ -58,18 +63,19 @@ class CollectionViewModel @Inject constructor(
 
     fun importCollection(text: String) {
         viewModelScope.launch {
-            val entries = text.lines()
-                .filter { it.isNotBlank() }
-                .mapNotNull { line ->
-                    val spaceIndex = line.indexOf(' ')
-                    if (spaceIndex < 1) return@mapNotNull null
-                    val qty = line.substring(0, spaceIndex).toIntOrNull() ?: return@mapNotNull null
-                    val name = line.substring(spaceIndex + 1).trim()
-                    if (name.isEmpty() || qty <= 0) return@mapNotNull null
-                    CollectionEntryEntity(cardName = name, quantity = qty)
-                }
-            if (entries.isNotEmpty()) repository.addToCollection(entries)
+            try {
+                val result = CollectionImportParser.parse(text, repository.getAllCardNames())
+                if (result.entries.isNotEmpty()) repository.addToCollection(result.entries)
+                _importResult.value = result
+            } catch (e: Exception) {
+                Log.w("CollectionViewModel", "Collection import failed", e)
+                _importResult.value = CollectionImportResult(emptyList(), listOf("Import failed: ${e.message}"))
+            }
         }
+    }
+
+    fun dismissImportResult() {
+        _importResult.value = null
     }
 
     fun updateFilter(transform: (CardFilterState) -> CardFilterState) {

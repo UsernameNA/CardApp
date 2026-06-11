@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.github.username.cardapp.data.AssetTextReader
 import com.github.username.cardapp.data.local.AppDatabase
 import com.github.username.cardapp.data.local.CardDao
 import com.github.username.cardapp.data.remote.SorceryApi
@@ -35,6 +36,13 @@ object AppModule {
     @Singleton
     fun provideJson(): Json = Json { ignoreUnknownKeys = true }
 
+    @Provides
+    @Singleton
+    fun provideAssetTextReader(@ApplicationContext context: Context): AssetTextReader =
+        AssetTextReader { fileName ->
+            context.assets.open(fileName).bufferedReader().use { it.readText() }
+        }
+
     private val MIGRATION_4_5 = object : Migration(4, 5) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE cards ADD COLUMN setNames TEXT NOT NULL DEFAULT ''")
@@ -58,11 +66,17 @@ object AppModule {
         }
     }
 
+    private val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_collection_cardName ON collection (cardName)")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "cardapp.db")
-            .addMigrations(MIGRATION_4_5)
+            .addMigrations(MIGRATION_4_5, MIGRATION_5_6)
             // Pre-collection schemas (v1–v3, before CollectionEntryEntity existed at v4)
             // hold only the re-syncable card catalog, so wiping them loses nothing.
             // From v4 onward a real migration is REQUIRED — a missing one now throws at

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.username.cardapp.data.CardRepository
 import com.github.username.cardapp.data.SortPreferences
+import com.github.username.cardapp.data.SyncState
 import com.github.username.cardapp.data.local.CardWithPrice
 import com.github.username.cardapp.data.local.SetEntity
 import com.github.username.cardapp.ui.common.CardFilterState
@@ -44,8 +45,7 @@ class CardsViewModel @Inject constructor(
         .map { entries -> entries.associate { it.card.name to it.quantity } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
-    val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
+    val syncState: StateFlow<SyncState> = repository.syncState
 
     init {
         repository.ensureDataLoaded()

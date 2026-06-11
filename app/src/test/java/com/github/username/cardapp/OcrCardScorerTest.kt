@@ -81,6 +81,30 @@ class OcrCardScorerTest {
     }
 
     @Test
+    fun correctlyReadNameContainingRnStillMatches() {
+        // A single-word name that genuinely contains "rn", read correctly by OCR,
+        // must still match — normalization must not corrupt only one side of the
+        // comparison ("Burn" OCR text becomes "Bum" while the card name stays "Burn").
+        val cards = listOf(card("Burn", cardType = "Magic"), card("Goblin"))
+        val ocr = "Burn\nMagic\nDeal damage to a target."
+
+        val result = OcrCardScorer.score(ocr, cards)
+
+        assertEquals("Burn", result.matched?.name)
+    }
+
+    @Test
+    fun correctlyReadNameContainingClStillMatches() {
+        // Same one-sided corruption for "cl" → "d": OCR "Clock" becomes "Dock".
+        val cards = listOf(card("Clock", cardType = "Artifact"), card("Goblin"))
+        val ocr = "Clock\nArtifact\nAt the start of each turn tick once."
+
+        val result = OcrCardScorer.score(ocr, cards)
+
+        assertEquals("Clock", result.matched?.name)
+    }
+
+    @Test
     fun singleFuzzyNameMatchAloneStaysBelowThreshold() {
         // A one-word name with a single OCR substitution ("Em8er" for "Ember")
         // scores below threshold on its own — by design, to avoid false positives

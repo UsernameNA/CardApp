@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.github.username.cardapp.data.SyncState
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CardWithPrice
 import com.github.username.cardapp.ui.common.CardFilterState

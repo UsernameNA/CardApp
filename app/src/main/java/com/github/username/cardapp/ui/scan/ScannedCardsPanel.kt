@@ -244,7 +244,8 @@ internal fun ScannedCardsPanel(
 
         // Scanned cards list (newest first)
         val listState = rememberLazyListState()
-        LaunchedEffect(lastScanCardName, cards.size) {
+        // Keyed on the last scan only — removing a card must not yank the list to the top.
+        LaunchedEffect(lastScanCardName) {
             if (cards.isNotEmpty()) listState.animateScrollToItem(0)
         }
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {

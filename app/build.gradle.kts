@@ -63,26 +63,47 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        // Stub android.* methods (e.g. Log) as no-ops so JVM unit tests can
+        // exercise classes that log.
+        unitTests.isReturnDefaultValues = true
+    }
     buildToolsVersion = "36.1.0"
 
-    // Release builds use the full image set from scripts/images/;
-    // debug builds use the small subset in src/main/assets/images/.
-    sourceSets.getByName("release") {
-        assets.directories.add("${layout.buildDirectory.get()}/release-assets")
+}
+
+// Release builds bundle the full image set from scripts/images/ as a generated
+// asset directory; debug builds use the small subset in src/main/assets/images/.
+// Wired through the Variant API so AGP owns the output location and task dependency.
+abstract class CopyReleaseImagesTask : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NAME_ONLY)
+    abstract val images: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun run() {
+        val dest = outputDir.get().asFile.resolve("images")
+        dest.deleteRecursively()
+        dest.mkdirs()
+        images.files.forEach { it.copyTo(dest.resolve(it.name), overwrite = true) }
     }
 }
 
 val releaseImagesDir: Directory = rootProject.layout.projectDirectory.dir("scripts/images")
 
-val copyReleaseImages by tasks.registering(Copy::class) {
-    from(releaseImagesDir)
-    into(layout.buildDirectory.dir("release-assets/images"))
-    isEnabled = releaseImagesDir.asFile.exists()
+val copyReleaseImages = tasks.register<CopyReleaseImagesTask>("copyReleaseImages") {
+    images.from(fileTree(releaseImagesDir))
 }
 
-afterEvaluate {
-    tasks.matching { it.name.contains("Release") && it.name != "copyReleaseImages" }.configureEach {
-        dependsOn(copyReleaseImages)
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(
+            copyReleaseImages,
+            CopyReleaseImagesTask::outputDir,
+        )
     }
 }
 

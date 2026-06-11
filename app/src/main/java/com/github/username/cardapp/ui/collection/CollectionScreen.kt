@@ -4,6 +4,9 @@ import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,11 +17,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,19 +41,25 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.github.username.cardapp.data.CollectionImportResult
 import com.github.username.cardapp.data.local.CardEntity
+import com.github.username.cardapp.data.local.CollectionEntryEntity
 import com.github.username.cardapp.data.local.CollectionCardWithPrice
 import com.github.username.cardapp.ui.common.CardFilterState
 import com.github.username.cardapp.ui.common.CardRow
 import com.github.username.cardapp.ui.common.NoFilterResults
 import com.github.username.cardapp.ui.common.SearchFilterBar
+import com.github.username.cardapp.ui.theme.BurgundyLight
 import com.github.username.cardapp.ui.theme.CardAppTheme
 import com.github.username.cardapp.ui.theme.CreamFaded
 import com.github.username.cardapp.ui.theme.CreamMuted
+import com.github.username.cardapp.ui.theme.CreamPrimary
 import com.github.username.cardapp.ui.theme.GoldDark
 import com.github.username.cardapp.ui.theme.GoldMuted
 import com.github.username.cardapp.ui.theme.GoldPrimary
+import com.github.username.cardapp.ui.theme.LeatherMid
 import com.github.username.cardapp.ui.theme.Typography
 import com.github.username.cardapp.ui.theme.leatherBackground
 
@@ -63,6 +76,11 @@ fun CollectionScreen(onCardClick: (String) -> Unit = {}, vm: CollectionViewModel
         uri ?: return@rememberLauncherForActivityResult
         val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
         if (!text.isNullOrBlank()) vm.importCollection(text)
+    }
+
+    val importResult by vm.importResult.collectAsState()
+    importResult?.let { result ->
+        ImportResultDialog(result = result, onDismiss = vm::dismissImportResult)
     }
 
     CollectionScreenContent(
@@ -247,6 +265,62 @@ private fun EmptyCollectionMessage() {
 
 
 
+@Composable
+private fun ImportResultDialog(result: CollectionImportResult, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(LeatherMid, RoundedCornerShape(6.dp))
+                .border(1.dp, GoldMuted, RoundedCornerShape(6.dp))
+                .padding(20.dp),
+        ) {
+            Text(
+                text = "IMPORT",
+                style = Typography.titleMedium.copy(color = GoldPrimary),
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = if (result.importedCount > 0) {
+                    "Added ${result.importedCount} cards (${result.entries.size} distinct) to your collection."
+                } else {
+                    "No cards were imported."
+                },
+                style = Typography.bodyMedium.copy(color = CreamPrimary),
+            )
+            if (result.unmatched.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "${result.unmatched.size} line(s) could not be matched to a card:",
+                    style = Typography.bodyMedium.copy(color = BurgundyLight),
+                )
+                Spacer(Modifier.height(6.dp))
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 180.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    for (line in result.unmatched) {
+                        Text(
+                            text = line,
+                            style = Typography.bodySmall.copy(color = CreamMuted),
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = "CLOSE",
+                style = Typography.labelMedium.copy(color = GoldPrimary),
+                modifier = Modifier
+                    .align(Alignment.End)
+                    .clickable(onClick = onDismiss)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun CollectionListPreview() {
@@ -280,5 +354,21 @@ private fun CollectionListPreview() {
 private fun CollectionEmptyPreview() {
     CardAppTheme {
         CollectionScreenContent(entries = emptyList())
+    }
+}
+@Preview(showBackground = true)
+@Composable
+private fun ImportResultDialogPreview() {
+    CardAppTheme {
+        ImportResultDialog(
+            result = CollectionImportResult(
+                entries = listOf(
+                    CollectionEntryEntity(cardName = "Abundance", quantity = 2),
+                    CollectionEntryEntity(cardName = "Volcanic Dragon", quantity = 3),
+                ),
+                unmatched = listOf("2 Saphire Core", "Ruby Core"),
+            ),
+            onDismiss = {},
+        )
     }
 }

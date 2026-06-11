@@ -76,11 +76,12 @@ fun CardDetailScreen(
             .fillMaxSize()
             .leatherBackground(),
     ) {
-        if (card != null) {
+        val loadedCard = card
+        if (loadedCard != null) {
             CardDetailContent(
-                card = card!!,
+                card = loadedCard,
                 variants = variants,
-                marketPrice = prices[card!!.name],
+                marketPrice = prices[loadedCard.name],
                 faqs = faqs,
                 onBack = onBack,
                 onAddToCollection = vm::addToCollection,

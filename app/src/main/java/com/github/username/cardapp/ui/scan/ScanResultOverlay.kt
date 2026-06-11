@@ -73,7 +73,9 @@ internal fun ScanResultOverlay(
         }
     }
 
-    if (overlayAlpha.value == 0f && !hasResult) return
+    // Leave the composition whenever fully faded — an invisible overlay must not
+    // keep intercepting taps (its clickable would silently toggle the correction panel).
+    if (overlayAlpha.value == 0f) return
 
     val overlayInteraction = remember { MutableInteractionSource() }
     val overlayPressed by overlayInteraction.collectIsPressedAsState()

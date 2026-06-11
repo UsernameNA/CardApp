@@ -112,7 +112,9 @@ object OcrCardScorer {
         allWords: Set<String>,
     ): Int {
         var score = 0
-        val cardNameClean = stripPunctuation(card.name.lowercase())
+        // Card-side text goes through the same normalization as the OCR text, so a
+        // correctly-read "Burn" (normalized to "bum") still matches the card "Burn".
+        val cardNameClean = stripPunctuation(normalizeOcr(card.name.lowercase()))
         val nameWords = cardNameClean.split(" ").filter { it.length > 1 }
         val nameZoneClean = stripPunctuation(nameZone)
 
@@ -163,7 +165,7 @@ object OcrCardScorer {
         }
 
         // ── C. Type match (fuzzy, anywhere in text) ────────────────────────────
-        val cardTypeLower = card.cardType.lowercase()
+        val cardTypeLower = normalizeOcr(card.cardType.lowercase())
         if (cardTypeLower.length > 3) {
             val tol2 = if (cardTypeLower.length >= 7) 4 else 2
             val bestDist = allTokens.minOfOrNull { levenshtein(cardTypeLower, it) } ?: Int.MAX_VALUE
@@ -172,7 +174,7 @@ object OcrCardScorer {
 
         // ── D. Subtype match (fuzzy, anywhere in text) ─────────────────────────
         if (card.subTypes.isNotEmpty()) {
-            for (sub in card.subTypes.lowercase().split(Regex("[,/\\s]+")).filter { it.length > 2 }) {
+            for (sub in normalizeOcr(card.subTypes.lowercase()).split(Regex("[,/\\s]+")).filter { it.length > 2 }) {
                 val tol2 = if (sub.length >= 7) 4 else 2
                 val bestDist = allTokens.minOfOrNull { levenshtein(sub, it) } ?: Int.MAX_VALUE
                 if (bestDist <= tol2) { score += 8; break }
@@ -186,7 +188,7 @@ object OcrCardScorer {
 
         // ── F. Rules text overlap (exact + fuzzy, 3 pts per word) ──────────────
         if (card.rulesText.isNotEmpty()) {
-            val rulesWords = card.rulesText.lowercase()
+            val rulesWords = normalizeOcr(card.rulesText.lowercase())
                 .split(Regex("[^a-z0-9']+"))
                 .filter { it.length > 3 }
                 .toSet()

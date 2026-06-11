@@ -8,8 +8,10 @@ import com.github.username.cardapp.data.local.CollectionEntryEntity
 import com.github.username.cardapp.data.local.SetEntity
 import com.github.username.cardapp.ui.common.CardFilterState
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
 interface CardRepository {
+    val syncState: StateFlow<SyncState>
     fun filteredCards(filter: CardFilterState): Flow<List<CardWithPrice>>
     fun filteredCollection(filter: CardFilterState): Flow<List<CollectionCardWithPrice>>
     val sets: Flow<List<SetEntity>>
@@ -19,6 +21,7 @@ interface CardRepository {
     suspend fun needsCardSync(): Boolean
     suspend fun syncCards()
     suspend fun loadPrices()
+    suspend fun getAllCardNames(): List<String>
     suspend fun addToCollection(entries: List<CollectionEntryEntity>)
     suspend fun incrementInCollection(cardName: String)
     suspend fun removeOneFromCollection(cardName: String)

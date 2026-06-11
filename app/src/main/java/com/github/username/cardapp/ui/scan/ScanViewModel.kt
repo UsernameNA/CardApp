@@ -1,5 +1,6 @@
 package com.github.username.cardapp.ui.scan
 
+import android.graphics.Bitmap
 import androidx.camera.core.ImageProxy
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -156,9 +157,20 @@ class ScanViewModel @Inject constructor(
             imageProxy.close()
             return
         }
-        val bitmap = imageProxy.toBitmap()
-        val sensorRotation = imageProxy.imageInfo.rotationDegrees
-        imageProxy.close()
+        val bitmap: Bitmap
+        val sensorRotation: Int
+        try {
+            bitmap = imageProxy.toBitmap()
+            sensorRotation = imageProxy.imageInfo.rotationDegrees
+        } catch (e: Exception) {
+            // Without the finally-close a thrown toBitmap() would starve the
+            // analyzer of buffers and freeze the scan pipeline permanently.
+            Log.w("ScanViewModel", "Failed to read camera frame", e)
+            setStatusTemporarily(ScanStatus.NotFound)
+            return
+        } finally {
+            imageProxy.close()
+        }
 
         recognizer.process(InputImage.fromBitmap(bitmap, sensorRotation))
             .addOnSuccessListener { visionText ->
@@ -211,9 +223,19 @@ class ScanViewModel @Inject constructor(
                         _scanStatus.value = ScanStatus.Scanning
 
                         // Only create a Bitmap when we actually need OCR
-                        val bitmap = imageProxy.toBitmap()
-                        val rotation = imageProxy.imageInfo.rotationDegrees
-                        imageProxy.close()
+                        val bitmap: Bitmap
+                        val rotation: Int
+                        try {
+                            bitmap = imageProxy.toBitmap()
+                            rotation = imageProxy.imageInfo.rotationDegrees
+                        } catch (e: Exception) {
+                            Log.w("ScanViewModel", "Failed to read camera frame", e)
+                            autoState.set(AutoState.WaitingForCard)
+                            _scanStatus.value = ScanStatus.AutoWatching
+                            return
+                        } finally {
+                            imageProxy.close()
+                        }
 
                         recognizer.process(InputImage.fromBitmap(bitmap, rotation))
                             .addOnSuccessListener { visionText ->

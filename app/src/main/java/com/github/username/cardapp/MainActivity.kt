@@ -48,15 +48,15 @@ class MainActivity : ComponentActivity() {
                 NavHost(navController = navController, startDestination = Landing) {
                     composable<Landing> {
                         LandingScreen(
-                            onViewCards = { navController.navigate(Cards) },
-                            onViewCollection = { navController.navigate(Collection) },
-                            onScanCards = { navController.navigate(Scan) },
-                            onTrackGame = { navController.navigate(TrackGame) },
+                            onViewCards = { navController.navigate(Cards) { launchSingleTop = true } },
+                            onViewCollection = { navController.navigate(Collection) { launchSingleTop = true } },
+                            onScanCards = { navController.navigate(Scan) { launchSingleTop = true } },
+                            onTrackGame = { navController.navigate(TrackGame) { launchSingleTop = true } },
                         )
                     }
                     composable<Cards> {
                         CardsScreen(
-                            onCardClick = { cardName -> navController.navigate(CardDetail(cardName)) },
+                            onCardClick = { cardName -> navController.navigate(CardDetail(cardName)) { launchSingleTop = true } },
                         )
                     }
                     composable<CardDetail> {
@@ -64,13 +64,13 @@ class MainActivity : ComponentActivity() {
                     }
                     composable<Collection> {
                         CollectionScreen(
-                            onCardClick = { cardName -> navController.navigate(CardDetail(cardName)) },
+                            onCardClick = { cardName -> navController.navigate(CardDetail(cardName)) { launchSingleTop = true } },
                         )
                     }
                     composable<Scan> {
                         ScanScreen(
                             onBack = { navController.popBackStack() },
-                            onCardClick = { cardName -> navController.navigate(CardDetail(cardName)) },
+                            onCardClick = { cardName -> navController.navigate(CardDetail(cardName)) { launchSingleTop = true } },
                         )
                     }
                     composable<TrackGame> {

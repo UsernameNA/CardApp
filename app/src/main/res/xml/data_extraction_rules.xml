@@ -1,19 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+   Backup policy (deliberate): the Room database is INCLUDED in cloud backup and
+   device transfer — it holds the user's collection, which is expensive to rebuild.
+   Restoring an older DB version is safe because schema migrations are mandatory
+   from v4 onward (see AppModule). Card catalog and prices are re-synced from
+   bundled assets/API regardless, and DataStore holds only sort preferences.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <include domain="database" path="cardapp.db" />
+        <include domain="file" path="datastore" />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <include domain="database" path="cardapp.db" />
+        <include domain="file" path="datastore" />
     </device-transfer>
-    -->
 </data-extraction-rules>

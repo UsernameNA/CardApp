@@ -1,5 +1,6 @@
 package com.github.username.cardapp
 
+import androidx.sqlite.db.SupportSQLiteProgram
 import com.github.username.cardapp.data.FilterQueryBuilder
 import com.github.username.cardapp.ui.common.CardFilterState
 import com.github.username.cardapp.ui.common.SortDir
@@ -13,6 +14,21 @@ class FilterQueryBuilderTest {
     private fun buildSql(state: CardFilterState, collection: Boolean = false): String {
         val query = FilterQueryBuilder.build(state, collection)
         return query.sql
+    }
+
+    private fun boundArgs(state: CardFilterState): List<Any?> {
+        val query = FilterQueryBuilder.build(state)
+        val args = arrayOfNulls<Any?>(query.argCount)
+        query.bindTo(object : SupportSQLiteProgram {
+            override fun bindNull(index: Int) { args[index - 1] = null }
+            override fun bindLong(index: Int, value: Long) { args[index - 1] = value }
+            override fun bindDouble(index: Int, value: Double) { args[index - 1] = value }
+            override fun bindString(index: Int, value: String) { args[index - 1] = value }
+            override fun bindBlob(index: Int, value: ByteArray) { args[index - 1] = value }
+            override fun clearBindings() {}
+            override fun close() {}
+        })
+        return args.toList()
     }
 
     // --- Base query ---
@@ -41,6 +57,20 @@ class FilterQueryBuilderTest {
         assertTrue(sql.contains("cards.rulesText LIKE ?"))
     }
 
+    @Test
+    fun textSearchEscapesLikeWildcards() {
+        val state = CardFilterState(query = "50%_off")
+        val sql = buildSql(state)
+        assertTrue(sql.contains("cards.name LIKE ? ESCAPE '\\'"))
+        assertEquals("%50\\%\\_off%", boundArgs(state)[0])
+    }
+
+    @Test
+    fun textSearchEscapesBackslash() {
+        val state = CardFilterState(query = """a\b""")
+        assertEquals("""%a\\b%""", boundArgs(state)[0])
+    }
+
     // --- Set filter ---
 
     @Test
@@ -54,6 +84,14 @@ class FilterQueryBuilderTest {
         val sql = buildSql(CardFilterState(sets = setOf("Alpha", "Beta")))
         val setClauseCount = Regex("cards\\.setNames LIKE \\?").findAll(sql).count()
         assertEquals(2, setClauseCount)
+    }
+
+    @Test
+    fun setFilterEscapesLikeWildcards() {
+        val state = CardFilterState(sets = setOf("Set_100%"))
+        val sql = buildSql(state)
+        assertTrue(sql.contains("cards.setNames LIKE ? ESCAPE '\\'"))
+        assertEquals("%,Set\\_100\\%,%", boundArgs(state)[0])
     }
 
     // --- Type filter ---

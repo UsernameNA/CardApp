@@ -469,7 +469,7 @@ private fun DiceRollingContent(onFinished: (Int) -> Unit) {
 private fun DiceResultContent(diceState: DiceState.Result, onTimeout: () -> Unit) {
     val isCorrect = (diceState.value % 2 == 1) == (diceState.guess == Parity.ODD)
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(diceState) {
         kotlinx.coroutines.delay(2000)
         onTimeout()
     }

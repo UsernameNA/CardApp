@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -69,7 +70,7 @@ internal fun CorrectionPanel(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                for (candidate in candidates) {
+                for (candidate in candidates) key(candidate.name) {
                     val chipInteraction = remember { MutableInteractionSource() }
                     val chipPressed by chipInteraction.collectIsPressedAsState()
                     Box(
@@ -125,7 +126,7 @@ internal fun CorrectionPanel(
         )
 
         // Search results dropdown
-        for (card in correctionResults) {
+        for (card in correctionResults) key(card.name) {
             val resultInteraction = remember { MutableInteractionSource() }
             val resultPressed by resultInteraction.collectIsPressedAsState()
             Text(

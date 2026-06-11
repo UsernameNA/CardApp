@@ -21,6 +21,9 @@ interface CardDao {
     @Query("SELECT COUNT(*) FROM cards")
     suspend fun getCardCount(): Int
 
+    @Query("SELECT name FROM cards")
+    suspend fun getAllCardNames(): List<String>
+
     @Query("SELECT COUNT(*) FROM cards")
     fun observeCardCount(): Flow<Int>
 
@@ -54,18 +57,31 @@ interface CardDao {
     @Query("DELETE FROM sets")
     suspend fun deleteAllSets()
 
+    @Query("SELECT * FROM collection")
+    suspend fun getAllCollectionEntriesOnce(): List<CollectionEntryEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCollectionEntries(entries: List<CollectionEntryEntity>)
+
     @Transaction
     suspend fun syncAll(
         sets: List<SetEntity>,
         cards: List<CardEntity>,
         variants: List<CardVariantEntity>,
     ) {
+        // deleteAllCards() cascades into collection (FK ON DELETE CASCADE), so
+        // snapshot the user's collection and restore every row whose card survives.
+        val savedCollection = getAllCollectionEntriesOnce()
         deleteAllVariants()
         deleteAllCards()
         deleteAllSets()
         insertAllSets(sets)
         insertAllCards(cards)
         insertAllVariants(variants)
+        if (savedCollection.isNotEmpty()) {
+            val validNames = cards.mapTo(HashSet()) { it.name }
+            insertCollectionEntries(savedCollection.filter { it.cardName in validNames })
+        }
     }
 
     // --- Collection ---

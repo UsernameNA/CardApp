@@ -1,4 +1,4 @@
-package com.github.username.cardapp.ui.cards
+package com.github.username.cardapp.data
 
 sealed interface SyncState {
     data object Idle : SyncState
