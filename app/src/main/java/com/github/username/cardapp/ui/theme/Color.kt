@@ -23,6 +23,7 @@ val CreamFaded   = Color(0xFF7A6848)
 // Accents
 val BurgundyAccent = Color(0xFF7A2535)
 val BurgundyLight  = Color(0xFF9E3045)
+val BurgundyBright = Color(0xFFCE3B4E)   // high-visibility crimson — dice "wrong" verdict
 
 // Utility
 val InkShadow = Color(0xCC040302)

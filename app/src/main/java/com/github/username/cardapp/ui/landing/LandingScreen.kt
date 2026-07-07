@@ -1,17 +1,22 @@
 package com.github.username.cardapp.ui.landing
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -34,6 +39,7 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,13 +48,16 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -58,18 +67,21 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.github.username.cardapp.R
-import com.github.username.cardapp.ui.theme.BurgundyAccent
+import com.github.username.cardapp.ui.theme.BurgundyBright
 import com.github.username.cardapp.ui.theme.CardAppTheme
 import com.github.username.cardapp.ui.theme.CreamFaded
 import com.github.username.cardapp.ui.theme.CreamMuted
+import com.github.username.cardapp.ui.theme.CreamPrimary
 import com.github.username.cardapp.ui.theme.GoldDark
 import com.github.username.cardapp.ui.theme.GoldLight
 import com.github.username.cardapp.ui.theme.GoldMuted
 import com.github.username.cardapp.ui.theme.GoldPrimary
 import com.github.username.cardapp.ui.theme.InkShadow
+import com.github.username.cardapp.ui.theme.LeatherDeep
 import com.github.username.cardapp.ui.theme.LeatherMid
 import com.github.username.cardapp.ui.theme.Typography
 import com.github.username.cardapp.ui.theme.leatherBackground
+import kotlin.time.Duration.Companion.milliseconds
 
 private enum class Parity { ODD, EVEN }
 
@@ -140,11 +152,13 @@ fun LandingScreen(
                     text = "ODD",
                     onClick = { if (diceState is DiceState.Idle) diceState = DiceState.Rolling(Parity.ODD) },
                     modifier = Modifier.weight(1f),
+                    accent = true,
                 )
                 ArcaneButton(
                     text = "EVEN",
                     onClick = { if (diceState is DiceState.Idle) diceState = DiceState.Rolling(Parity.EVEN) },
                     modifier = Modifier.weight(1f),
+                    accent = true,
                 )
             }
         }
@@ -275,7 +289,12 @@ private fun OrnamentalDivider(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ArcaneButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun ArcaneButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    accent: Boolean = false,
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -283,23 +302,36 @@ private fun ArcaneButton(text: String, onClick: () -> Unit, modifier: Modifier =
         label = "btnScale",
     )
 
+    val outerBorder = when {
+        accent -> if (pressed) GoldLight else GoldPrimary
+        else -> if (pressed) GoldPrimary else GoldMuted
+    }
+    val fill = when {
+        accent -> (if (pressed) GoldDark.copy(alpha = 0.6f) else GoldDark.copy(alpha = 0.4f)).compositeOver(LeatherMid)
+        else -> if (pressed) LeatherMid else LeatherMid.copy(alpha = 0.5f)
+    }
+    val textColor = when {
+        accent -> if (pressed) CreamPrimary else GoldLight
+        else -> if (pressed) GoldLight else CreamMuted
+    }
+
     Box(
         modifier = modifier
             .height(52.dp)
             .scale(scale)
             .border(
-                width = 0.8.dp,
-                color = if (pressed) GoldPrimary else GoldMuted,
+                width = if (accent) 1.dp else 0.8.dp,
+                color = outerBorder,
                 shape = RoundedCornerShape(2.dp),
             )
             .padding(2.dp)
             .border(
                 width = 0.5.dp,
-                color = GoldDark.copy(alpha = 0.5f),
+                color = if (accent) GoldMuted.copy(alpha = 0.7f) else GoldDark.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(1.dp),
             )
             .background(
-                color = if (pressed) LeatherMid else LeatherMid.copy(alpha = 0.5f),
+                color = fill,
                 shape = RoundedCornerShape(1.dp),
             )
             .clickable(
@@ -312,7 +344,7 @@ private fun ArcaneButton(text: String, onClick: () -> Unit, modifier: Modifier =
         Text(
             text = text,
             style = Typography.labelLarge.copy(
-                color = if (pressed) GoldLight else CreamMuted,
+                color = textColor,
             ),
         )
     }
@@ -388,13 +420,61 @@ private fun DiceOverlay(diceState: DiceState, onResult: (Parity, Int) -> Unit, o
     if (diceState is DiceState.Rolling) currentGuess = diceState.guess
     val overlayAlpha = remember { Animatable(0f) }
 
-    LaunchedEffect(diceState) {
+    val currentState by rememberUpdatedState(diceState)
+    val currentOnResult by rememberUpdatedState(onResult)
+    val currentOnDismiss by rememberUpdatedState(onDismiss)
+
+    var diceReady by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    // Single persistent WebView: the dice page preloads while the screen is idle
+    // and is reused across rolls, so a tap starts the throw without a page reload
+    val diceWebView = remember {
+        createDiceWebView(
+            context = context,
+            onReady = { diceReady = true },
+            onValue = { value ->
+                if (currentState is DiceState.Rolling) {
+                    val guess = currentGuess
+                    if (guess != null && value in 1..20) {
+                        currentOnResult(guess, value)
+                    } else {
+                        // Failed roll — dismiss without inventing a verdict
+                        currentOnDismiss()
+                    }
+                }
+            },
+        )
+    }
+    DisposableEffect(Unit) {
+        onDispose { diceWebView.destroy() }
+    }
+
+    // Mid-roll taps may cancel, after a grace period so the tap that started
+    // the roll can't immediately dismiss it
+    var cancelGraceElapsed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(diceState, diceReady) {
         when (diceState) {
-            is DiceState.Rolling -> overlayAlpha.animateTo(1f, tween(300))
-            is DiceState.Idle -> overlayAlpha.animateTo(0f, tween(500))
+            is DiceState.Rolling -> {
+                cancelGraceElapsed = false
+                if (diceReady) diceWebView.evaluateJavascript("window.startRoll()", null)
+                overlayAlpha.animateTo(1f, tween(300))
+                kotlinx.coroutines.delay(700.milliseconds)
+                cancelGraceElapsed = true
+                // Watchdog: the page's own 12s timeout should fire first;
+                // this covers a WebView that never reports back at all
+                kotlinx.coroutines.delay(14_000.milliseconds)
+                currentOnDismiss()
+            }
+            is DiceState.Idle -> {
+                overlayAlpha.animateTo(0f, tween(500))
+                if (diceReady) diceWebView.evaluateJavascript("window.clearDice()", null)
+            }
             is DiceState.Result -> { /* already visible */ }
         }
     }
+
+    BackHandler(enabled = diceState !is DiceState.Idle) { onDismiss() }
 
     if (overlayAlpha.value == 0f && diceState is DiceState.Idle) return
     val showScrim = diceState is DiceState.Result
@@ -413,33 +493,42 @@ private fun DiceOverlay(diceState: DiceState, onResult: (Parity, Int) -> Unit, o
             ),
         contentAlignment = Alignment.Center,
     ) {
-        // Keep WebView alive during both Rolling and Result so the die stays visible
+        // Keep WebView attached during both Rolling and Result so the die stays visible
         val showDie = diceState is DiceState.Rolling || diceState is DiceState.Result
         if (showDie) {
-            DiceRollingContent(
-                onFinished = { resultValue ->
-                    val guess = currentGuess ?: return@DiceRollingContent
-                    onResult(guess, resultValue)
-                },
-            )
-        }
-        if (diceState is DiceState.Result) {
-            // Touch-intercepting layer over the WebView to allow tap-to-dismiss
+            DiceWebViewHost(webView = diceWebView)
+            // Touch-intercepting layer over the WebView: tap to dismiss a result,
+            // or cancel a roll once the grace period has passed
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                        onClick = onDismiss,
+                        onClick = {
+                            when {
+                                diceState is DiceState.Result -> onDismiss()
+                                diceState is DiceState.Rolling && cancelGraceElapsed -> onDismiss()
+                            }
+                        },
                     ),
             )
+        }
+        if (diceState is DiceState.Result) {
             DiceResultContent(diceState = diceState, onTimeout = onDismiss)
         }
     }
 }
 
-private class DiceBridge(private val onResult: (Int) -> Unit) {
+private class DiceBridge(
+    private val onReady: () -> Unit,
+    private val onResult: (Int) -> Unit,
+) {
+    @JavascriptInterface
+    fun onDiceReady() {
+        Handler(Looper.getMainLooper()).post(onReady)
+    }
+
     @JavascriptInterface
     fun onDiceResult(value: Int) {
         Handler(Looper.getMainLooper()).post { onResult(value) }
@@ -447,34 +536,70 @@ private class DiceBridge(private val onResult: (Int) -> Unit) {
 }
 
 @SuppressLint("SetJavaScriptEnabled")
+private fun createDiceWebView(
+    context: Context,
+    onReady: () -> Unit,
+    onValue: (Int) -> Unit,
+): WebView = WebView(context).apply {
+    settings.javaScriptEnabled = true
+    setBackgroundColor(android.graphics.Color.TRANSPARENT)
+    addJavascriptInterface(DiceBridge(onReady = onReady, onResult = onValue), "Android")
+    // Pre-layout to screen size so the page sees real dimensions while it
+    // preloads detached from the window
+    val dm = context.resources.displayMetrics
+    layout(0, 0, dm.widthPixels, dm.heightPixels)
+    loadUrl("file:///android_asset/dice/dice_bridge.html")
+}
+
 @Composable
-private fun DiceRollingContent(onFinished: (Int) -> Unit) {
-    val currentOnFinished by rememberUpdatedState(onFinished)
-    val context = LocalContext.current
+private fun DiceWebViewHost(webView: WebView, modifier: Modifier = Modifier) {
     AndroidView(
         factory = {
-            WebView(context).apply {
-                settings.javaScriptEnabled = true
-                setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                addJavascriptInterface(DiceBridge { currentOnFinished(it) }, "Android")
-                loadUrl("file:///android_asset/dice/dice_bridge.html")
-            }
+            (webView.parent as? ViewGroup)?.removeView(webView)
+            webView
         },
-        onRelease = { it.destroy() },
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
     )
 }
 
 @Composable
 private fun DiceResultContent(diceState: DiceState.Result, onTimeout: () -> Unit) {
     val isCorrect = (diceState.value % 2 == 1) == (diceState.guess == Parity.ODD)
+    val verdictColor = if (isCorrect) GoldPrimary else BurgundyBright
 
+    val popScale = remember { Animatable(0.6f) }
     LaunchedEffect(diceState) {
-        kotlinx.coroutines.delay(2000)
+        popScale.animateTo(
+            targetValue = 1f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium,
+            ),
+        )
+    }
+    LaunchedEffect(diceState) {
+        kotlinx.coroutines.delay(3500.milliseconds)
         onTimeout()
     }
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .scale(popScale.value)
+            .drawBehind {
+                val glowRadius = size.maxDimension * 0.6f
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(verdictColor.copy(alpha = 0.35f), Color.Transparent),
+                        center = center,
+                        radius = glowRadius,
+                    ),
+                    radius = glowRadius,
+                    center = center,
+                )
+            },
+    ) {
         Text(
             text = "${diceState.value}",
             style = Typography.displayLarge.copy(
@@ -482,11 +607,51 @@ private fun DiceResultContent(diceState: DiceState.Result, onTimeout: () -> Unit
                 textAlign = TextAlign.Center,
             ),
         )
-        Spacer(Modifier.height(8.dp))
-        Text(
+        Spacer(Modifier.height(12.dp))
+        VerdictBanner(
             text = if (isCorrect) "CORRECT!" else "WRONG!",
-            style = Typography.headlineMedium.copy(
-                color = if (isCorrect) GoldPrimary else BurgundyAccent,
+            color = verdictColor,
+            textColor = if (isCorrect) LeatherDeep else CreamPrimary,
+        )
+    }
+}
+
+@Composable
+private fun VerdictBanner(text: String, color: Color, textColor: Color, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .drawBehind {
+                val hairlineH = 1.dp.toPx()
+                drawRect(
+                    brush = Brush.horizontalGradient(
+                        0f to Color.Transparent,
+                        0.15f to color.copy(alpha = 0.85f),
+                        0.5f to color,
+                        0.85f to color.copy(alpha = 0.85f),
+                        1f to Color.Transparent,
+                    ),
+                )
+                val hairline = Brush.horizontalGradient(
+                    0f to Color.Transparent,
+                    0.2f to GoldLight,
+                    0.8f to GoldLight,
+                    1f to Color.Transparent,
+                )
+                drawRect(hairline, size = Size(size.width, hairlineH))
+                drawRect(
+                    hairline,
+                    topLeft = Offset(0f, size.height - hairlineH),
+                    size = Size(size.width, hairlineH),
+                )
+            }
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = Typography.displayMedium.copy(
+                color = textColor,
                 textAlign = TextAlign.Center,
             ),
         )
