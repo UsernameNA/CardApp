@@ -412,7 +412,6 @@ class ScanViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        super.onCleared()
         recognizer.close()
     }
 
