@@ -456,7 +456,7 @@
                 if (Math.abs(a.x) < e && Math.abs(a.y) < e && Math.abs(a.z) < e &&
                     Math.abs(v.x) < e && Math.abs(v.y) < e && Math.abs(v.z) < e) {
                     if (dice.diceStopped) {
-                        if (time - dice.diceStopped > 250) {
+                        if (time - dice.diceStopped > 50) {
                             dice.diceStopped = true;
                             continue;
                         }
