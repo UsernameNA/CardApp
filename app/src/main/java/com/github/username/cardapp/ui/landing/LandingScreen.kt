@@ -506,9 +506,10 @@ private fun DiceOverlay(diceState: DiceState, onResult: (Parity, Int) -> Unit, o
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = {
-                            when {
-                                diceState is DiceState.Result -> onDismiss()
-                                diceState is DiceState.Rolling && cancelGraceElapsed -> onDismiss()
+                            when (diceState) {
+                                is DiceState.Result -> onDismiss()
+                                is DiceState.Rolling if cancelGraceElapsed -> onDismiss()
+                                else -> {}
                             }
                         },
                     ),
