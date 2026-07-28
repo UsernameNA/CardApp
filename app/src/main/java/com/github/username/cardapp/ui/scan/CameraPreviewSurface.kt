@@ -1,10 +1,13 @@
 package com.github.username.cardapp.ui.scan
 
 import android.util.Log
+import android.util.Size
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview as CameraPreview
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.runtime.Composable
@@ -39,6 +42,21 @@ internal fun CameraPreviewSurface(onFrame: (ImageProxy) -> Unit, modifier: Modif
                 }
                 val imageAnalysis = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    // CameraX defaults ImageAnalysis to 640×480, which leaves a card name
+                    // roughly 15px tall — below what ML Kit's Latin recognizer reads
+                    // reliably. 720p roughly doubles glyph height. The per-frame
+                    // fingerprint reads the Y plane directly so it costs nothing extra;
+                    // only the OCR frames of a burst are converted to Bitmap.
+                    .setResolutionSelector(
+                        ResolutionSelector.Builder()
+                            .setResolutionStrategy(
+                                ResolutionStrategy(
+                                    Size(1280, 720),
+                                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
+                                )
+                            )
+                            .build()
+                    )
                     .build()
                     .also { it.setAnalyzer(analysisExecutor, onFrame) }
                 try {

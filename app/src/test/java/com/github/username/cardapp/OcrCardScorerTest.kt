@@ -125,4 +125,130 @@ class OcrCardScorerTest {
         assertNull(result.matched)
         assertNull(result.best)
     }
+
+    @Test
+    fun apostropheInNameSurvivesTypographicQuote() {
+        // ML Kit emits a curly apostrophe where the catalogue stores a straight one.
+        // Both must strip to the same text or the full-name match is lost.
+        val cards = listOf(card("Sorcerer's Tower", cardType = "Site"), card("Goblin"))
+        val ocr = "Sorcerer’s Tower\nSite\nTap for mana."
+
+        val result = OcrCardScorer.score(ocr, cards)
+
+        assertEquals("Sorcerer's Tower", result.matched?.name)
+        assertTrue(
+            "curly apostrophe should still yield the full-name score",
+            result.bestScore >= 200,
+        )
+    }
+
+    // ── Margin gate ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun rejectsMatchWhenRunnerUpIsEquallyPlausible() {
+        // "Serpant" is one substitution away from both catalogue names, so neither can be
+        // preferred. Clearing the threshold is not enough on its own — without the margin
+        // gate this would silently add a coin-flip guess to the collection.
+        val cards = listOf(card("Sea Serpent"), card("Sea Servant"))
+        val ocr = "Sea Serpant\nMinion\nA creature of the deep."
+
+        val result = OcrCardScorer.score(ocr, cards)
+
+        assertTrue(
+            "both should clear the raw threshold",
+            result.bestScore >= OcrCardScorer.SCORE_THRESHOLD,
+        )
+        assertEquals(
+            "the two candidates should be tied",
+            result.top3[0].score,
+            result.top3[1].score,
+        )
+        assertNull("a tie must not auto-match", result.matched)
+        assertEquals("candidates are still surfaced for correction", 2, result.top3.size)
+    }
+
+    @Test
+    fun acceptsMatchWithAClearLead() {
+        val cards = listOf(card("Sea Serpent"), card("Goblin"), card("Flame Dragon"))
+        val ocr = "Sea Serpent\nMinion - Beast\nA serpent of the deep."
+
+        val result = OcrCardScorer.score(ocr, cards)
+
+        assertEquals("Sea Serpent", result.matched?.name)
+    }
+
+    // ── Multi-frame bursts ──────────────────────────────────────────────────────
+
+    @Test
+    fun combineAveragesSoThresholdKeepsItsMeaning() {
+        val cards = listOf(card("Sea Serpent"), card("Goblin"))
+        val ocr = "Sea Serpent\nMinion - Beast\nA serpent of the deep."
+
+        val single = OcrCardScorer.score(ocr, cards)
+        val burst = OcrCardScorer.combine(
+            List(3) { OcrCardScorer.scoreFrame(ocr, cards) },
+            cards,
+        )
+
+        assertEquals(
+            "three identical reads must not inflate the score",
+            single.bestScore,
+            burst.bestScore,
+        )
+        assertEquals("Sea Serpent", burst.matched?.name)
+    }
+
+    @Test
+    fun burstRecoversACardThatOneBadFrameWouldMiss() {
+        // Frame 2 is badly garbled and on its own picks the wrong card; the two good
+        // reads outvote it.
+        val cards = listOf(card("Sea Serpent"), card("Flame Dragon"))
+        val good = "Sea Serpent\nMinion - Beast\nA serpent of the deep."
+        val garbled = "Flarne Dragon"
+
+        assertEquals(
+            "the bad frame alone should mismatch",
+            "Flame Dragon",
+            OcrCardScorer.score(garbled, cards).best?.name,
+        )
+
+        val burst = OcrCardScorer.combine(
+            listOf(
+                OcrCardScorer.scoreFrame(good, cards),
+                OcrCardScorer.scoreFrame(garbled, cards),
+                OcrCardScorer.scoreFrame(good, cards),
+            ),
+            cards,
+        )
+
+        assertEquals("Sea Serpent", burst.matched?.name)
+    }
+
+    @Test
+    fun combineIgnoresFailedFrames() {
+        val cards = listOf(card("Sea Serpent"), card("Goblin"))
+        val ocr = "Sea Serpent\nMinion - Beast\nA serpent of the deep."
+
+        // A frame whose OCR failed contributes no scores and must not drag the average down.
+        val withFailure = OcrCardScorer.combine(
+            listOf(
+                OcrCardScorer.scoreFrame(ocr, cards),
+                OcrCardScorer.FrameScores("", emptyMap(), emptySet()),
+            ),
+            cards,
+        )
+
+        assertEquals(OcrCardScorer.score(ocr, cards).bestScore, withFailure.bestScore)
+        assertEquals("Sea Serpent", withFailure.matched?.name)
+    }
+
+    @Test
+    fun combineWithNoUsableFramesYieldsNoMatch() {
+        val cards = listOf(card("Sea Serpent"))
+
+        val result = OcrCardScorer.combine(emptyList(), cards)
+
+        assertNull(result.matched)
+        assertNull(result.best)
+    }
 }

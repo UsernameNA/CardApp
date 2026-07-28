@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 
@@ -92,7 +92,15 @@ class ScanViewModel @Inject constructor(
     val unmatchedScan: StateFlow<Boolean> = _unmatchedScan.asStateFlow()
 
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-    private val pendingScan = AtomicBoolean(false)
+
+    // --- Multi-frame bursts ---
+    //
+    // Both scan modes read the card OcrFrameBurst.SIZE times and merge the scores rather
+    // than trusting a single OCR pass. [pendingFrames] is how many reads the current burst
+    // still wants; the analyzer claims one per frame until it hits zero.
+    private val burst = OcrFrameBurst()
+    private val pendingFrames = AtomicInteger(0)
+    @Volatile private var burstGeneration = 0
 
     private val _scanMode = MutableStateFlow(ScanMode.Manual)
     val scanMode: StateFlow<ScanMode> = _scanMode.asStateFlow()
@@ -119,10 +127,14 @@ class ScanViewModel @Inject constructor(
     @Volatile private var scannedFingerprint: IntArray? = null
     @Volatile private var failedFingerprint: IntArray? = null
 
+    /** Fingerprint of the frame that triggered the burst in flight. */
+    @Volatile private var burstFingerprint: IntArray? = null
+
     fun toggleScanMode() {
         val next = if (_scanMode.value == ScanMode.Manual) ScanMode.Auto else ScanMode.Manual
         _scanMode.value = next
         _scanStatus.value = if (next == ScanMode.Auto) ScanStatus.AutoWatching else ScanStatus.Idle
+        cancelBurst()
         if (next == ScanMode.Auto) resetAutoState()
     }
 
@@ -134,12 +146,28 @@ class ScanViewModel @Inject constructor(
         failedFingerprint = null
     }
 
+    /** Drop any burst in flight; its late frames will report against a stale generation. */
+    private fun cancelBurst() {
+        pendingFrames.set(0)
+        burstGeneration = burst.restart()
+    }
+
+    /** Open a burst of [OcrFrameBurst.SIZE] reads. */
+    private fun startBurst() {
+        burstGeneration = burst.restart()
+        pendingFrames.set(OcrFrameBurst.SIZE)
+    }
+
+    /** Claim one read of the burst in flight; false when the burst is already satisfied. */
+    private fun claimBurstFrame(): Boolean =
+        pendingFrames.getAndUpdate { if (it > 0) it - 1 else 0 } > 0
+
     @Volatile var correctionOpen = false
 
     fun requestScan() {
         if (correctionOpen) return
         _scanStatus.value = ScanStatus.Scanning
-        pendingScan.set(true)
+        startBurst()
     }
 
     fun analyzeFrame(imageProxy: ImageProxy) {
@@ -153,42 +181,12 @@ class ScanViewModel @Inject constructor(
     // ── Manual mode ─────────────────────────────────────────────────────────────
 
     private fun analyzeFrameManual(imageProxy: ImageProxy) {
-        if (!pendingScan.compareAndSet(true, false)) {
+        // Consecutive frames after the tap feed the burst until it has all its reads.
+        if (!claimBurstFrame()) {
             imageProxy.close()
             return
         }
-        val bitmap: Bitmap
-        val sensorRotation: Int
-        try {
-            bitmap = imageProxy.toBitmap()
-            sensorRotation = imageProxy.imageInfo.rotationDegrees
-        } catch (e: Exception) {
-            // Without the finally-close a thrown toBitmap() would starve the
-            // analyzer of buffers and freeze the scan pipeline permanently.
-            Log.w("ScanViewModel", "Failed to read camera frame", e)
-            setStatusTemporarily(ScanStatus.NotFound)
-            return
-        } finally {
-            imageProxy.close()
-        }
-
-        recognizer.process(InputImage.fromBitmap(bitmap, sensorRotation))
-            .addOnSuccessListener { visionText ->
-                viewModelScope.launch(Dispatchers.Default) {
-                    val result = scoreOcrText(visionText.text)
-                    if (result != null) {
-                        addScannedCard(result)
-                        _lastScanCard.value = result
-                        _unmatchedScan.value = false
-                        setStatusTemporarily(ScanStatus.Found(result.name))
-                    } else {
-                        _lastScanCard.value = null
-                        _unmatchedScan.value = true
-                        setStatusTemporarily(ScanStatus.NotFound)
-                    }
-                }
-            }
-            .addOnFailureListener { setStatusTemporarily(ScanStatus.NotFound) }
+        captureAndRecognize(imageProxy, burstGeneration)
     }
 
     // ── Auto mode ───────────────────────────────────────────────────────────────
@@ -221,55 +219,12 @@ class ScanViewModel @Inject constructor(
                     if (autoState.compareAndSet(AutoState.WaitingForCard, AutoState.OcrInFlight)) {
                         stableFrameCount = 0
                         _scanStatus.value = ScanStatus.Scanning
-
-                        // Only create a Bitmap when we actually need OCR
-                        val bitmap: Bitmap
-                        val rotation: Int
-                        try {
-                            bitmap = imageProxy.toBitmap()
-                            rotation = imageProxy.imageInfo.rotationDegrees
-                        } catch (e: Exception) {
-                            Log.w("ScanViewModel", "Failed to read camera frame", e)
-                            autoState.set(AutoState.WaitingForCard)
-                            _scanStatus.value = ScanStatus.AutoWatching
-                            return
-                        } finally {
-                            imageProxy.close()
-                        }
-
-                        recognizer.process(InputImage.fromBitmap(bitmap, rotation))
-                            .addOnSuccessListener { visionText ->
-                                viewModelScope.launch(Dispatchers.Default) {
-                                    val result = scoreOcrText(visionText.text)
-                                    if (result != null) {
-                                        addScannedCard(result)
-                                        _lastScanCard.value = result
-                                        _unmatchedScan.value = false
-                                        scannedFingerprint = fingerprint
-                                        autoState.set(AutoState.WaitingForChange)
-                                        _scanStatus.value = ScanStatus.Found(result.name)
-                                        viewModelScope.launch {
-                                            delay(FOUND_BANNER_MS)
-                                            if (_scanMode.value == ScanMode.Auto &&
-                                                autoState.get() == AutoState.WaitingForChange
-                                            ) {
-                                                _scanStatus.value = ScanStatus.AutoCooldown
-                                            }
-                                        }
-                                    } else {
-                                        _lastScanCard.value = null
-                                        _unmatchedScan.value = true
-                                        failedFingerprint = fingerprint
-                                        autoState.set(AutoState.WaitingForCard)
-                                        _scanStatus.value = ScanStatus.AutoWatching
-                                    }
-                                }
-                            }
-                            .addOnFailureListener {
-                                failedFingerprint = fingerprint
-                                autoState.set(AutoState.WaitingForCard)
-                                _scanStatus.value = ScanStatus.AutoWatching
-                            }
+                        burstFingerprint = fingerprint
+                        startBurst()
+                        // This frame is the burst's first read; the remaining ones are
+                        // claimed by the following frames in the OcrInFlight branch.
+                        claimBurstFrame()
+                        captureAndRecognize(imageProxy, burstGeneration)
                         return
                     }
                 }
@@ -278,7 +233,8 @@ class ScanViewModel @Inject constructor(
 
             AutoState.OcrInFlight -> {
                 prevFingerprint = fingerprint
-                imageProxy.close()
+                if (claimBurstFrame()) captureAndRecognize(imageProxy, burstGeneration)
+                else imageProxy.close()
             }
 
             AutoState.WaitingForChange -> {
@@ -297,17 +253,101 @@ class ScanViewModel @Inject constructor(
 
     // ── OCR scoring ─────────────────────────────────────────────────────────────
     //
-    // The pure matching logic lives in [OcrCardScorer]; this wrapper feeds it the
-    // current catalogue snapshot and records the result for debug/export state.
+    // The pure matching logic lives in [OcrCardScorer]. A scan runs OcrFrameBurst.SIZE
+    // reads; each one is scored as it lands and the burst is resolved once the last
+    // report arrives.
 
-    private fun scoreOcrText(rawText: String): CardEntity? {
-        val cards = allCards.value
-        if (cards.isEmpty()) return null
+    /**
+     * Run one OCR read of [imageProxy] into burst [generation].
+     *
+     * Always closes the proxy — a leaked one starves the analyzer of buffers and freezes
+     * the pipeline permanently — and always reports, so a failed frame cannot stall the
+     * burst.
+     */
+    private fun captureAndRecognize(imageProxy: ImageProxy, generation: Int) {
+        val bitmap: Bitmap
+        val rotation: Int
+        try {
+            bitmap = imageProxy.toBitmap()
+            rotation = imageProxy.imageInfo.rotationDegrees
+        } catch (e: Exception) {
+            Log.w("ScanViewModel", "Failed to read camera frame", e)
+            onFrameRecognized(generation, null)
+            return
+        } finally {
+            imageProxy.close()
+        }
 
-        val result = OcrCardScorer.score(rawText, cards)
+        recognizer.process(InputImage.fromBitmap(bitmap, rotation))
+            .addOnSuccessListener { onFrameRecognized(generation, it.text) }
+            .addOnFailureListener { onFrameRecognized(generation, null) }
+    }
 
+    /** Score one finished read and resolve the burst if it was the last one outstanding. */
+    private fun onFrameRecognized(generation: Int, rawText: String?) {
+        viewModelScope.launch(Dispatchers.Default) {
+            val cards = allCards.value
+            val frame = if (rawText != null && cards.isNotEmpty()) {
+                OcrCardScorer.scoreFrame(rawText, cards)
+            } else {
+                null
+            }
+            val frames = burst.report(generation, frame) ?: return@launch
+            finishBurst(frames, cards)
+        }
+    }
+
+    private suspend fun finishBurst(
+        frames: List<OcrCardScorer.FrameScores>,
+        cards: List<CardEntity>,
+    ) {
+        val result = OcrCardScorer.combine(frames, cards)
+        recordScan(frames, result)
+
+        val matched = result.matched
+        if (matched != null) {
+            addScannedCard(matched)
+            _lastScanCard.value = matched
+            _unmatchedScan.value = false
+        } else {
+            _lastScanCard.value = null
+            _unmatchedScan.value = true
+        }
+
+        if (_scanMode.value == ScanMode.Auto) finishAutoBurst(matched)
+        else setStatusTemporarily(
+            if (matched != null) ScanStatus.Found(matched.name) else ScanStatus.NotFound
+        )
+    }
+
+    private fun finishAutoBurst(matched: CardEntity?) {
+        val fingerprint = burstFingerprint
+        if (matched != null) {
+            scannedFingerprint = fingerprint
+            autoState.set(AutoState.WaitingForChange)
+            _scanStatus.value = ScanStatus.Found(matched.name)
+            viewModelScope.launch {
+                delay(FOUND_BANNER_MS)
+                if (_scanMode.value == ScanMode.Auto &&
+                    autoState.get() == AutoState.WaitingForChange
+                ) {
+                    _scanStatus.value = ScanStatus.AutoCooldown
+                }
+            }
+        } else {
+            failedFingerprint = fingerprint
+            autoState.set(AutoState.WaitingForCard)
+            _scanStatus.value = ScanStatus.AutoWatching
+        }
+    }
+
+    /** Publish the burst outcome to the debug overlay and the exportable scan log. */
+    private fun recordScan(
+        frames: List<OcrCardScorer.FrameScores>,
+        result: OcrCardScorer.ScoreResult,
+    ) {
         val info = ScanDebugInfo(
-            rawText = rawText,
+            rawText = frames.joinToString("\n--- frame ---\n") { it.rawText },
             costCandidates = result.costCandidates,
             bestCardName = result.best?.name,
             bestScore = result.bestScore,
@@ -318,8 +358,6 @@ class ScanViewModel @Inject constructor(
             _scanLog.add(info)
             _scanLogActualCards.add(result.matched?.name ?: "")
         }
-
-        return result.matched
     }
 
     // ── Scanned cards list ──────────────────────────────────────────────────────
