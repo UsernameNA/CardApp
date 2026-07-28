@@ -14,13 +14,17 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
 /** In-memory CardDao for JVM unit tests; records what was written. */
-class FakeCardDao(private var cardCount: Int = 0) : CardDao {
+class FakeCardDao(
+    private var cardCount: Int = 0,
+    private var hasLegacySlugs: Boolean = false,
+) : CardDao {
     var syncedCards: List<CardEntity>? = null
     var upsertedPrices: List<PriceEntity>? = null
 
     override fun getAllCards(): Flow<List<CardEntity>> = flowOf(emptyList())
     override fun getAllSets(): Flow<List<SetEntity>> = flowOf(emptyList())
     override suspend fun getCardCount(): Int = cardCount
+    override suspend fun hasLegacySlugs(): Boolean = hasLegacySlugs
     override suspend fun getAllCardNames(): List<String> = emptyList()
     override fun observeCardCount(): Flow<Int> = flowOf(cardCount)
     override fun getCardByName(name: String): Flow<CardEntity?> = flowOf(null)

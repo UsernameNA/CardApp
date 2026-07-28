@@ -491,7 +491,7 @@ private fun RulesText(text: String) {
 private fun CardDetailPreview() {
     val card = CardEntity(
         name = "Apprentice Wizard",
-        primarySlug = "alp-apprentice_wizard-b-s",
+        primarySlug = "001-apprentice_wizard-b-s",
         elements = "Air",
         subTypes = "Mortal",
         cardType = "Minion",
@@ -507,12 +507,12 @@ private fun CardDetailPreview() {
         waterThreshold = 0,
     )
     val variants = listOf(
-        CardVariantEntity(slug = "alp-apprentice_wizard-b-s", cardName = "Apprentice Wizard", setName = "Alpha", finish = "Standard", product = "Booster", artist = "Ossi Hiekkala", flavorText = "", typeText = "An Ordinary Mortal new to power"),
-        CardVariantEntity(slug = "alp-apprentice_wizard-b-f", cardName = "Apprentice Wizard", setName = "Alpha", finish = "Foil", product = "Booster", artist = "Ossi Hiekkala", flavorText = "", typeText = "An Ordinary Mortal new to power"),
-        CardVariantEntity(slug = "bet-apprentice_wizard-b-s", cardName = "Apprentice Wizard", setName = "Beta", finish = "Standard", product = "Booster", artist = "Ossi Hiekkala", flavorText = "", typeText = "An Ordinary Mortal new to power"),
-        CardVariantEntity(slug = "bet-apprentice_wizard-b-f", cardName = "Apprentice Wizard", setName = "Beta", finish = "Foil", product = "Booster", artist = "Ossi Hiekkala", flavorText = "", typeText = "An Ordinary Mortal new to power"),
-        CardVariantEntity(slug = "pro-apprentice_wizard-wk-s", cardName = "Apprentice Wizard", setName = "Arthurian Legends Promo", finish = "Standard", product = "Welcome Kit", artist = "Ossi Hiekkala", flavorText = "", typeText = "An Ordinary Mortal new to power"),
-        CardVariantEntity(slug = "pro-apprentice_wizard-wk-f", cardName = "Apprentice Wizard", setName = "Arthurian Legends Promo", finish = "Foil", product = "Welcome Kit", artist = "Ossi Hiekkala", flavorText = "", typeText = "An Ordinary Mortal new to power"),
+        CardVariantEntity(slug = "001-apprentice_wizard-b-s", cardName = "Apprentice Wizard", setName = "Alpha", finish = "Standard", product = "Booster", artist = "Ossi Hiekkala", flavorText = "", typeText = "An Ordinary Mortal new to power"),
+        CardVariantEntity(slug = "001-apprentice_wizard-b-f", cardName = "Apprentice Wizard", setName = "Alpha", finish = "Foil", product = "Booster", artist = "Ossi Hiekkala", flavorText = "", typeText = "An Ordinary Mortal new to power"),
+        CardVariantEntity(slug = "002-apprentice_wizard-b-s", cardName = "Apprentice Wizard", setName = "Beta", finish = "Standard", product = "Booster", artist = "Ossi Hiekkala", flavorText = "", typeText = "An Ordinary Mortal new to power"),
+        CardVariantEntity(slug = "002-apprentice_wizard-b-f", cardName = "Apprentice Wizard", setName = "Beta", finish = "Foil", product = "Booster", artist = "Ossi Hiekkala", flavorText = "", typeText = "An Ordinary Mortal new to power"),
+        CardVariantEntity(slug = "999-apprentice_wizard-wk-s", cardName = "Apprentice Wizard", setName = "Arthurian Legends Promo", finish = "Standard", product = "Welcome Kit", artist = "Ossi Hiekkala", flavorText = "", typeText = "An Ordinary Mortal new to power"),
+        CardVariantEntity(slug = "999-apprentice_wizard-wk-f", cardName = "Apprentice Wizard", setName = "Arthurian Legends Promo", finish = "Foil", product = "Welcome Kit", artist = "Ossi Hiekkala", flavorText = "", typeText = "An Ordinary Mortal new to power"),
     )
     CardAppTheme {
         Box(

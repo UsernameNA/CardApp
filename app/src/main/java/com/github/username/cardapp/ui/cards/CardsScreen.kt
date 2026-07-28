@@ -368,9 +368,9 @@ private fun CatalogueLoadingState(state: SyncState) {
 @Composable
 private fun CardListGridPreview() {
     val fakeCards = listOf(
-        CardWithPrice(card = CardEntity(name = "Ember Drake", primarySlug = "alp-ember_drake-b-s", elements = "Fire", subTypes = "", cardType = "Minion", rarity = "Exceptional", cost = 3, attack = 2, defence = 1, life = null, rulesText = "", airThreshold = 0, earthThreshold = 0, fireThreshold = 2, waterThreshold = 0), marketPrice = 5.0, lowPrice = 4.0),
-        CardWithPrice(card = CardEntity(name = "Tide Caller", primarySlug = "alp-tide_caller-b-s", elements = "Water", subTypes = "", cardType = "Spell", rarity = "Ordinary", cost = 2, attack = 0, defence = 0, life = null, rulesText = "", airThreshold = 0, earthThreshold = 0, fireThreshold = 0, waterThreshold = 2), marketPrice = 1.0, lowPrice = 0.8),
-        CardWithPrice(card = CardEntity(name = "Iron Sentinel", primarySlug = "alp-iron_sentinel-b-s", elements = "Earth", subTypes = "Guardian", cardType = "Minion", rarity = "Unique", cost = 5, attack = 4, defence = 4, life = null, rulesText = "", airThreshold = 0, earthThreshold = 3, fireThreshold = 0, waterThreshold = 0), marketPrice = 20.0, lowPrice = 18.0),
+        CardWithPrice(card = CardEntity(name = "Ember Drake", primarySlug = "001-ember_drake-b-s", elements = "Fire", subTypes = "", cardType = "Minion", rarity = "Exceptional", cost = 3, attack = 2, defence = 1, life = null, rulesText = "", airThreshold = 0, earthThreshold = 0, fireThreshold = 2, waterThreshold = 0), marketPrice = 5.0, lowPrice = 4.0),
+        CardWithPrice(card = CardEntity(name = "Tide Caller", primarySlug = "001-tide_caller-b-s", elements = "Water", subTypes = "", cardType = "Spell", rarity = "Ordinary", cost = 2, attack = 0, defence = 0, life = null, rulesText = "", airThreshold = 0, earthThreshold = 0, fireThreshold = 0, waterThreshold = 2), marketPrice = 1.0, lowPrice = 0.8),
+        CardWithPrice(card = CardEntity(name = "Iron Sentinel", primarySlug = "001-iron_sentinel-b-s", elements = "Earth", subTypes = "Guardian", cardType = "Minion", rarity = "Unique", cost = 5, attack = 4, defence = 4, life = null, rulesText = "", airThreshold = 0, earthThreshold = 3, fireThreshold = 0, waterThreshold = 0), marketPrice = 20.0, lowPrice = 18.0),
     )
     CardAppTheme {
         Box(

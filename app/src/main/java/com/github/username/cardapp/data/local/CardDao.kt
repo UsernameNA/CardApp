@@ -21,6 +21,18 @@ interface CardDao {
     @Query("SELECT COUNT(*) FROM cards")
     suspend fun getCardCount(): Int
 
+    /**
+     * True when the catalogue still holds pre-2026 slugs.
+     *
+     * Upstream renamed variant slug prefixes from set codes to numeric set ids
+     * ("alp-abundance-b-s" → "001-abundance-b-s") and the bundled images were renamed to
+     * match. An install that synced before that keeps the old slugs — and every card
+     * image 404s — because [getCardCount] alone never triggers a re-sync. Detecting it
+     * here makes the upgrade self-healing.
+     */
+    @Query("SELECT EXISTS(SELECT 1 FROM cards WHERE primarySlug NOT GLOB '[0-9][0-9][0-9]-*' LIMIT 1)")
+    suspend fun hasLegacySlugs(): Boolean
+
     @Query("SELECT name FROM cards")
     suspend fun getAllCardNames(): List<String>
 

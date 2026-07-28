@@ -75,7 +75,10 @@ class CardRepositoryImpl @Inject constructor(
         ensureDataOnce
     }
 
-    override suspend fun needsCardSync(): Boolean = dao.getCardCount() == 0
+    // Re-sync on an empty catalogue, or on one still carrying the old slug format —
+    // syncAll preserves the user's collection across the rebuild.
+    override suspend fun needsCardSync(): Boolean =
+        dao.getCardCount() == 0 || dao.hasLegacySlugs()
 
     override suspend fun getAllCardNames(): List<String> = dao.getAllCardNames()
 
@@ -176,8 +179,8 @@ class CardRepositoryImpl @Inject constructor(
         val setOrder = setEntities.associate { it.name to it.releaseOrder }
 
         val primarySlugOverrides = mapOf(
-            "Apprentice Wizard" to "pro-apprentice_wizard-wk-s",
-            "Grandmaster Wizard" to "pro-grandmaster_wizard-wk-s",
+            "Apprentice Wizard" to "999-apprentice_wizard-wk-s",
+            "Grandmaster Wizard" to "999-grandmaster_wizard-wk-s",
         )
 
         // Build setNames lookup: cardName -> ",Alpha,Beta,"
