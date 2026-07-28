@@ -19,8 +19,8 @@ android {
         applicationId = "com.github.username.cardapp"
         minSdk = 36
         targetSdk = 37
-        versionCode = 4
-        versionName = "1.4.1"
+        versionCode = 5
+        versionName = "1.5.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
