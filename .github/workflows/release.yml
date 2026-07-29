@@ -1,12 +1,20 @@
 name: Release APK
 
+# Manual only — this workflow must NOT publish releases.
+#
+# The full card art lives in scripts/images/ (~293MB, 3082 files), which is
+# gitignored, so a CI checkout has nothing to bundle: copyReleaseImages finds an
+# empty tree, succeeds, and produces an APK in which every card renders blank.
+# That is how v1.4.0 and v1.4.1 shipped at 56MB against v1.3.0's 341MB.
+#
+# Release artifacts are therefore built locally, where scripts/images/ is
+# present, and uploaded with `gh release create`. This workflow is kept so the
+# release build (minify, shrink, signing) can still be smoke-tested on demand.
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -35,8 +43,9 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Upload APK as a build artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: app/build/outputs/apk/release/app-release.apk
-          generate_release_notes: true
+          name: app-release-unbundled
+          path: app/build/outputs/apk/release/app-release.apk
+          retention-days: 7
