@@ -3,9 +3,10 @@ name: Release APK
 # Manual only — this workflow must NOT publish releases.
 #
 # The full card art lives in scripts/images/ (~293MB, 3082 files), which is
-# gitignored, so a CI checkout has nothing to bundle: copyReleaseImages finds an
-# empty tree, succeeds, and produces an APK in which every card renders blank.
-# That is how v1.4.0 and v1.4.1 shipped at 56MB against v1.3.0's 341MB.
+# gitignored, so a CI checkout has nothing to bundle. That is how v1.4.0 and
+# v1.4.1 shipped with every card blank, at 56MB against v1.3.0's 341MB.
+# copyReleaseImages now refuses to build without the art; this workflow waives
+# that check because its APK is never published.
 #
 # Release artifacts are therefore built locally, where scripts/images/ is
 # present, and uploaded with `gh release create`. This workflow is kept so the
@@ -41,7 +42,8 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleRelease
+        # CI has no card art, so the image guard must be waived; this APK is never published.
+        run: ./gradlew assembleRelease -PallowMissingReleaseImages=true
 
       - name: Upload APK as a build artifact
         uses: actions/upload-artifact@v4

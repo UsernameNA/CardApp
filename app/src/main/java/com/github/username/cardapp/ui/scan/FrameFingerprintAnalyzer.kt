@@ -22,10 +22,11 @@ object FrameFingerprintAnalyzer {
     private const val CHANGE_THRESHOLD = 25.0           // min mean pixel diff for "scene changed"
     private const val CONTENT_VARIANCE_THRESHOLD = 200.0 // min variance to consider "has content"
 
-    /** Sample a 16×16 grayscale fingerprint from the reticle region of the Y plane.
-     *  The reticle is centered at (50%, 32.5%) of the screen (middle of the top 65%,
-     *  above the bottom panel). We map that screen position to sensor coordinates
-     *  using the image's rotation degrees. */
+    /** Sample a 16×16 grayscale fingerprint from the central half of the Y plane.
+     *  Stability and content are judged on the middle of the camera frame rather than
+     *  the on-screen reticle — OCR reads the whole frame, so the card only needs to be
+     *  roughly centred. The screen-space centre is mapped to sensor coordinates using
+     *  the image's rotation degrees. */
     fun computeFingerprint(imageProxy: ImageProxy): IntArray {
         val yPlane = imageProxy.planes[0]
         val yBuffer = yPlane.buffer
@@ -34,7 +35,7 @@ object FrameFingerprintAnalyzer {
         val imgH = imageProxy.height
         val rotation = imageProxy.imageInfo.rotationDegrees
 
-        // Reticle center in normalized screen coords (portrait)
+        // Frame center in normalized screen coords (portrait)
         val screenCx = 0.5
         val screenCy = 0.5
 

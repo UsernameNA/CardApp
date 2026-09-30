@@ -2,8 +2,9 @@
    Backup policy (deliberate): the Room database is INCLUDED in cloud backup and
    device transfer — it holds the user's collection, which is expensive to rebuild.
    Restoring an older DB version is safe because schema migrations are mandatory
-   from v4 onward (see AppModule). Card catalog and prices are re-synced from
-   bundled assets/API regardless, and DataStore holds only sort preferences.
+   from v4 onward (see AppDatabase.create). Card catalogue and prices are re-imported
+   from bundled assets whenever they differ from what the restored DB holds, and
+   DataStore holds only sort preferences.
 -->
 <data-extraction-rules>
     <cloud-backup>

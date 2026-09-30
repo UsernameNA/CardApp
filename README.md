@@ -12,7 +12,7 @@ A personal collection manager for **Sorcery: Contested Realm** trading cards, bu
 - **Card FAQs** — official rulings from curiosa.io shown on the card detail screen
 - **Search and filtering** — text search across name, type, subtype, and rules text; filter by card type, rarity, and element; AND/OR element matching; sort by name, cost, rarity, or price
 - **Market prices** — TCGPlayer market prices displayed inline; sortable ascending/descending
-- **Offline-first** — card data, images, and prices are bundled with the app; no internet required after setup
+- **Fully offline** — the app has no internet permission; card data, images, and prices ship inside the APK and are refreshed by app updates
 
 ## Screenshots
 
@@ -53,9 +53,9 @@ Release builds automatically copy the full image set from `scripts/images/` into
 
 ## Releasing
 
-**Release artifacts must be built locally.** `scripts/images/` is gitignored (~293MB), so a CI checkout has nothing for `copyReleaseImages` to bundle — the task finds an empty tree, succeeds, and produces an APK in which every card renders blank. v1.4.0 and v1.4.1 shipped that way at 56MB against v1.3.0's 341MB.
+**Release artifacts must be built locally.** `scripts/images/` is gitignored (~293MB), so a CI checkout has nothing for `copyReleaseImages` to bundle. v1.4.0 and v1.4.1 shipped that way — every card blank, 56MB against v1.3.0's 341MB — so the task now fails when it finds fewer than 3,000 images. `-PallowMissingReleaseImages=true` waives the check for builds that will never be published, such as the CI smoke test.
 
-The `Release APK` workflow is therefore `workflow_dispatch`-only and uploads to a build artifact instead of publishing. Signing needs `keystore.properties` and `release.keystore` in the repo root (both gitignored); CI falls back to `KEYSTORE_*` environment variables.
+The `Release APK` workflow is therefore `workflow_dispatch`-only, waives the image check, and uploads to a build artifact instead of publishing. The `CI` workflow runs the unit tests on every push and pull request. Signing needs `keystore.properties` and `release.keystore` in the repo root (both gitignored); CI falls back to `KEYSTORE_*` environment variables.
 
 ```bash
 # 1. bump versionCode and versionName in app/build.gradle.kts
@@ -94,7 +94,9 @@ python3 scripts/fetch_card_data.py
 
 Downloads the full card catalogue from the Sorcery TCG API and writes it to `app/src/main/assets/cards.json`. Stdlib only, no API key.
 
-Variant slugs are the filenames the app looks up in `assets/images/`, so a change to their format upstream will break every card image until the art is renamed to match. `CardRepository` detects a catalogue in the old format and re-syncs automatically, preserving the user's collection.
+Variant slugs are the filenames the app looks up in `assets/images/`, so a change to their format upstream will break every card image until the art is renamed to match.
+
+The app re-imports its database copy whenever `cards.json`, `prices.json`, or the set of bundled images differs from what it last imported, so an app update carries new data to existing installs. The collection survives re-imports; entries whose card leaves the catalogue are kept, hidden, and reappear if it returns. A card's display image is its earliest standard print that has bundled art.
 
 ### 2. Fetch card FAQs
 
@@ -138,8 +140,7 @@ app/src/main/java/com/github/username/cardapp/
 ├── data/
 │   ├── CardRepository.kt
 │   ├── local/          # Room database, DAO, entities
-│   ├── model/          # JSON deserialization models
-│   └── remote/         # Retrofit interface for the Sorcery TCG API
+│   └── model/          # JSON deserialization models
 └── ui/
     ├── cards/          # Card catalogue grid + ViewModel
     ├── collection/     # Collection list + ViewModel
@@ -175,12 +176,10 @@ scripts/
 Gaps to address as a learning exercise:
 
 - [x] **Repository interface** — `CardRepository` interface with `CardRepositoryImpl`; bound via Hilt `@Binds`
-- [ ] **Error handling** — propagate errors via `Result<T>` or a sealed class instead of swallowing exceptions; add user-facing error/retry UI
+- [ ] **Error handling** — propagate errors via `Result<T>` or a sealed class instead of swallowing exceptions (the catalogue import already shows an error with a retry)
 - [x] **Type-safe navigation** — `@Serializable` route objects replace hardcoded strings; uses `composable<Route>` and `navigate(Route)`
 - [x] **Persist user preferences (DataStore)** — sort order persists across app restarts via Jetpack DataStore
-- [ ] **Retrofit** — add a remote data source for fetching card data and prices from APIs instead of bundling JSON assets
 - [ ] **Paging 3** — paginate the card catalogue grid and collection list for efficient loading of large datasets
-- [ ] **WorkManager** — schedule periodic background price sync so prices stay fresh without manual rebuilds
 - [x] **ProGuard/R8** — enable `isMinifyEnabled` for release builds to shrink APK size and obfuscate code
 - [x] **Kotlin Serialization** — replace Gson with compile-time serialization (no reflection, no ProGuard keep rules)
 - [ ] **Unit tests** — ViewModel and Repository tests with mocked dependencies (Hilt makes this practical now)

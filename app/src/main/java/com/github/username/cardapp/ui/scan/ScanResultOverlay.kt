@@ -29,7 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import com.github.username.cardapp.ui.common.CardArt
+import androidx.compose.ui.layout.ContentScale
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.ui.theme.BurgundyAccent
 import com.github.username.cardapp.ui.theme.CreamPrimary
@@ -110,9 +111,11 @@ internal fun ScanResultOverlay(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                AsyncImage(
-                    model = "file:///android_asset/images/${lastScanCard.primarySlug}.webp",
+                CardArt(
+                    slug = lastScanCard.primarySlug,
                     contentDescription = lastScanCard.name,
+                    contentScale = ContentScale.Fit,
+                    crossfade = false,
                     modifier = Modifier
                         .size(width = 48.dp, height = 67.dp)
                         .border(0.5.dp, GoldDark, RoundedCornerShape(2.dp)),

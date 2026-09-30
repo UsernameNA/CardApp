@@ -15,4 +15,6 @@ data class ScanDebugInfo(
     val bestCardName: String?,
     val bestScore: Int,
     val top3: List<ScanCandidate> = emptyList(),
+    /** The card the scan added automatically; null when it went to the correction panel. */
+    val acceptedCardName: String? = null,
 )

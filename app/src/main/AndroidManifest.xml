@@ -2,7 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The app never uses the network. ML Kit's telemetry uploader
+         (datatransport) requests INTERNET; removing it keeps that traffic off
+         too, and its uploads simply fail. ACCESS_NETWORK_STATE is left in: it
+         grants no network access, and Android 16 throws if a library schedules
+         a network-constrained job without it. -->
+    <uses-permission
+        android:name="android.permission.INTERNET"
+        tools:node="remove" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
@@ -32,9 +39,6 @@
             tools:node="merge">
             <meta-data
                 android:name="androidx.emoji2.text.EmojiCompatInitializer"
-                tools:node="remove" />
-            <meta-data
-                android:name="okhttp3.internal.platform.PlatformInitializer"
                 tools:node="remove" />
         </provider>
 

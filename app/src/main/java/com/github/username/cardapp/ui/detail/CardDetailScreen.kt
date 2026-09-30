@@ -21,7 +21,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,7 +29,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.foundation.text.InlineTextContent
@@ -41,8 +39,8 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.github.username.cardapp.ui.common.CardArt
 import com.github.username.cardapp.data.FaqEntry
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CardVariantEntity
@@ -66,10 +64,10 @@ fun CardDetailScreen(
     onBack: () -> Unit,
     vm: CardDetailViewModel = hiltViewModel(),
 ) {
-    val card by vm.card.collectAsState()
-    val variants by vm.variants.collectAsState()
-    val prices by vm.prices.collectAsState()
-    val faqs by vm.faqs.collectAsState()
+    val card by vm.card.collectAsStateWithLifecycle()
+    val variants by vm.variants.collectAsStateWithLifecycle()
+    val prices by vm.prices.collectAsStateWithLifecycle()
+    val faqs by vm.faqs.collectAsStateWithLifecycle()
 
     Box(
         modifier = Modifier
@@ -123,11 +121,8 @@ private fun CardDetailContent(
                 .padding(horizontal = 48.dp),
             contentAlignment = Alignment.Center,
         ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data("file:///android_asset/images/$selectedSlug.webp")
-                    .crossfade(true)
-                    .build(),
+            CardArt(
+                slug = selectedSlug,
                 contentDescription = card.name,
                 contentScale = ContentScale.FillWidth,
                 modifier = Modifier

@@ -18,9 +18,6 @@ interface CardRepository {
     val priceMap: Flow<Map<String, Double>>
     val totalCardCount: Flow<Int>
     val totalCollectionQuantity: Flow<Int>
-    suspend fun needsCardSync(): Boolean
-    suspend fun syncCards()
-    suspend fun loadPrices()
     suspend fun getAllCardNames(): List<String>
     suspend fun addToCollection(entries: List<CollectionEntryEntity>)
     suspend fun incrementInCollection(cardName: String)
@@ -28,5 +25,7 @@ interface CardRepository {
     fun getCardByName(name: String): Flow<CardEntity?>
     fun getVariantsByCardName(cardName: String): Flow<List<CardVariantEntity>>
     suspend fun getFaqs(cardName: String): List<FaqEntry>
+
+    /** Import the bundled data if the database doesn't hold it yet; retries after an [SyncState.Error]. */
     fun ensureDataLoaded()
 }

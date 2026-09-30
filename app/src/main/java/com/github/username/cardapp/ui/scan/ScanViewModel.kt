@@ -9,6 +9,7 @@ import android.util.Log
 import com.github.username.cardapp.data.CardRepository
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CollectionEntryEntity
+import com.github.username.cardapp.ui.common.CardFilterState
 import com.google.mlkit.common.MlKit
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
@@ -22,12 +23,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 
@@ -46,9 +47,10 @@ class ScanViewModel @Inject constructor(
         repository.ensureDataLoaded()
     }
 
-    private val allCards: StateFlow<List<CardEntity>> = repository.filteredCards(
-        com.github.username.cardapp.ui.common.CardFilterState()
-    ).map { list -> list.map { it.card } }
+    /** The catalogue, prepared for OCR scoring whenever it changes rather than per read. */
+    private val catalogue: StateFlow<List<OcrCardScorer.PreparedCard>> = repository.filteredCards(CardFilterState())
+        .map { list -> OcrCardScorer.prepare(list.map { it.card }) }
+        .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val prices: StateFlow<Map<String, Double>> = repository.priceMap
@@ -56,11 +58,11 @@ class ScanViewModel @Inject constructor(
 
     private val _correctionQuery = MutableStateFlow("")
     val correctionResults: StateFlow<List<CardEntity>> = _correctionQuery
-        .combine(allCards) { query, cards ->
+        .combine(catalogue) { query, cards ->
             if (query.length < 2) emptyList()
             else {
                 val lower = query.lowercase()
-                cards.filter { lower in it.name.lowercase() }.take(8)
+                cards.asSequence().map { it.card }.filter { lower in it.name.lowercase() }.take(8).toList()
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -82,6 +84,7 @@ class ScanViewModel @Inject constructor(
 
     private val scanLogLock = Any()
     private val _scanLog = mutableListOf<ScanDebugInfo>()
+    /** Per scan, the card the user picked in the correction panel; "" when never corrected. */
     private val _scanLogActualCards = mutableListOf<String>()
     val scanLogSize: Int get() = synchronized(scanLogLock) { _scanLog.size }
 
@@ -96,11 +99,9 @@ class ScanViewModel @Inject constructor(
     // --- Multi-frame bursts ---
     //
     // Both scan modes read the card OcrFrameBurst.SIZE times and merge the scores rather
-    // than trusting a single OCR pass. [pendingFrames] is how many reads the current burst
-    // still wants; the analyzer claims one per frame until it hits zero.
+    // than trusting a single OCR pass. The burst decides which analyzer frames become
+    // reads, spacing them out so they aren't near-duplicates.
     private val burst = OcrFrameBurst()
-    private val pendingFrames = AtomicInteger(0)
-    @Volatile private var burstGeneration = 0
 
     private val _scanMode = MutableStateFlow(ScanMode.Manual)
     val scanMode: StateFlow<ScanMode> = _scanMode.asStateFlow()
@@ -147,20 +148,19 @@ class ScanViewModel @Inject constructor(
     }
 
     /** Drop any burst in flight; its late frames will report against a stale generation. */
-    private fun cancelBurst() {
-        pendingFrames.set(0)
-        burstGeneration = burst.restart()
-    }
+    private fun cancelBurst() = burst.cancel()
 
     /** Open a burst of [OcrFrameBurst.SIZE] reads. */
     private fun startBurst() {
-        burstGeneration = burst.restart()
-        pendingFrames.set(OcrFrameBurst.SIZE)
+        burst.restart()
     }
 
-    /** Claim one read of the burst in flight; false when the burst is already satisfied. */
-    private fun claimBurstFrame(): Boolean =
-        pendingFrames.getAndUpdate { if (it > 0) it - 1 else 0 } > 0
+    /** Read [imageProxy] into the burst in flight if it wants this frame; otherwise release it. */
+    private fun offerToBurst(imageProxy: ImageProxy) {
+        val generation = burst.claim(imageProxy.imageInfo.timestamp)
+        if (generation != null) captureAndRecognize(imageProxy, generation)
+        else imageProxy.close()
+    }
 
     @Volatile var correctionOpen = false
 
@@ -181,12 +181,8 @@ class ScanViewModel @Inject constructor(
     // ── Manual mode ─────────────────────────────────────────────────────────────
 
     private fun analyzeFrameManual(imageProxy: ImageProxy) {
-        // Consecutive frames after the tap feed the burst until it has all its reads.
-        if (!claimBurstFrame()) {
-            imageProxy.close()
-            return
-        }
-        captureAndRecognize(imageProxy, burstGeneration)
+        // Frames after the tap feed the burst until it has all its reads.
+        offerToBurst(imageProxy)
     }
 
     // ── Auto mode ───────────────────────────────────────────────────────────────
@@ -222,9 +218,8 @@ class ScanViewModel @Inject constructor(
                         burstFingerprint = fingerprint
                         startBurst()
                         // This frame is the burst's first read; the remaining ones are
-                        // claimed by the following frames in the OcrInFlight branch.
-                        claimBurstFrame()
-                        captureAndRecognize(imageProxy, burstGeneration)
+                        // claimed by later frames in the OcrInFlight branch.
+                        offerToBurst(imageProxy)
                         return
                     }
                 }
@@ -233,8 +228,7 @@ class ScanViewModel @Inject constructor(
 
             AutoState.OcrInFlight -> {
                 prevFingerprint = fingerprint
-                if (claimBurstFrame()) captureAndRecognize(imageProxy, burstGeneration)
-                else imageProxy.close()
+                offerToBurst(imageProxy)
             }
 
             AutoState.WaitingForChange -> {
@@ -286,14 +280,14 @@ class ScanViewModel @Inject constructor(
     /** Score one finished read and resolve the burst if it was the last one outstanding. */
     private fun onFrameRecognized(generation: Int, rawText: String?) {
         viewModelScope.launch(Dispatchers.Default) {
-            val cards = allCards.value
+            val cards = catalogue.value
             val frame = if (rawText != null && cards.isNotEmpty()) {
                 OcrCardScorer.scoreFrame(rawText, cards)
             } else {
                 null
             }
             val frames = burst.report(generation, frame) ?: return@launch
-            finishBurst(frames, cards)
+            finishBurst(frames, cards.map { it.card })
         }
     }
 
@@ -352,11 +346,12 @@ class ScanViewModel @Inject constructor(
             bestCardName = result.best?.name,
             bestScore = result.bestScore,
             top3 = result.top3,
+            acceptedCardName = result.matched?.name,
         )
         _debugInfo.value = info
         synchronized(scanLogLock) {
             _scanLog.add(info)
-            _scanLogActualCards.add(result.matched?.name ?: "")
+            _scanLogActualCards.add("")
         }
     }
 
@@ -393,7 +388,7 @@ class ScanViewModel @Inject constructor(
                 }
             }
 
-            val newCard = allCards.value.find { it.name == actualCardName } ?: return@launch
+            val newCard = catalogue.value.firstOrNull { it.card.name == actualCardName }?.card ?: return@launch
 
             mutateScanned { entries ->
                 val withoutOld =
@@ -432,6 +427,7 @@ class ScanViewModel @Inject constructor(
                     bestMatch = info.bestCardName,
                     bestScore = info.bestScore,
                     top3 = info.top3,
+                    acceptedMatch = info.acceptedCardName,
                     actualCard = _scanLogActualCards.getOrElse(index) { "" },
                 )
             }

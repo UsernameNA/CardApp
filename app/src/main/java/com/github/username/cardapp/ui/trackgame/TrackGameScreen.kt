@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
@@ -68,12 +69,13 @@ fun TrackGameScreen() {
         onDispose { view.keepScreenOn = false }
     }
 
-    var uncapped by remember { mutableStateOf(false) }
+    // Saveable: a phone lying on the table rotates easily, and that must not reset the game.
+    var uncapped by rememberSaveable { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
-    var player1Life by remember { mutableIntStateOf(STARTING_LIFE) }
-    var player2Life by remember { mutableIntStateOf(STARTING_LIFE) }
-    var player1Delta by remember { mutableIntStateOf(0) }
-    var player2Delta by remember { mutableIntStateOf(0) }
+    var player1Life by rememberSaveable { mutableIntStateOf(STARTING_LIFE) }
+    var player2Life by rememberSaveable { mutableIntStateOf(STARTING_LIFE) }
+    var player1Delta by rememberSaveable { mutableIntStateOf(0) }
+    var player2Delta by rememberSaveable { mutableIntStateOf(0) }
 
     fun reset() {
         player1Life = STARTING_LIFE

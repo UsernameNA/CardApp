@@ -22,7 +22,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +34,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.ui.theme.CardAppTheme
 import com.github.username.cardapp.ui.theme.CreamFaded
@@ -50,14 +50,14 @@ fun ScanScreen(
     vm: ScanViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val scannedCards by vm.scannedCards.collectAsState()
-    val scanStatus by vm.scanStatus.collectAsState()
-    val scanMode by vm.scanMode.collectAsState()
-    val debugInfo by vm.debugInfo.collectAsState()
-    val prices by vm.prices.collectAsState()
-    val lastScanCard by vm.lastScanCard.collectAsState()
-    val unmatchedScan by vm.unmatchedScan.collectAsState()
-    val correctionResults by vm.correctionResults.collectAsState()
+    val scannedCards by vm.scannedCards.collectAsStateWithLifecycle()
+    val scanStatus by vm.scanStatus.collectAsStateWithLifecycle()
+    val scanMode by vm.scanMode.collectAsStateWithLifecycle()
+    val debugInfo by vm.debugInfo.collectAsStateWithLifecycle()
+    val prices by vm.prices.collectAsStateWithLifecycle()
+    val lastScanCard by vm.lastScanCard.collectAsStateWithLifecycle()
+    val unmatchedScan by vm.unmatchedScan.collectAsStateWithLifecycle()
+    val correctionResults by vm.correctionResults.collectAsStateWithLifecycle()
 
     var hasCameraPermission by remember {
         mutableStateOf(

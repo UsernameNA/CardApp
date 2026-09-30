@@ -30,7 +30,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +42,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.username.cardapp.data.CollectionImportResult
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CollectionEntryEntity
@@ -65,10 +65,10 @@ import com.github.username.cardapp.ui.theme.leatherBackground
 
 @Composable
 fun CollectionScreen(onCardClick: (String) -> Unit = {}, vm: CollectionViewModel = hiltViewModel()) {
-    val entries by vm.entries.collectAsState()
-    val filterState by vm.filterState.collectAsState()
-    val totalCards by vm.totalCardCount.collectAsState()
-    val sets by vm.sets.collectAsState()
+    val entries by vm.entries.collectAsStateWithLifecycle()
+    val filterState by vm.filterState.collectAsStateWithLifecycle()
+    val totalCards by vm.totalCardCount.collectAsStateWithLifecycle()
+    val sets by vm.sets.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
@@ -78,7 +78,7 @@ fun CollectionScreen(onCardClick: (String) -> Unit = {}, vm: CollectionViewModel
         if (!text.isNullOrBlank()) vm.importCollection(text)
     }
 
-    val importResult by vm.importResult.collectAsState()
+    val importResult by vm.importResult.collectAsStateWithLifecycle()
     importResult?.let { result ->
         ImportResultDialog(result = result, onDismiss = vm::dismissImportResult)
     }

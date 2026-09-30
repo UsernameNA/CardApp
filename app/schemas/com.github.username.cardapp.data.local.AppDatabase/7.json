@@ -1,0 +1,331 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 7,
+    "identityHash": "a8eea9ae090aa58c348f9d50aee1b5b8",
+    "entities": [
+      {
+        "tableName": "sets",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`name` TEXT NOT NULL, `releasedAt` TEXT NOT NULL, `releaseOrder` INTEGER NOT NULL, PRIMARY KEY(`name`))",
+        "fields": [
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "releasedAt",
+            "columnName": "releasedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "releaseOrder",
+            "columnName": "releaseOrder",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "name"
+          ]
+        }
+      },
+      {
+        "tableName": "cards",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`name` TEXT NOT NULL, `primarySlug` TEXT NOT NULL, `elements` TEXT NOT NULL, `subTypes` TEXT NOT NULL, `cardType` TEXT NOT NULL, `rarity` TEXT NOT NULL, `cost` INTEGER NOT NULL, `attack` INTEGER NOT NULL, `defence` INTEGER NOT NULL, `life` INTEGER, `rulesText` TEXT NOT NULL, `airThreshold` INTEGER NOT NULL, `earthThreshold` INTEGER NOT NULL, `fireThreshold` INTEGER NOT NULL, `waterThreshold` INTEGER NOT NULL, `setNames` TEXT NOT NULL DEFAULT '', PRIMARY KEY(`name`))",
+        "fields": [
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "primarySlug",
+            "columnName": "primarySlug",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "elements",
+            "columnName": "elements",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "subTypes",
+            "columnName": "subTypes",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cardType",
+            "columnName": "cardType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rarity",
+            "columnName": "rarity",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cost",
+            "columnName": "cost",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attack",
+            "columnName": "attack",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "defence",
+            "columnName": "defence",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "life",
+            "columnName": "life",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "rulesText",
+            "columnName": "rulesText",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "airThreshold",
+            "columnName": "airThreshold",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "earthThreshold",
+            "columnName": "earthThreshold",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fireThreshold",
+            "columnName": "fireThreshold",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "waterThreshold",
+            "columnName": "waterThreshold",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "setNames",
+            "columnName": "setNames",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "''"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "name"
+          ]
+        }
+      },
+      {
+        "tableName": "variants",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`slug` TEXT NOT NULL, `cardName` TEXT NOT NULL, `setName` TEXT NOT NULL, `finish` TEXT NOT NULL, `product` TEXT NOT NULL, `artist` TEXT NOT NULL, `flavorText` TEXT NOT NULL, `typeText` TEXT NOT NULL, PRIMARY KEY(`slug`), FOREIGN KEY(`cardName`) REFERENCES `cards`(`name`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`setName`) REFERENCES `sets`(`name`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "slug",
+            "columnName": "slug",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cardName",
+            "columnName": "cardName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "setName",
+            "columnName": "setName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "finish",
+            "columnName": "finish",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "product",
+            "columnName": "product",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "artist",
+            "columnName": "artist",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "flavorText",
+            "columnName": "flavorText",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "typeText",
+            "columnName": "typeText",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "slug"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_variants_cardName",
+            "unique": false,
+            "columnNames": [
+              "cardName"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_variants_cardName` ON `${TABLE_NAME}` (`cardName`)"
+          },
+          {
+            "name": "index_variants_setName",
+            "unique": false,
+            "columnNames": [
+              "setName"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_variants_setName` ON `${TABLE_NAME}` (`setName`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "cards",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "cardName"
+            ],
+            "referencedColumns": [
+              "name"
+            ]
+          },
+          {
+            "table": "sets",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "setName"
+            ],
+            "referencedColumns": [
+              "name"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "collection",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`cardName` TEXT NOT NULL, `quantity` INTEGER NOT NULL, PRIMARY KEY(`cardName`))",
+        "fields": [
+          {
+            "fieldPath": "cardName",
+            "columnName": "cardName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quantity",
+            "columnName": "quantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "cardName"
+          ]
+        }
+      },
+      {
+        "tableName": "prices",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`cardName` TEXT NOT NULL, `marketPrice` REAL, `lowPrice` REAL, PRIMARY KEY(`cardName`))",
+        "fields": [
+          {
+            "fieldPath": "cardName",
+            "columnName": "cardName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "marketPrice",
+            "columnName": "marketPrice",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "lowPrice",
+            "columnName": "lowPrice",
+            "affinity": "REAL"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "cardName"
+          ]
+        }
+      },
+      {
+        "tableName": "metadata",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`name` TEXT NOT NULL, `value` TEXT NOT NULL, PRIMARY KEY(`name`))",
+        "fields": [
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "value",
+            "columnName": "value",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "name"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a8eea9ae090aa58c348f9d50aee1b5b8')"
+    ]
+  }
+}

@@ -7,13 +7,14 @@ import com.github.username.cardapp.data.local.CardVariantEntity
 import com.github.username.cardapp.data.local.CardWithPrice
 import com.github.username.cardapp.data.local.CollectionCardWithPrice
 import com.github.username.cardapp.data.local.CollectionEntryEntity
+import com.github.username.cardapp.data.local.MetadataEntity
 import com.github.username.cardapp.data.local.PriceEntity
 import com.github.username.cardapp.data.local.SetEntity
 import com.github.username.cardapp.data.model.CardJson
-import com.github.username.cardapp.data.remote.SorceryApi
 import com.github.username.cardapp.ui.common.CardFilterState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,11 +28,17 @@ import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * All card data ships inside the APK; the app never touches the network. The database
+ * holds an imported copy, rebuilt whenever the bundled data differs from what was last
+ * imported (see [BundledDataVersion]) — so an app update carries new cards and prices
+ * to existing installs.
+ */
 @Singleton
 class CardRepositoryImpl @Inject constructor(
     private val assets: AssetTextReader,
+    private val images: BundledImageIndex,
     private val dao: CardDao,
-    private val api: SorceryApi,
     private val json: Json,
     private val appScope: CoroutineScope,
 ) : CardRepository {
@@ -55,30 +62,62 @@ class CardRepositoryImpl @Inject constructor(
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
     override val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
-    private val ensureDataOnce by lazy {
-        appScope.launch {
-            try {
-                if (needsCardSync()) {
-                    _syncState.value = SyncState.SyncingCards
-                    syncCards()
-                }
-                loadPrices()
-                _syncState.value = SyncState.Complete
-            } catch (e: Exception) {
-                Log.w("CardRepository", "Initial data load failed", e)
-                _syncState.value = SyncState.Error(e.message ?: "Failed to load card catalogue")
-            }
+    private val loadLock = Any()
+    private var loadJob: Job? = null
+
+    override fun ensureDataLoaded() {
+        synchronized(loadLock) {
+            val job = loadJob
+            if (job != null && (job.isActive || _syncState.value !is SyncState.Error)) return
+            _syncState.value = SyncState.Idle
+            loadJob = appScope.launch { loadBundledData() }
         }
     }
 
-    override fun ensureDataLoaded() {
-        ensureDataOnce
+    private suspend fun loadBundledData() {
+        try {
+            val cardsRaw = assets.read(CARDS_ASSET)
+            val pricesRaw = assets.read(PRICES_ASSET)
+            val imageSlugs = images.slugs()
+            val version = BundledDataVersion.of(cardsRaw, pricesRaw, imageSlugs)
+            if (dao.getCardCount() == 0 || dao.getMetadata(MetadataEntity.BUNDLED_DATA_VERSION) != version) {
+                _syncState.value = SyncState.SyncingCards
+                importBundledData(cardsRaw, pricesRaw, imageSlugs, version)
+            }
+            _syncState.value = SyncState.Complete
+        } catch (e: Exception) {
+            Log.w(TAG, "Bundled data import failed", e)
+            _syncState.value = SyncState.Error(e.message ?: "Failed to load card catalogue")
+        }
     }
 
-    // Re-sync on an empty catalogue, or on one still carrying the old slug format —
-    // syncAll preserves the user's collection across the rebuild.
-    override suspend fun needsCardSync(): Boolean =
-        dao.getCardCount() == 0 || dao.hasLegacySlugs()
+    private suspend fun importBundledData(
+        cardsRaw: String,
+        pricesRaw: String,
+        imageSlugs: Set<String>,
+        version: String,
+    ) {
+        val cardList = json.decodeFromString<List<CardJson>>(cardsRaw)
+        check(cardList.isNotEmpty()) { "The bundled card catalogue is empty" }
+        val catalogue = CatalogueBuilder.build(cardList, imageSlugs)
+        val prices = parsePrices(pricesRaw, catalogue.cards.mapTo(HashSet()) { it.name })
+
+        dao.replaceBundledData(catalogue.sets, catalogue.cards, catalogue.variants, prices, version)
+
+        val orphaned = dao.countOrphanedCollectionEntries()
+        if (orphaned > 0) {
+            Log.w(TAG, "$orphaned collection entries name cards missing from the catalogue; kept")
+        }
+    }
+
+    /** Prices are optional: a bad price list leaves cards unpriced rather than failing the import. */
+    private fun parsePrices(raw: String, cardNames: Set<String>): List<PriceEntity> =
+        try {
+            PriceSelector.select(json.decodeFromString<PricesJson>(raw).cards, cardNames)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to load prices", e)
+            emptyList()
+        }
 
     override suspend fun getAllCardNames(): List<String> = dao.getAllCardNames()
 
@@ -109,140 +148,16 @@ class CardRepositoryImpl @Inject constructor(
                 faqCache = map
                 map
             } catch (e: Exception) {
-                Log.w("CardRepository", "Failed to load FAQs", e)
+                Log.w(TAG, "Failed to load FAQs", e)
                 emptyMap()
             }
         }
         cache[cardName].orEmpty()
     }
 
-    override suspend fun loadPrices(): Unit = withContext(Dispatchers.IO) {
-        try {
-            val raw = assets.read("prices.json")
-            val data = json.decodeFromString<PricesJson>(raw)
-            // Prefer the cheapest non-promo printing; fall back to promo prices
-            // only for cards that exist solely as promos.
-            val promoSets = setOf("dust reward promos", "arthurian legends promo")
-            val best = mutableMapOf<String, Pair<PriceEntity, Boolean>>() // entity to isPromo
-            for (entry in data.cards) {
-                val name = entry.productName ?: continue
-                val market = entry.marketPrice ?: continue
-                val isPromo = entry.setName?.lowercase() in promoSets
-                val (existing, existingIsPromo) = best[name] ?: (null to false)
-                val replace = when {
-                    existing == null -> true
-                    existingIsPromo && !isPromo -> true
-                    existingIsPromo == isPromo && market < (existing.marketPrice ?: Double.MAX_VALUE) -> true
-                    else -> false
-                }
-                if (replace) {
-                    best[name] = PriceEntity(
-                        cardName = name,
-                        marketPrice = market,
-                        lowPrice = entry.lowestPrice ?: market,
-                    ) to isPromo
-                }
-            }
-            dao.upsertPrices(best.values.map { it.first })
-        } catch (e: Exception) {
-            Log.w("CardRepository", "Failed to load prices", e)
-        }
-    }
-
-    private suspend fun fetchCardList(): List<CardJson> {
-        return try {
-            val remote = api.getCards()
-            Log.d("CardRepository", "Fetched ${remote.size} cards from API")
-            remote
-        } catch (e: Exception) {
-            Log.d("CardRepository", "API unavailable, using bundled data: ${e.message}")
-            val raw = assets.read("cards.json")
-            json.decodeFromString<List<CardJson>>(raw)
-        }
-    }
-
-    override suspend fun syncCards() = withContext(Dispatchers.IO) {
-        val cardList = fetchCardList()
-
-        val setMap = linkedMapOf<String, String>()
-        for (card in cardList) {
-            for (set in card.sets) {
-                val name = set.name ?: continue
-                if (name !in setMap) setMap[name] = set.releasedAt.orEmpty()
-            }
-        }
-        val setEntities = setMap.entries
-            .sortedBy { it.value }
-            .mapIndexed { index, (name, releasedAt) ->
-                SetEntity(name = name, releasedAt = releasedAt, releaseOrder = index + 1)
-            }
-        val setOrder = setEntities.associate { it.name to it.releaseOrder }
-
-        val primarySlugOverrides = mapOf(
-            "Apprentice Wizard" to "999-apprentice_wizard-wk-s",
-            "Grandmaster Wizard" to "999-grandmaster_wizard-wk-s",
-        )
-
-        // Build setNames lookup: cardName -> ",Alpha,Beta,"
-        val cardSetNames = mutableMapOf<String, MutableSet<String>>()
-        for (card in cardList) {
-            for (set in card.sets) {
-                val setName = set.name ?: continue
-                cardSetNames.getOrPut(card.name) { mutableSetOf() }.add(setName)
-            }
-        }
-
-        val cardEntities = cardList.map { card ->
-            val g = card.guardian
-            val primarySlug = primarySlugOverrides[card.name]
-                ?: card.sets
-                    .sortedBy { setOrder[it.name] ?: Int.MAX_VALUE }
-                    .firstNotNullOfOrNull { set ->
-                        set.variants.firstOrNull { it.finish.equals("Standard", ignoreCase = true) }?.slug
-                            ?: set.variants.firstOrNull()?.slug
-                    }
-                    .orEmpty()
-
-            val setsForCard = cardSetNames[card.name]
-            val setNamesStr = if (setsForCard.isNullOrEmpty()) "" else ",${setsForCard.joinToString(",")},";
-
-            CardEntity(
-                name = card.name,
-                primarySlug = primarySlug,
-                elements = card.elements.orEmpty(),
-                subTypes = card.subTypes.orEmpty(),
-                cardType = g?.type.orEmpty(),
-                rarity = g?.rarity.orEmpty(),
-                cost = g?.cost ?: 0,
-                attack = g?.attack ?: 0,
-                defence = g?.defence ?: 0,
-                life = g?.life,
-                rulesText = g?.rulesText.orEmpty(),
-                airThreshold = g?.thresholds?.air ?: 0,
-                earthThreshold = g?.thresholds?.earth ?: 0,
-                fireThreshold = g?.thresholds?.fire ?: 0,
-                waterThreshold = g?.thresholds?.water ?: 0,
-                setNames = setNamesStr,
-            )
-        }
-
-        val variantEntities = cardList.flatMap { card ->
-            card.sets.flatMap { set ->
-                set.variants.map { variant ->
-                    CardVariantEntity(
-                        slug = variant.slug,
-                        cardName = card.name,
-                        setName = set.name.orEmpty(),
-                        finish = variant.finish.orEmpty(),
-                        product = variant.product.orEmpty(),
-                        artist = variant.artist.orEmpty(),
-                        flavorText = variant.flavorText.orEmpty(),
-                        typeText = variant.typeText.orEmpty(),
-                    )
-                }
-            }
-        }
-
-        dao.syncAll(setEntities, cardEntities, variantEntities)
+    private companion object {
+        const val TAG = "CardRepository"
+        const val CARDS_ASSET = "cards.json"
+        const val PRICES_ASSET = "prices.json"
     }
 }

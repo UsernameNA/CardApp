@@ -7,25 +7,35 @@ import com.github.username.cardapp.data.local.CardVariantEntity
 import com.github.username.cardapp.data.local.CardWithPrice
 import com.github.username.cardapp.data.local.CollectionCardRow
 import com.github.username.cardapp.data.local.CollectionCardWithPrice
-import com.github.username.cardapp.data.local.CollectionEntryEntity
+import com.github.username.cardapp.data.local.MetadataEntity
 import com.github.username.cardapp.data.local.PriceEntity
 import com.github.username.cardapp.data.local.SetEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
-/** In-memory CardDao for JVM unit tests; records what was written. */
+/** In-memory CardDao for JVM unit tests; records bundled-data imports. */
 class FakeCardDao(
     private var cardCount: Int = 0,
-    private var hasLegacySlugs: Boolean = false,
+    dataVersion: String? = null,
 ) : CardDao {
-    var syncedCards: List<CardEntity>? = null
-    var upsertedPrices: List<PriceEntity>? = null
+    private val metadata = mutableMapOf<String, String>()
 
-    override fun getAllCards(): Flow<List<CardEntity>> = flowOf(emptyList())
+    init {
+        if (dataVersion != null) metadata[MetadataEntity.BUNDLED_DATA_VERSION] = dataVersion
+    }
+
+    var importCount = 0
+        private set
+    var importedCards: List<CardEntity>? = null
+        private set
+    var importedPrices: List<PriceEntity>? = null
+        private set
+
+    val storedDataVersion: String? get() = metadata[MetadataEntity.BUNDLED_DATA_VERSION]
+
     override fun getAllSets(): Flow<List<SetEntity>> = flowOf(emptyList())
     override suspend fun getCardCount(): Int = cardCount
-    override suspend fun hasLegacySlugs(): Boolean = hasLegacySlugs
-    override suspend fun getAllCardNames(): List<String> = emptyList()
+    override suspend fun getAllCardNames(): List<String> = importedCards.orEmpty().map { it.name }
     override fun observeCardCount(): Flow<Int> = flowOf(cardCount)
     override fun getCardByName(name: String): Flow<CardEntity?> = flowOf(null)
     override fun filteredCards(query: SupportSQLiteQuery): Flow<List<CardWithPrice>> = flowOf(emptyList())
@@ -33,23 +43,37 @@ class FakeCardDao(
         flowOf(emptyList())
     override fun getVariantsByCardName(cardName: String): Flow<List<CardVariantEntity>> = flowOf(emptyList())
     override suspend fun insertAllSets(sets: List<SetEntity>) {}
-    override suspend fun insertAllCards(cards: List<CardEntity>) {
-        syncedCards = cards
-        cardCount = cards.size
-    }
+    override suspend fun insertAllCards(cards: List<CardEntity>) {}
     override suspend fun insertAllVariants(variants: List<CardVariantEntity>) {}
     override suspend fun deleteAllVariants() {}
     override suspend fun deleteAllCards() {}
     override suspend fun deleteAllSets() {}
+    override suspend fun deleteAllPrices() {}
+    override suspend fun insertPrices(prices: List<PriceEntity>) {}
+
+    override suspend fun replaceBundledData(
+        sets: List<SetEntity>,
+        cards: List<CardEntity>,
+        variants: List<CardVariantEntity>,
+        prices: List<PriceEntity>,
+        dataVersion: String,
+    ) {
+        importCount++
+        importedCards = cards
+        importedPrices = prices
+        cardCount = cards.size
+        metadata[MetadataEntity.BUNDLED_DATA_VERSION] = dataVersion
+    }
+
+    override suspend fun getMetadata(name: String): String? = metadata[name]
+    override suspend fun putMetadata(entry: MetadataEntity) {
+        metadata[entry.name] = entry.value
+    }
     override fun getCollectionEntries(): Flow<List<CollectionCardRow>> = flowOf(emptyList())
-    override suspend fun getAllCollectionEntriesOnce(): List<CollectionEntryEntity> = emptyList()
-    override suspend fun insertCollectionEntries(entries: List<CollectionEntryEntity>) {}
     override suspend fun upsertCollectionEntry(cardName: String, quantity: Int) {}
     override suspend fun incrementCollectionEntry(cardName: String) {}
     override suspend fun decrementCollectionEntry(cardName: String): Int = 0
     override suspend fun deleteCollectionEntryIfSingle(cardName: String): Int = 0
-    override suspend fun upsertPrices(prices: List<PriceEntity>) {
-        upsertedPrices = prices
-    }
+    override suspend fun countOrphanedCollectionEntries(): Int = 0
     override fun getAllPrices(): Flow<List<PriceEntity>> = flowOf(emptyList())
 }

@@ -12,26 +12,11 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface CardDao {
 
-    @Query("SELECT * FROM cards ORDER BY name ASC")
-    fun getAllCards(): Flow<List<CardEntity>>
-
     @Query("SELECT * FROM sets ORDER BY releaseOrder ASC")
     fun getAllSets(): Flow<List<SetEntity>>
 
     @Query("SELECT COUNT(*) FROM cards")
     suspend fun getCardCount(): Int
-
-    /**
-     * True when the catalogue still holds pre-2026 slugs.
-     *
-     * Upstream renamed variant slug prefixes from set codes to numeric set ids
-     * ("alp-abundance-b-s" → "001-abundance-b-s") and the bundled images were renamed to
-     * match. An install that synced before that keeps the old slugs — and every card
-     * image 404s — because [getCardCount] alone never triggers a re-sync. Detecting it
-     * here makes the upgrade self-healing.
-     */
-    @Query("SELECT EXISTS(SELECT 1 FROM cards WHERE primarySlug NOT GLOB '[0-9][0-9][0-9]-*' LIMIT 1)")
-    suspend fun hasLegacySlugs(): Boolean
 
     @Query("SELECT name FROM cards")
     suspend fun getAllCardNames(): List<String>
@@ -69,32 +54,43 @@ interface CardDao {
     @Query("DELETE FROM sets")
     suspend fun deleteAllSets()
 
-    @Query("SELECT * FROM collection")
-    suspend fun getAllCollectionEntriesOnce(): List<CollectionEntryEntity>
+    @Query("DELETE FROM prices")
+    suspend fun deleteAllPrices()
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertCollectionEntries(entries: List<CollectionEntryEntity>)
+    suspend fun insertPrices(prices: List<PriceEntity>)
 
+    /**
+     * Swap in a freshly imported catalogue and price list, recording [dataVersion] in the
+     * same transaction so an interrupted import is simply redone on the next launch.
+     * The collection is not touched (it has no foreign key to cards).
+     */
     @Transaction
-    suspend fun syncAll(
+    suspend fun replaceBundledData(
         sets: List<SetEntity>,
         cards: List<CardEntity>,
         variants: List<CardVariantEntity>,
+        prices: List<PriceEntity>,
+        dataVersion: String,
     ) {
-        // deleteAllCards() cascades into collection (FK ON DELETE CASCADE), so
-        // snapshot the user's collection and restore every row whose card survives.
-        val savedCollection = getAllCollectionEntriesOnce()
         deleteAllVariants()
         deleteAllCards()
         deleteAllSets()
+        deleteAllPrices()
         insertAllSets(sets)
         insertAllCards(cards)
         insertAllVariants(variants)
-        if (savedCollection.isNotEmpty()) {
-            val validNames = cards.mapTo(HashSet()) { it.name }
-            insertCollectionEntries(savedCollection.filter { it.cardName in validNames })
-        }
+        insertPrices(prices)
+        putMetadata(MetadataEntity(MetadataEntity.BUNDLED_DATA_VERSION, dataVersion))
     }
+
+    // --- Metadata ---
+
+    @Query("SELECT value FROM metadata WHERE name = :name")
+    suspend fun getMetadata(name: String): String?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun putMetadata(entry: MetadataEntity)
 
     // --- Collection ---
 
@@ -137,10 +133,11 @@ interface CardDao {
         if (deleted == 0) decrementCollectionEntry(cardName)
     }
 
-    // --- Prices ---
+    /** Collection entries whose card is not in the current catalogue. */
+    @Query("SELECT COUNT(*) FROM collection WHERE cardName NOT IN (SELECT name FROM cards)")
+    suspend fun countOrphanedCollectionEntries(): Int
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertPrices(prices: List<PriceEntity>)
+    // --- Prices ---
 
     @Query("SELECT * FROM prices")
     fun getAllPrices(): Flow<List<PriceEntity>>

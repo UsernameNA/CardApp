@@ -67,6 +67,13 @@ android {
         // Stub android.* methods (e.g. Log) as no-ops so JVM unit tests can
         // exercise classes that log.
         unitTests.isReturnDefaultValues = true
+        unitTests.all {
+            // Robolectric reaches into FileDescriptor internals, which recent JDKs close off.
+            it.jvmArgs(
+                "--add-opens=java.base/java.io=ALL-UNNAMED",
+                "--add-exports=java.base/jdk.internal.access=ALL-UNNAMED",
+            )
+        }
     }
     buildToolsVersion = "36.1.0"
 
@@ -80,11 +87,24 @@ abstract class CopyReleaseImagesTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.NAME_ONLY)
     abstract val images: ConfigurableFileCollection
 
+    /** Fewer images than this means scripts/images/ is missing or incomplete. */
+    @get:Input
+    abstract val minimumImageCount: Property<Int>
+
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
 
     @TaskAction
     fun run() {
+        val webps = images.files.filter { it.extension == "webp" }
+        if (webps.size < minimumImageCount.get()) {
+            throw GradleException(
+                "Found ${webps.size} card images in scripts/images/, expected at least " +
+                    "${minimumImageCount.get()}. A release built now would render every card " +
+                    "blank (see README, Releasing). Pass -PallowMissingReleaseImages=true only " +
+                    "for a build that will not be published."
+            )
+        }
         val dest = outputDir.get().asFile.resolve("images")
         dest.deleteRecursively()
         dest.mkdirs()
@@ -96,6 +116,13 @@ val releaseImagesDir: Directory = rootProject.layout.projectDirectory.dir("scrip
 
 val copyReleaseImages = tasks.register<CopyReleaseImagesTask>("copyReleaseImages") {
     images.from(fileTree(releaseImagesDir))
+    // The full art set is ~3,080 images; well under that, the copy source is broken.
+    val fullSetMinimum = 3000
+    minimumImageCount.set(
+        providers.gradleProperty("allowMissingReleaseImages")
+            .map { if (it.toBoolean()) 0 else fullSetMinimum }
+            .orElse(fullSetMinimum)
+    )
 }
 
 androidComponents {
@@ -123,6 +150,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(platform(libs.androidx.compose.bom))
@@ -135,9 +163,6 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
-    implementation(libs.retrofit)
-    implementation(libs.okhttp)
-    implementation(libs.retrofit.kotlinx.serialization)
     implementation(libs.coil.compose)
     implementation(libs.coil.svg)
     implementation(libs.androidx.camera.core)
@@ -152,6 +177,8 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
     ksp(libs.hilt.compiler)
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

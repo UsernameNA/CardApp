@@ -32,7 +32,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -41,16 +40,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import com.github.username.cardapp.ui.common.CardArt
 import com.github.username.cardapp.ui.theme.CardAppTheme
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.github.username.cardapp.data.SyncState
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CardWithPrice
@@ -71,12 +68,12 @@ import com.github.username.cardapp.ui.theme.rarityColor
 
 @Composable
 fun CardsScreen(onCardClick: (String) -> Unit = {}, vm: CardsViewModel = hiltViewModel()) {
-    val cards by vm.cards.collectAsState()
-    val totalCount by vm.totalCardCount.collectAsState()
-    val syncState by vm.syncState.collectAsState()
-    val filterState by vm.filterState.collectAsState()
-    val collectedQuantities by vm.collectedQuantities.collectAsState()
-    val sets by vm.sets.collectAsState()
+    val cards by vm.cards.collectAsStateWithLifecycle()
+    val totalCount by vm.totalCardCount.collectAsStateWithLifecycle()
+    val syncState by vm.syncState.collectAsStateWithLifecycle()
+    val filterState by vm.filterState.collectAsStateWithLifecycle()
+    val collectedQuantities by vm.collectedQuantities.collectAsStateWithLifecycle()
+    val sets by vm.sets.collectAsStateWithLifecycle()
 
     val gridState = rememberLazyGridState()
     // Scroll key: everything except filtersExpanded
@@ -109,12 +106,12 @@ fun CardsScreen(onCardClick: (String) -> Unit = {}, vm: CardsViewModel = hiltVie
                     if (cards.isEmpty() && filterState.hasActiveFilters) {
                         NoFilterResults(onClear = { vm.updateFilter { CardFilterState() } })
                     } else if (cards.isEmpty()) {
-                        CatalogueLoadingState(state = state)
+                        CatalogueLoadingState(state = state, onRetry = vm::retryDataLoad)
                     } else {
                         CardGrid(cards = cards, collectedQuantities = collectedQuantities, gridState = gridState, onCardClick = onCardClick)
                     }
                 }
-                else -> CatalogueLoadingState(state = state)
+                else -> CatalogueLoadingState(state = state, onRetry = vm::retryDataLoad)
             }
         }
     }
@@ -195,7 +192,6 @@ private fun CardGrid(
 
 @Composable
 private fun CardTile(card: CardEntity, collected: Int = 0, onClick: () -> Unit = {}) {
-    val context = LocalContext.current
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.clickable(onClick = onClick),
@@ -208,13 +204,9 @@ private fun CardTile(card: CardEntity, collected: Int = 0, onClick: () -> Unit =
                 .background(LeatherMid),
             contentAlignment = Alignment.BottomCenter,
         ) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data("file:///android_asset/images/${card.primarySlug}.webp")
-                    .crossfade(true)
-                    .build(),
+            CardArt(
+                slug = card.primarySlug,
                 contentDescription = card.name,
-                contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
             RaritySegments(rarity = card.rarity, collected = collected)
@@ -272,7 +264,7 @@ private fun RaritySegments(rarity: String, collected: Int) {
 }
 
 @Composable
-private fun CatalogueLoadingState(state: SyncState) {
+private fun CatalogueLoadingState(state: SyncState, onRetry: () -> Unit = {}) {
     val infiniteTransition = rememberInfiniteTransition(label = "catalogue")
     val breathe by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -358,6 +350,14 @@ private fun CatalogueLoadingState(state: SyncState) {
                     color = CreamFaded,
                     textAlign = TextAlign.Center,
                 ),
+            )
+            Spacer(Modifier.height(20.dp))
+            Text(
+                text = "TRY AGAIN",
+                style = Typography.labelLarge.copy(color = GoldPrimary),
+                modifier = Modifier
+                    .clickable(onClick = onRetry)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
             )
         }
     }

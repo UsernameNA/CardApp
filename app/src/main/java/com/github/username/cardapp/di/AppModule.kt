@@ -1,14 +1,10 @@
 package com.github.username.cardapp.di
 
 import android.content.Context
-import androidx.room.Room
-import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
 import com.github.username.cardapp.data.AssetTextReader
+import com.github.username.cardapp.data.BundledImageIndex
 import com.github.username.cardapp.data.local.AppDatabase
 import com.github.username.cardapp.data.local.CardDao
-import com.github.username.cardapp.data.remote.SorceryApi
-import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,10 +14,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.serialization.json.Json
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import retrofit2.Retrofit
-import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
 @Module
@@ -43,66 +35,20 @@ object AppModule {
             context.assets.open(fileName).bufferedReader().use { it.readText() }
         }
 
-    private val MIGRATION_4_5 = object : Migration(4, 5) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("ALTER TABLE cards ADD COLUMN setNames TEXT NOT NULL DEFAULT ''")
-            db.execSQL("""
-                CREATE TABLE IF NOT EXISTS prices (
-                    cardName TEXT NOT NULL PRIMARY KEY,
-                    marketPrice REAL,
-                    lowPrice REAL
-                )
-            """)
-            db.execSQL("""
-                UPDATE cards SET setNames = COALESCE(
-                    (SELECT ',' || GROUP_CONCAT(DISTINCT setName) || ',' FROM variants WHERE variants.cardName = cards.name),
-                    ''
-                )
-            """)
-            db.execSQL("CREATE INDEX IF NOT EXISTS index_cards_cardType ON cards (cardType)")
-            db.execSQL("CREATE INDEX IF NOT EXISTS index_cards_rarity ON cards (rarity)")
-            db.execSQL("CREATE INDEX IF NOT EXISTS index_variants_cardName ON variants (cardName)")
-            db.execSQL("CREATE INDEX IF NOT EXISTS index_variants_setName ON variants (setName)")
+    @Provides
+    @Singleton
+    fun provideBundledImageIndex(@ApplicationContext context: Context): BundledImageIndex =
+        BundledImageIndex {
+            context.assets.list("images").orEmpty()
+                .filter { it.endsWith(".webp") }
+                .mapTo(HashSet()) { it.removeSuffix(".webp") }
         }
-    }
-
-    private val MIGRATION_5_6 = object : Migration(5, 6) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("CREATE INDEX IF NOT EXISTS index_collection_cardName ON collection (cardName)")
-        }
-    }
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, "cardapp.db")
-            .addMigrations(MIGRATION_4_5, MIGRATION_5_6)
-            // Pre-collection schemas (v1–v3, before CollectionEntryEntity existed at v4)
-            // hold only the re-syncable card catalog, so wiping them loses nothing.
-            // From v4 onward a real migration is REQUIRED — a missing one now throws at
-            // startup instead of silently destroying the user's collection.
-            .fallbackToDestructiveMigrationFrom(true, 1, 2, 3)
-            .build()
+    fun provideDatabase(@ApplicationContext context: Context): AppDatabase = AppDatabase.create(context)
 
     @Provides
     @Singleton
     fun provideCardDao(db: AppDatabase): CardDao = db.cardDao()
-
-    @Provides
-    @Singleton
-    fun provideOkHttpClient(): OkHttpClient =
-        OkHttpClient.Builder()
-            .connectTimeout(5, TimeUnit.SECONDS)
-            .readTimeout(5, TimeUnit.SECONDS)
-            .build()
-
-    @Provides
-    @Singleton
-    fun provideSorceryApi(client: OkHttpClient, json: Json): SorceryApi =
-        Retrofit.Builder()
-            .baseUrl("https://api.sorcerytcg.com/")
-            .client(client)
-            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
-            .build()
-            .create(SorceryApi::class.java)
 }

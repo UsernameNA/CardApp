@@ -1,5 +1,6 @@
 package com.github.username.cardapp.ui.cards
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.username.cardapp.data.CardRepository
@@ -14,11 +15,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.IOException
 import javax.inject.Inject
 
 @HiltViewModel
@@ -30,8 +35,13 @@ class CardsViewModel @Inject constructor(
     private val _filterState = MutableStateFlow(CardFilterState())
     val filterState: StateFlow<CardFilterState> = _filterState.asStateFlow()
 
+    // Hold the first query until the saved sort is applied, so the list isn't fetched
+    // (and briefly shown) in default order first.
+    private val sortRestored = MutableStateFlow(false)
+
     @OptIn(ExperimentalCoroutinesApi::class)
-    val cards: StateFlow<List<CardWithPrice>> = _filterState
+    val cards: StateFlow<List<CardWithPrice>> = combine(_filterState, sortRestored) { filter, restored -> filter.takeIf { restored } }
+        .filterNotNull()
         .flatMapLatest { filter -> repository.filteredCards(filter) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -50,10 +60,18 @@ class CardsViewModel @Inject constructor(
     init {
         repository.ensureDataLoaded()
         viewModelScope.launch {
-            val savedSort = sortPreferences.sortState.first()
-            _filterState.value = _filterState.value.copy(sort = savedSort)
+            try {
+                val savedSort = sortPreferences.sortState.first()
+                _filterState.update { it.copy(sort = savedSort) }
+            } catch (e: IOException) {
+                Log.w(TAG, "Could not read saved sort; using the default", e)
+            } finally {
+                sortRestored.value = true
+            }
         }
     }
+
+    fun retryDataLoad() = repository.ensureDataLoaded()
 
     fun updateFilter(transform: (CardFilterState) -> CardFilterState) {
         val old = _filterState.value
@@ -62,5 +80,9 @@ class CardsViewModel @Inject constructor(
         if (old.sort != new.sort) {
             viewModelScope.launch { sortPreferences.save(new.sort) }
         }
+    }
+
+    private companion object {
+        const val TAG = "CardsViewModel"
     }
 }

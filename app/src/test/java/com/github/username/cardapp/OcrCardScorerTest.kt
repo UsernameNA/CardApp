@@ -186,7 +186,7 @@ class OcrCardScorerTest {
 
         val single = OcrCardScorer.score(ocr, cards)
         val burst = OcrCardScorer.combine(
-            List(3) { OcrCardScorer.scoreFrame(ocr, cards) },
+            List(3) { OcrCardScorer.scoreFrame(ocr, OcrCardScorer.prepare(cards)) },
             cards,
         )
 
@@ -214,9 +214,9 @@ class OcrCardScorerTest {
 
         val burst = OcrCardScorer.combine(
             listOf(
-                OcrCardScorer.scoreFrame(good, cards),
-                OcrCardScorer.scoreFrame(garbled, cards),
-                OcrCardScorer.scoreFrame(good, cards),
+                OcrCardScorer.scoreFrame(good, OcrCardScorer.prepare(cards)),
+                OcrCardScorer.scoreFrame(garbled, OcrCardScorer.prepare(cards)),
+                OcrCardScorer.scoreFrame(good, OcrCardScorer.prepare(cards)),
             ),
             cards,
         )
@@ -232,7 +232,7 @@ class OcrCardScorerTest {
         // A frame whose OCR failed contributes no scores and must not drag the average down.
         val withFailure = OcrCardScorer.combine(
             listOf(
-                OcrCardScorer.scoreFrame(ocr, cards),
+                OcrCardScorer.scoreFrame(ocr, OcrCardScorer.prepare(cards)),
                 OcrCardScorer.FrameScores("", emptyMap(), emptySet()),
             ),
             cards,

@@ -16,10 +16,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.IOException
 import javax.inject.Inject
 
 @HiltViewModel
@@ -31,8 +35,13 @@ class CollectionViewModel @Inject constructor(
     private val _filterState = MutableStateFlow(CardFilterState())
     val filterState: StateFlow<CardFilterState> = _filterState.asStateFlow()
 
+    // Hold the first query until the saved sort is applied, so the list isn't fetched
+    // (and briefly shown) in default order first.
+    private val sortRestored = MutableStateFlow(false)
+
     @OptIn(ExperimentalCoroutinesApi::class)
-    val entries: StateFlow<List<CollectionCardWithPrice>> = _filterState
+    val entries: StateFlow<List<CollectionCardWithPrice>> = combine(_filterState, sortRestored) { filter, restored -> filter.takeIf { restored } }
+        .filterNotNull()
         .flatMapLatest { filter -> repository.filteredCollection(filter) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -48,8 +57,14 @@ class CollectionViewModel @Inject constructor(
     init {
         repository.ensureDataLoaded()
         viewModelScope.launch {
-            val savedSort = sortPreferences.sortState.first()
-            _filterState.value = _filterState.value.copy(sort = savedSort)
+            try {
+                val savedSort = sortPreferences.sortState.first()
+                _filterState.update { it.copy(sort = savedSort) }
+            } catch (e: IOException) {
+                Log.w(TAG, "Could not read saved sort; using the default", e)
+            } finally {
+                sortRestored.value = true
+            }
         }
     }
 
@@ -68,7 +83,7 @@ class CollectionViewModel @Inject constructor(
                 if (result.entries.isNotEmpty()) repository.addToCollection(result.entries)
                 _importResult.value = result
             } catch (e: Exception) {
-                Log.w("CollectionViewModel", "Collection import failed", e)
+                Log.w(TAG, "Collection import failed", e)
                 _importResult.value = CollectionImportResult(emptyList(), listOf("Import failed: ${e.message}"))
             }
         }
@@ -85,5 +100,9 @@ class CollectionViewModel @Inject constructor(
         if (old.sort != new.sort) {
             viewModelScope.launch { sortPreferences.save(new.sort) }
         }
+    }
+
+    private companion object {
+        const val TAG = "CollectionViewModel"
     }
 }
