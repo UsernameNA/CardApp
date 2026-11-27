@@ -12,11 +12,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -47,9 +46,10 @@ class CardFilterController<T>(
     // (and briefly shown) in default order first.
     private val sortRestored = MutableStateFlow(false)
 
+    // The saved sort is written before sortRestored is set, so the first filter read after
+    // it already carries the saved sort.
     @OptIn(ExperimentalCoroutinesApi::class)
-    val results: StateFlow<List<T>> = combine(_filterState, sortRestored) { filter, restored -> filter.takeIf { restored } }
-        .filterNotNull()
+    val results: StateFlow<List<T>> = flow { sortRestored.first { it }; emitAll(_filterState) }
         // Expanding the filter panel doesn't change the results.
         .map { it.copy(filtersExpanded = false) }
         .distinctUntilChanged()
@@ -87,14 +87,20 @@ class CardFilterController<T>(
 
     fun clearFilters() = updateFilter { CardFilterState(sort = it.sort) }
 
-    /** Waits for a pause in typing before querying; other filter changes apply at once. */
+    /**
+     * Waits for a pause in typing before querying; other filter changes apply at once. A
+     * change counts as typing only if the query is all that changed: state updates can be
+     * conflated, so a query edit and a filter tap may arrive as one change.
+     */
     @OptIn(FlowPreview::class)
     private fun Flow<CardFilterState>.debounceTyping(): Flow<CardFilterState> = flow {
-        var previousQuery: String? = null
+        var previous: CardFilterState? = null
         emitAll(
             debounce { filter ->
-                val typing = previousQuery != null && filter.query != previousQuery && filter.query.isNotEmpty()
-                previousQuery = filter.query
+                val last = previous
+                val typing = last != null && filter.query.isNotEmpty() &&
+                    filter.query != last.query && filter.copy(query = last.query) == last
+                previous = filter
                 if (typing) typingDebounceMillis else 0L
             },
         )

@@ -122,6 +122,18 @@ class CardFilterControllerTest {
     }
 
     @Test
+    fun queryAndFilterChangedTogetherApplyAtOnce() = runBlocking {
+        val controller = controller(debounceMillis = 60_000)
+        awaitUntil { queries.isNotEmpty() }
+
+        // What the results flow sees when a keystroke and a filter tap are conflated.
+        controller.updateFilter { it.copy(query = "ru", types = setOf("Minion")) }
+
+        awaitUntil { queries.size == 2 }
+        assertEquals("ru", queries.last().query)
+    }
+
+    @Test
     fun clearingTheQueryAppliesAtOnce() = runBlocking {
         val controller = controller(debounceMillis = 60_000)
         awaitUntil { queries.isNotEmpty() }
