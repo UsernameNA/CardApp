@@ -15,20 +15,25 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -48,11 +53,18 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import com.github.username.cardapp.R
 import com.github.username.cardapp.ui.theme.CardAppTheme
 import com.github.username.cardapp.ui.theme.CreamFaded
@@ -112,42 +124,41 @@ fun LandingScreen(
         )
 
         // Main content
-        Column(
+        val onRoll = { parity: Parity -> if (diceState is DiceState.Idle) diceState = DiceState.Rolling(parity) }
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .safeDrawingPadding()
-                .padding(horizontal = 48.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+                .safeDrawingPadding(),
         ) {
-            TitleSection()
-
-            Spacer(Modifier.height(56.dp))
-
-            ArcaneButton(text = "VIEW CARDS", onClick = onViewCards, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(12.dp))
-            ArcaneButton(text = "MY COLLECTION", onClick = onViewCollection, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(12.dp))
-            ArcaneButton(text = "SCAN CARDS", onClick = onScanCards, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(12.dp))
-            ArcaneButton(text = "TRACK GAME", onClick = onTrackGame, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(12.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                ArcaneButton(
-                    text = "ODD",
-                    onClick = { if (diceState is DiceState.Idle) diceState = DiceState.Rolling(Parity.ODD) },
-                    modifier = Modifier.weight(1f),
-                    accent = true,
-                )
-                ArcaneButton(
-                    text = "EVEN",
-                    onClick = { if (diceState is DiceState.Idle) diceState = DiceState.Rolling(Parity.EVEN) },
-                    modifier = Modifier.weight(1f),
-                    accent = true,
-                )
+            // Portrait stacks the title over the buttons, which needs more height than a phone
+            // has in landscape, so landscape puts them side by side. Either scrolls if it
+            // still doesn't fit (small screens, large font sizes).
+            val viewportHeight = maxHeight
+            if (maxWidth > viewportHeight) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        // Clear the corner ornaments.
+                        .padding(horizontal = 80.dp),
+                    horizontalArrangement = Arrangement.spacedBy(48.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CenteredScrollColumn(viewportHeight = viewportHeight, modifier = Modifier.weight(1f)) {
+                        TitleSection()
+                    }
+                    CenteredScrollColumn(viewportHeight = viewportHeight, modifier = Modifier.weight(1f)) {
+                        LandingButtons(onViewCards, onViewCollection, onScanCards, onTrackGame, onRoll)
+                    }
+                }
+            } else {
+                CenteredScrollColumn(
+                    viewportHeight = viewportHeight,
+                    modifier = Modifier.padding(horizontal = 48.dp),
+                ) {
+                    TitleSection()
+                    Spacer(Modifier.height(56.dp))
+                    LandingButtons(onViewCards, onViewCollection, onScanCards, onTrackGame, onRoll)
+                }
             }
         }
 
@@ -159,6 +170,49 @@ fun LandingScreen(
             },
             onDismiss = { diceState = DiceState.Idle },
         )
+    }
+}
+
+/** Centres [content] vertically in [viewportHeight], scrolling when it is taller. */
+@Composable
+private fun CenteredScrollColumn(
+    viewportHeight: Dp,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .heightIn(min = viewportHeight),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        content = content,
+    )
+}
+
+@Composable
+private fun LandingButtons(
+    onViewCards: () -> Unit,
+    onViewCollection: () -> Unit,
+    onScanCards: () -> Unit,
+    onTrackGame: () -> Unit,
+    onRoll: (Parity) -> Unit,
+) {
+    ArcaneButton(text = "VIEW CARDS", onClick = onViewCards, modifier = Modifier.fillMaxWidth())
+    Spacer(Modifier.height(12.dp))
+    ArcaneButton(text = "MY COLLECTION", onClick = onViewCollection, modifier = Modifier.fillMaxWidth())
+    Spacer(Modifier.height(12.dp))
+    ArcaneButton(text = "SCAN CARDS", onClick = onScanCards, modifier = Modifier.fillMaxWidth())
+    Spacer(Modifier.height(12.dp))
+    ArcaneButton(text = "TRACK GAME", onClick = onTrackGame, modifier = Modifier.fillMaxWidth())
+    Spacer(Modifier.height(12.dp))
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        ArcaneButton(text = "ODD", onClick = { onRoll(Parity.ODD) }, modifier = Modifier.weight(1f), accent = true)
+        ArcaneButton(text = "EVEN", onClick = { onRoll(Parity.EVEN) }, modifier = Modifier.weight(1f), accent = true)
     }
 }
 
@@ -192,52 +246,85 @@ private fun TitleSection() {
         label = "shimmerX",
     )
 
-    Box(
-        modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "CARDAPP",
-            style = Typography.displayLarge.copy(
-                color = GoldMuted,
-                textAlign = TextAlign.Center,
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                .drawWithContent {
-                    drawContent()
-                    drawRect(brush = shimmerBrush(shimmerX.value), blendMode = BlendMode.SrcIn)
-                },
-        )
-        // Raven landing on the "D" — shimmer brush applied via SrcIn blend
-        val ravenPainter = painterResource(R.drawable.ic_launcher_foreground)
-        Spacer(
-            modifier = Modifier
-                .size(180.dp)
-                .offset(x = 18.dp, y = (-58).dp)
-                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                .drawBehind {
-                    with(ravenPainter) {
-                        draw(size = Size(size.width, size.height))
-                    }
-                    drawRect(brush = shimmerBrush(shimmerX.value), blendMode = BlendMode.SrcIn)
-                },
-        )
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        // Narrow screens (360dp phones, large font sizes) shrink the title and subtitle to
+        // fit on one line instead of wrapping them.
+        val measurer = rememberTextMeasurer()
+        val density = LocalDensity.current
+        val maxWidthPx = constraints.maxWidth
+        val titleWidth = measurer.measure(TITLE, TitleStyle, softWrap = false, maxLines = 1).size.width
+        val titleFit = (maxWidthPx / titleWidth.toFloat()).coerceAtMost(1f)
+        // The raven's size and offsets suit the title at 100% font size; follow its actual size.
+        val defaultTitleWidth = measurer.measure(
+            TITLE, TitleStyle, softWrap = false, maxLines = 1, density = Density(density.density),
+        ).size.width
+        val ravenScale = titleWidth * titleFit / defaultTitleWidth
+        val subtitleWidth = measurer.measure(SUBTITLE, SubtitleStyle, softWrap = false, maxLines = 1).size.width
+        val subtitleFit = (maxWidthPx / subtitleWidth.toFloat()).coerceAtMost(1f)
+
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = TITLE,
+                    style = TitleStyle.scaledBy(titleFit, density),
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                        .drawWithContent {
+                            drawContent()
+                            drawRect(brush = shimmerBrush(shimmerX.value), blendMode = BlendMode.SrcIn)
+                        },
+                )
+                // Raven landing on the "D" — shimmer brush applied via SrcIn blend
+                val ravenPainter = painterResource(R.drawable.ic_launcher_foreground)
+                Spacer(
+                    modifier = Modifier
+                        .size(180.dp * ravenScale)
+                        .offset(x = 18.dp * ravenScale, y = (-58).dp * ravenScale)
+                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                        .drawBehind {
+                            with(ravenPainter) {
+                                draw(size = Size(size.width, size.height))
+                            }
+                            drawRect(brush = shimmerBrush(shimmerX.value), blendMode = BlendMode.SrcIn)
+                        },
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
+            OrnamentalDivider(modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(12.dp))
+
+            Text(
+                text = SUBTITLE,
+                style = SubtitleStyle.scaledBy(subtitleFit, density),
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
+}
 
-    Spacer(Modifier.height(16.dp))
-    OrnamentalDivider(modifier = Modifier.fillMaxWidth())
-    Spacer(Modifier.height(12.dp))
+private const val TITLE = "CARDAPP"
+private const val SUBTITLE = "Sorcery Contested Realm"
 
-    Text(
-        text = "Sorcery Contested Realm",
-        style = Typography.displaySmall.copy(
-            color = CreamFaded,
-            textAlign = TextAlign.Center,
-        ),
-        modifier = Modifier.fillMaxWidth(),
-    )
+private val TitleStyle = Typography.displayLarge.copy(color = GoldMuted, textAlign = TextAlign.Center)
+private val SubtitleStyle = Typography.displaySmall.copy(color = CreamFaded, textAlign = TextAlign.Center)
+
+/**
+ * Scales the rendered text size by [factor]. Done in pixels: Android scales large font
+ * sizes non-linearly, so scaling the sp values would not scale the width by [factor].
+ */
+private fun TextStyle.scaledBy(factor: Float, density: Density): TextStyle {
+    if (factor >= 1f) return this
+    fun TextUnit.scaled() = if (isSpecified) with(density) { (toPx() * factor).toSp() } else this
+    return copy(fontSize = fontSize.scaled(), letterSpacing = letterSpacing.scaled(), lineHeight = lineHeight.scaled())
 }
 
 @Composable
@@ -402,6 +489,14 @@ private fun CornerOrnament(
 @Preview(showBackground = true)
 @Composable
 private fun LandingScreenPreview() {
+    CardAppTheme {
+        LandingScreen()
+    }
+}
+
+@Preview(showBackground = true, widthDp = 915, heightDp = 412)
+@Composable
+private fun LandingScreenLandscapePreview() {
     CardAppTheme {
         LandingScreen()
     }

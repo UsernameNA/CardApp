@@ -371,7 +371,8 @@ private fun FilterPanel(
             FilterSectionLabel("ELEMENT")
             Spacer(Modifier.weight(1f))
             if (state.elements.count { it != "None" } >= 2) {
-                // No 48dp minimum here: it would push the element chips down as this appears.
+                // Not padded to 48dp, which would push the element chips down as this appears.
+                // Compose still accepts taps within 48dp of it where nothing else is hit.
                 Box(
                     modifier = Modifier
                         .border(
