@@ -25,9 +25,28 @@
     // Monotonic id so results from a cancelled or superseded roll are dropped
     var activeRoll = 0;
 
+    // Posts to the native side: a WebMessageListener object, or a JavascriptInterface
+    // with the same postMessage(string) shape on WebViews that lack listener support
+    function post(message) {
+        if (window.DiceBridge && DiceBridge.postMessage) {
+            DiceBridge.postMessage(JSON.stringify(message));
+        }
+    }
+
+    function disposeBox(old) {
+        old.clear();
+        var renderer = old.renderer;
+        if (renderer.dispose) renderer.dispose();
+        var gl = renderer.getContext ? renderer.getContext() : renderer.context;
+        var loseContext = gl && gl.getExtension && gl.getExtension('WEBGL_lose_context');
+        if (loseContext) loseContext.loseContext();
+    }
+
     function ensureBox() {
         var w = window.innerWidth, h = window.innerHeight;
         if (!box || w !== boxW || h !== boxH) {
+            // WebView caps live WebGL contexts; a resize must free the old one
+            if (box) disposeBox(box);
             canvasHolder.style.width = w + 'px';
             canvasHolder.style.height = h + 'px';
             while (canvasHolder.firstChild) {
@@ -54,9 +73,7 @@
             if (reported || rollId !== activeRoll) return;
             reported = true;
             clearTimeout(watchdog);
-            if (window.Android && Android.onDiceResult) {
-                Android.onDiceResult(value);
-            }
+            post({ type: 'result', roll: rollId, value: value });
         }
 
         // Backup only: dice.js force-reads the real face after 10s of physics.
@@ -83,9 +100,7 @@
     // Warm the renderer and WebGL context during preload
     ensureBox();
 
-    if (window.Android && Android.onDiceReady) {
-        Android.onDiceReady();
-    }
+    post({ type: 'ready' });
 })();
 </script>
 </body>

@@ -7,7 +7,6 @@ val LeatherDeep      = Color(0xFF080705)   // near-pure-black foundation
 val LeatherDark      = Color(0xFF0F0C09)   // deep background layer
 val LeatherMid       = Color(0xFF1D1810)   // main surface — dark espresso charcoal
 val LeatherLight     = Color(0xFF2E2519)   // raised surface — warm dark slate
-//val LeatherHighlight = Color(0xFF3E3228)   // specular — gunmetal with warmth
 
 // Gold — antique and aged (pops more against the darker ground)
 val GoldLight   = Color(0xFFEDD07A)
@@ -18,7 +17,7 @@ val GoldDark    = Color(0xFF524018)
 // Parchment / Cream
 val CreamPrimary = Color(0xFFF0E2C0)
 val CreamMuted   = Color(0xFFCBB98A)
-val CreamFaded   = Color(0xFF7A6848)
+val CreamFaded   = Color(0xFF937E57)   // ≥4.5:1 on LeatherMid (WCAG AA body text)
 
 // Accents
 val BurgundyAccent = Color(0xFF7A2535)

@@ -94,18 +94,18 @@ interface CardDao {
 
     // --- Collection ---
 
-    @Transaction
+    /** Copies owned of cards in the catalogue; orphaned entries are hidden, as everywhere else. */
     @Query("""
-        SELECT c.*, ce.quantity FROM collection ce
+        SELECT COALESCE(SUM(ce.quantity), 0) FROM collection ce
         INNER JOIN cards c ON c.name = ce.cardName
-        ORDER BY c.name ASC
     """)
-    fun getCollectionEntries(): Flow<List<CollectionCardRow>>
+    fun observeCollectionQuantity(): Flow<Int>
 
     @Query("""
         INSERT INTO collection (cardName, quantity)
-        VALUES (:cardName, :quantity)
-        ON CONFLICT(cardName) DO UPDATE SET quantity = quantity + excluded.quantity
+        VALUES (:cardName, MIN(:quantity, ${CollectionEntryEntity.MAX_QUANTITY}))
+        ON CONFLICT(cardName) DO UPDATE
+            SET quantity = MIN(quantity + excluded.quantity, ${CollectionEntryEntity.MAX_QUANTITY})
     """)
     suspend fun upsertCollectionEntry(cardName: String, quantity: Int)
 
@@ -117,7 +117,7 @@ interface CardDao {
     @Query("""
         INSERT INTO collection (cardName, quantity)
         VALUES (:cardName, 1)
-        ON CONFLICT(cardName) DO UPDATE SET quantity = quantity + 1
+        ON CONFLICT(cardName) DO UPDATE SET quantity = MIN(quantity + 1, ${CollectionEntryEntity.MAX_QUANTITY})
     """)
     suspend fun incrementCollectionEntry(cardName: String)
 
@@ -141,4 +141,7 @@ interface CardDao {
 
     @Query("SELECT * FROM prices")
     fun getAllPrices(): Flow<List<PriceEntity>>
+
+    @Query("SELECT marketPrice FROM prices WHERE cardName = :cardName")
+    fun observeMarketPrice(cardName: String): Flow<Double?>
 }

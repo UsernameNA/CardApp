@@ -3,7 +3,7 @@ package com.github.username.cardapp
 import com.github.username.cardapp.data.AssetTextReader
 import com.github.username.cardapp.data.BundledDataVersion
 import com.github.username.cardapp.data.CardRepositoryImpl
-import com.github.username.cardapp.data.SyncState
+import com.github.username.cardapp.data.ImportState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -48,16 +48,16 @@ class CardRepositoryImportTest {
         appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
     )
 
-    private fun CardRepositoryImpl.awaitFinalState(): SyncState = runBlocking {
+    private fun CardRepositoryImpl.awaitFinalState(): ImportState = runBlocking {
         ensureDataLoaded()
-        withTimeout(5_000) { syncState.first { it is SyncState.Complete || it is SyncState.Error } }
+        withTimeout(5_000) { importState.first { it is ImportState.Complete || it is ImportState.Error } }
     }
 
     @Test
     fun emptyDatabaseImportsBundledData() {
         val dao = FakeCardDao()
 
-        assertEquals(SyncState.Complete, repository(dao).awaitFinalState())
+        assertEquals(ImportState.Complete, repository(dao).awaitFinalState())
         assertEquals(listOf("Ruby Core"), dao.importedCards?.map { it.name })
         assertEquals(currentVersion, dao.storedDataVersion)
     }
@@ -75,7 +75,7 @@ class CardRepositoryImportTest {
     fun unchangedBundledDataIsNotReimported() {
         val dao = FakeCardDao(cardCount = 1, dataVersion = currentVersion)
 
-        assertEquals(SyncState.Complete, repository(dao).awaitFinalState())
+        assertEquals(ImportState.Complete, repository(dao).awaitFinalState())
         assertEquals(0, dao.importCount)
     }
 
@@ -84,7 +84,7 @@ class CardRepositoryImportTest {
         // An app update that ships a new catalogue must reach existing installs.
         val dao = FakeCardDao(cardCount = 1, dataVersion = "from-the-previous-release")
 
-        assertEquals(SyncState.Complete, repository(dao).awaitFinalState())
+        assertEquals(ImportState.Complete, repository(dao).awaitFinalState())
         assertEquals(1, dao.importCount)
         assertEquals(currentVersion, dao.storedDataVersion)
     }
@@ -105,7 +105,7 @@ class CardRepositoryImportTest {
 
         val state = repository(dao, assets(cards = "[]")).awaitFinalState()
 
-        assertTrue("expected Error but was $state", state is SyncState.Error)
+        assertTrue("expected Error but was $state", state is ImportState.Error)
         assertEquals(0, dao.importCount)
     }
 
@@ -115,7 +115,7 @@ class CardRepositoryImportTest {
 
         val state = repository(dao, assets(prices = "not json")).awaitFinalState()
 
-        assertEquals(SyncState.Complete, state)
+        assertEquals(ImportState.Complete, state)
         assertEquals(1, dao.importCount)
         assertEquals(emptyList<Any>(), dao.importedPrices)
     }
@@ -133,10 +133,10 @@ class CardRepositoryImportTest {
         }
         val repo = repository(dao, flaky)
 
-        assertTrue(repo.awaitFinalState() is SyncState.Error)
+        assertTrue(repo.awaitFinalState() is ImportState.Error)
         assertNull(dao.importedCards)
 
-        assertEquals(SyncState.Complete, repo.awaitFinalState())
+        assertEquals(ImportState.Complete, repo.awaitFinalState())
         assertEquals(1, dao.importCount)
     }
 }

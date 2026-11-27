@@ -6,16 +6,16 @@ import com.github.username.cardapp.data.local.CardWithPrice
 import com.github.username.cardapp.data.local.CollectionCardWithPrice
 import com.github.username.cardapp.data.local.CollectionEntryEntity
 import com.github.username.cardapp.data.local.SetEntity
-import com.github.username.cardapp.ui.common.CardFilterState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 interface CardRepository {
-    val syncState: StateFlow<SyncState>
+    val importState: StateFlow<ImportState>
     fun filteredCards(filter: CardFilterState): Flow<List<CardWithPrice>>
     fun filteredCollection(filter: CardFilterState): Flow<List<CollectionCardWithPrice>>
     val sets: Flow<List<SetEntity>>
     val priceMap: Flow<Map<String, Double>>
+    fun marketPrice(cardName: String): Flow<Double?>
     val totalCardCount: Flow<Int>
     val totalCollectionQuantity: Flow<Int>
     suspend fun getAllCardNames(): List<String>
@@ -26,6 +26,6 @@ interface CardRepository {
     fun getVariantsByCardName(cardName: String): Flow<List<CardVariantEntity>>
     suspend fun getFaqs(cardName: String): List<FaqEntry>
 
-    /** Import the bundled data if the database doesn't hold it yet; retries after an [SyncState.Error]. */
+    /** Import the bundled data if the database doesn't hold it yet; retries after an [ImportState.Error] or cancellation. */
     fun ensureDataLoaded()
 }

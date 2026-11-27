@@ -22,6 +22,7 @@ object AppModule {
 
     @Provides
     @Singleton
+    @ApplicationScope
     fun provideAppScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @Provides
@@ -49,6 +50,5 @@ object AppModule {
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase = AppDatabase.create(context)
 
     @Provides
-    @Singleton
     fun provideCardDao(db: AppDatabase): CardDao = db.cardDao()
 }

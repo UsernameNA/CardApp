@@ -91,7 +91,8 @@ internal fun splitForRows(
         return listOf(el to topTarget) to listOf(el to (count - topTarget))
     }
 
-    // Multiple element types — keep like elements together, fill top row first
+    // Multiple element types — keep like elements together, fill top row first.
+    // The smallest group never exceeds half the total, so the top row is never empty.
     val sorted = thresholds.sortedBy { it.second }
     val top = mutableListOf<Pair<String, Int>>()
     val bottom = mutableListOf<Pair<String, Int>>()
@@ -104,13 +105,6 @@ internal fun splitForRows(
         } else {
             bottom.add(group)
         }
-    }
-
-    // If top ended up empty (all groups too large), split the first bottom group
-    if (top.isEmpty() && bottom.isNotEmpty()) {
-        val first = bottom.removeFirst()
-        top.add(first.first to topTarget)
-        bottom.add(0, first.first to (first.second - topTarget))
     }
 
     return top to bottom

@@ -9,7 +9,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,11 +18,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -40,43 +37,37 @@ import com.github.username.cardapp.ui.theme.LeatherDeep
 import com.github.username.cardapp.ui.theme.LeatherMid
 import com.github.username.cardapp.ui.theme.Typography
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 @Composable
 internal fun ScanResultOverlay(
-    lastScanCard: CardEntity?,
-    unmatchedScan: Boolean,
-    top3: List<ScanCandidate>,
+    outcome: ScanOutcome?,
+    correctionExpanded: Boolean,
     correctionResults: List<CardEntity>,
-    onCorrect: (String) -> Unit,
+    onCorrect: (outcomeId: Long, cardName: String) -> Unit,
     onCorrectionOpenChanged: (Boolean) -> Unit,
     onCorrectionQueryChanged: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Track whether a scan result is active (matched or unmatched)
-    val hasResult = lastScanCard != null || unmatchedScan
-    var correctionExpanded by remember { mutableStateOf(false) }
     val overlayAlpha = remember { Animatable(0f) }
-    val scope = rememberCoroutineScope()
 
-    // Each new scan: pop in, auto-fade after delay
-    LaunchedEffect(lastScanCard, unmatchedScan) {
-        if (hasResult) {
-            correctionExpanded = false
-            onCorrectionOpenChanged(false)
-            overlayAlpha.snapTo(1f)
-            delay(3000)
-            if (!correctionExpanded) {
-                overlayAlpha.animateTo(0f, tween(500))
-            }
-        } else {
+    // Each new scan pops in and fades after a delay; so does closing the correction panel.
+    // Keyed on the id, not the card, so scanning the same card (or missing) twice in a row
+    // still shows the second result.
+    LaunchedEffect(outcome?.id, correctionExpanded) {
+        if (outcome == null) {
             overlayAlpha.snapTo(0f)
+            return@LaunchedEffect
         }
+        overlayAlpha.snapTo(1f)
+        if (correctionExpanded) return@LaunchedEffect
+        delay(3000)
+        overlayAlpha.animateTo(0f, tween(500))
     }
 
     // Leave the composition whenever fully faded — an invisible overlay must not
     // keep intercepting taps (its clickable would silently toggle the correction panel).
-    if (overlayAlpha.value == 0f) return
+    val visible by remember { derivedStateOf { overlayAlpha.value > 0f } }
+    if (!visible || outcome == null) return
 
     val overlayInteraction = remember { MutableInteractionSource() }
     val overlayPressed by overlayInteraction.collectIsPressedAsState()
@@ -97,23 +88,18 @@ internal fun ScanResultOverlay(
             .clickable(
                 interactionSource = overlayInteraction,
                 indication = null,
-            ) {
-                correctionExpanded = !correctionExpanded
-                onCorrectionOpenChanged(correctionExpanded)
-                if (correctionExpanded) {
-                    scope.launch { overlayAlpha.snapTo(1f) }
-                }
-            }
+            ) { onCorrectionOpenChanged(!correctionExpanded) }
             .padding(10.dp),
     ) {
-        if (lastScanCard != null) {
+        val card = outcome.card
+        if (card != null) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 CardArt(
-                    slug = lastScanCard.primarySlug,
-                    contentDescription = lastScanCard.name,
+                    slug = card.primarySlug,
+                    contentDescription = card.name,
                     contentScale = ContentScale.Fit,
                     crossfade = false,
                     modifier = Modifier
@@ -122,7 +108,7 @@ internal fun ScanResultOverlay(
                 )
                 Column {
                     Text(
-                        text = lastScanCard.name.uppercase(),
+                        text = card.name.uppercase(),
                         style = Typography.labelMedium.copy(color = CreamPrimary),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -142,10 +128,10 @@ internal fun ScanResultOverlay(
 
         AnimatedVisibility(visible = correctionExpanded) {
             CorrectionPanel(
-                top3 = top3,
+                top3 = outcome.top3,
                 correctionResults = correctionResults,
-                currentCardName = lastScanCard?.name,
-                onCorrect = onCorrect,
+                currentCardName = card?.name,
+                onCorrect = { onCorrect(outcome.id, it) },
                 onQueryChanged = onCorrectionQueryChanged,
             )
         }

@@ -142,6 +142,46 @@ class OcrCardScorerTest {
         )
     }
 
+    // ── Common name words ───────────────────────────────────────────────────────
+
+    /** As in the real catalogue, where ~130 names contain "of". */
+    private val ofDecoys = List(130) { card("Relic$it of Vault$it", cardType = "Magic") }
+
+    @Test
+    fun commonNameWordAloneDoesNotLetUnrelatedCardsNearTheThreshold() {
+        val real = card("Ruler of Ashes", cardType = "Magic")
+        val ocr = "Ruler of Ashes\nAn Elite Magic"
+
+        val result = OcrCardScorer.score(ocr, ofDecoys + real)
+
+        assertEquals("Ruler of Ashes", result.matched?.name)
+        assertTrue(
+            "a decoy sharing only \"of\" should score far below the threshold, was ${result.top3[1]}",
+            result.top3[1].score < OcrCardScorer.SCORE_THRESHOLD / 2,
+        )
+    }
+
+    @Test
+    fun commonNameWordsCannotCarryAnUnknownCardOverTheThreshold() {
+        // A card missing from the catalogue (e.g. a newer set) must go to the correction
+        // panel rather than snapping to whichever "of" card is first.
+        val result = OcrCardScorer.score("Lord of Nothing\nAn Elite Magic", ofDecoys)
+
+        assertNull(result.matched)
+        assertTrue(result.bestScore < OcrCardScorer.SCORE_THRESHOLD)
+    }
+
+    @Test
+    fun distinctiveWordsInACommonWordNameStillMatch() {
+        val real = card("Ruler of Ashes", cardType = "Magic")
+        // Name partly misread, so no full-name match: the distinctive words carry it.
+        val ocr = "Ruler 0f Ashes\nAn Elite Magic"
+
+        val result = OcrCardScorer.score(ocr, ofDecoys + real)
+
+        assertEquals("Ruler of Ashes", result.matched?.name)
+    }
+
     // ── Margin gate ─────────────────────────────────────────────────────────────
 
     @Test
@@ -240,6 +280,41 @@ class OcrCardScorerTest {
 
         assertEquals(OcrCardScorer.score(ocr, cards).bestScore, withFailure.bestScore)
         assertEquals("Sea Serpent", withFailure.matched?.name)
+    }
+
+    @Test
+    fun blankReadIsTreatedAsAFailedFrame() {
+        val cards = listOf(card("Sea Serpent"), card("Goblin"))
+        val prepared = OcrCardScorer.prepare(cards)
+        val ocr = "Sea Serpent\nMinion - Beast\nA serpent of the deep."
+
+        // OCR that saw nothing (lens covered, card out of frame) is no evidence against
+        // the card the other reads found, so it must not drag the average down.
+        val withBlank = OcrCardScorer.combine(
+            listOf(
+                OcrCardScorer.scoreFrame(ocr, prepared),
+                OcrCardScorer.scoreFrame("", prepared),
+                OcrCardScorer.scoreFrame(" \n\t ", prepared),
+            ),
+            cards,
+        )
+
+        assertEquals(OcrCardScorer.score(ocr, cards).bestScore, withBlank.bestScore)
+        assertEquals("Sea Serpent", withBlank.matched?.name)
+    }
+
+    @Test
+    fun marginIsJudgedOnExactAveragesNotTruncatedOnes() {
+        val cards = listOf(card("Sea Serpent"), card("Sea Servant"))
+        fun frame(serpent: Int, servant: Int) = OcrCardScorer.FrameScores(
+            "", mapOf("Sea Serpent" to serpent, "Sea Servant" to servant), emptySet(),
+        )
+
+        // Averages 66.67 vs 63.33: exactly a 5% lead. Truncated to 66 vs 63 it would
+        // look like 4.5% and wrongly fall short.
+        val result = OcrCardScorer.combine(listOf(frame(67, 64), frame(67, 63), frame(66, 63)), cards)
+
+        assertEquals("Sea Serpent", result.matched?.name)
     }
 
     @Test

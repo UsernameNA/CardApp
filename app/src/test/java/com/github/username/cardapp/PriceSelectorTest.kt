@@ -39,6 +39,43 @@ class PriceSelectorTest {
     }
 
     @Test
+    fun welcomeKitPromoNeverReplacesNonPromo() {
+        assertEquals(5.0, marketPrice(entry("Ruby Core", "Alpha", 5.0), entry("Ruby Core", "Welcome Kit Promos", 1.0)))
+    }
+
+    @Test
+    fun missingMarketPriceFallsBackToMedianThenLowest() {
+        assertEquals(4.0, marketPrice(PriceEntryJson("Ruby Core", "Alpha", marketPrice = null, medianPrice = 4.0, lowestPrice = 3.0)))
+        assertEquals(3.0, marketPrice(PriceEntryJson("Ruby Core", "Alpha", marketPrice = null, lowestPrice = 3.0)))
+    }
+
+    @Test
+    fun realMarketPriceBeatsCheaperEstimate() {
+        assertEquals(
+            5.0,
+            marketPrice(
+                PriceEntryJson("Ruby Core", "Frost Mage vs Lavamancer", marketPrice = null, medianPrice = 1.0),
+                entry("Ruby Core", "Alpha", 5.0),
+            ),
+        )
+    }
+
+    @Test
+    fun entryWithNoPriceAtAllIsSkipped() {
+        assertEquals(null, marketPrice(PriceEntryJson("Ruby Core", "Alpha")))
+    }
+
+    @Test
+    fun priceNameWithoutDiacriticsMatchesAccentedCard() {
+        val prices = PriceSelector.select(
+            listOf(entry("Maelstrom", "Beta", 2.0), entry("Alvalinne Dryads", "Alpha", 1.0)),
+            setOf("Maelström", "Älvalinne Dryads"),
+        )
+
+        assertEquals(setOf("Maelström" to 2.0, "Älvalinne Dryads" to 1.0), prices.map { it.cardName to it.marketPrice }.toSet())
+    }
+
+    @Test
     fun productsThatAreNotCatalogueCardsAreDropped() {
         val prices = PriceSelector.select(
             listOf(entry("Ruby Core", "Alpha", 5.0), entry("Ruby Core (Foil)", "Alpha", 20.0)),

@@ -4,8 +4,6 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.github.username.cardapp.ui.common.SortDir
-import com.github.username.cardapp.ui.common.SortState
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -33,8 +31,9 @@ class SortPreferences @Inject constructor(
             price = prefs[KEY_SORT_PRICE].toSortDir(),
             priority = prefs[KEY_SORT_PRIORITY]
                 ?.split(",")
-                ?.filter { it.isNotEmpty() }
-                ?: listOf("name"),
+                ?.mapNotNull(SortField::fromKey)
+                ?.distinct()
+                ?: listOf(SortField.Name),
         )
     }
 
@@ -44,7 +43,7 @@ class SortPreferences @Inject constructor(
             prefs[KEY_SORT_COST] = sort.cost.name
             prefs[KEY_SORT_RARITY] = sort.rarity.name
             prefs[KEY_SORT_PRICE] = sort.price.name
-            prefs[KEY_SORT_PRIORITY] = sort.priority.joinToString(",")
+            prefs[KEY_SORT_PRIORITY] = sort.priority.joinToString(",") { it.key }
         }
     }
 }

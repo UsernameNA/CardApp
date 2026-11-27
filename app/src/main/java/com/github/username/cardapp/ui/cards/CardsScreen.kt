@@ -15,31 +15,36 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -48,12 +53,13 @@ import com.github.username.cardapp.ui.theme.CardAppTheme
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.github.username.cardapp.data.SyncState
+import com.github.username.cardapp.data.ImportState
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CardWithPrice
-import com.github.username.cardapp.ui.common.CardFilterState
 import com.github.username.cardapp.ui.common.NoFilterResults
 import com.github.username.cardapp.ui.common.SearchFilterBar
+import com.github.username.cardapp.ui.common.SectionHeader
+import com.github.username.cardapp.ui.common.countOf
 import com.github.username.cardapp.ui.theme.BurgundyLight
 import com.github.username.cardapp.ui.theme.CreamFaded
 import com.github.username.cardapp.ui.theme.CreamMuted
@@ -62,26 +68,28 @@ import com.github.username.cardapp.ui.theme.GoldLight
 import com.github.username.cardapp.ui.theme.GoldMuted
 import com.github.username.cardapp.ui.theme.GoldPrimary
 import com.github.username.cardapp.ui.theme.LeatherMid
+import com.github.username.cardapp.ui.theme.drawDiamond
 import com.github.username.cardapp.ui.theme.Typography
 import com.github.username.cardapp.ui.theme.leatherBackground
 import com.github.username.cardapp.ui.theme.rarityColor
+import kotlinx.coroutines.flow.drop
 
 @Composable
 fun CardsScreen(onCardClick: (String) -> Unit = {}, vm: CardsViewModel = hiltViewModel()) {
     val cards by vm.cards.collectAsStateWithLifecycle()
     val totalCount by vm.totalCardCount.collectAsStateWithLifecycle()
-    val syncState by vm.syncState.collectAsStateWithLifecycle()
-    val filterState by vm.filterState.collectAsStateWithLifecycle()
+    val importState by vm.importState.collectAsStateWithLifecycle()
+    val filterState by vm.filter.filterState.collectAsStateWithLifecycle()
     val collectedQuantities by vm.collectedQuantities.collectAsStateWithLifecycle()
-    val sets by vm.sets.collectAsStateWithLifecycle()
+    val setNames by vm.filter.setNames.collectAsStateWithLifecycle()
 
     val gridState = rememberLazyGridState()
-    // Scroll key: everything except filtersExpanded
-    val scrollKey = remember(filterState) {
-        filterState.copy(filtersExpanded = false)
-    }
-    LaunchedEffect(scrollKey) {
-        gridState.scrollToItem(0)
+    // Back to the top when the filter changes, but not when the screen re-enters
+    // composition (returning from a card, rotating), which re-emits the current filter.
+    LaunchedEffect(gridState) {
+        snapshotFlow { filterState.copy(filtersExpanded = false) }
+            .drop(1)
+            .collect { gridState.scrollToItem(0) }
     }
 
     Box(
@@ -89,22 +97,26 @@ fun CardsScreen(onCardClick: (String) -> Unit = {}, vm: CardsViewModel = hiltVie
             .fillMaxSize()
             .leatherBackground(),
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)),
+        ) {
             CardsHeader(
                 cardCount = cards.size,
                 totalCount = totalCount,
                 hasFilter = filterState.hasActiveFilters,
-                modifier = Modifier.statusBarsPadding(),
             )
             SearchFilterBar(
                 state = filterState,
-                onUpdate = { newState -> vm.updateFilter { newState } },
-                availableSets = sets.map { it.name },
+                onUpdate = vm.filter::updateFilter,
+                onQueryChange = vm.filter::updateQuery,
+                availableSets = setNames,
             )
-            when (val state = syncState) {
-                is SyncState.Complete, is SyncState.Idle -> {
+            when (val state = importState) {
+                is ImportState.Complete, is ImportState.Idle -> {
                     if (cards.isEmpty() && filterState.hasActiveFilters) {
-                        NoFilterResults(onClear = { vm.updateFilter { CardFilterState() } })
+                        NoFilterResults(onClear = vm.filter::clearFilters)
                     } else if (cards.isEmpty()) {
                         CatalogueLoadingState(state = state, onRetry = vm::retryDataLoad)
                     } else {
@@ -124,37 +136,14 @@ private fun CardsHeader(
     hasFilter: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            HorizontalDivider(
-                modifier = Modifier.weight(1f),
-                thickness = 0.7.dp,
-                color = GoldMuted.copy(alpha = 0.45f),
-            )
-            Text(
-                text = "  CARDS  ",
-                style = Typography.labelLarge.copy(color = GoldPrimary),
-            )
-            HorizontalDivider(
-                modifier = Modifier.weight(1f),
-                thickness = 0.7.dp,
-                color = GoldMuted.copy(alpha = 0.45f),
-            )
-        }
+    SectionHeader(title = "CARDS", modifier = modifier) {
         if (totalCount > 0) {
             Spacer(Modifier.height(4.dp))
+            val entries = countOf(totalCount, "entry", "entries")
             val subtitle = if (hasFilter) {
-                "$cardCount of $totalCount entries catalogued"
+                "$cardCount of $entries catalogued"
             } else {
-                "$totalCount entries catalogued"
+                "$entries catalogued"
             }
             Text(
                 text = subtitle,
@@ -168,9 +157,11 @@ private fun CardsHeader(
 private fun CardGrid(
     cards: List<CardWithPrice>,
     collectedQuantities: Map<String, Int> = emptyMap(),
-    gridState: androidx.compose.foundation.lazy.grid.LazyGridState = rememberLazyGridState(),
+    gridState: LazyGridState = rememberLazyGridState(),
     onCardClick: (String) -> Unit = {},
 ) {
+    // Clear the navigation bar, and the keyboard while searching.
+    val bottomInset = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom).asPaddingValues().calculateBottomPadding()
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
         state = gridState,
@@ -178,7 +169,7 @@ private fun CardGrid(
             start = 10.dp,
             end = 10.dp,
             top = 4.dp,
-            bottom = 80.dp,
+            bottom = bottomInset + 16.dp,
         ),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -194,7 +185,7 @@ private fun CardGrid(
 private fun CardTile(card: CardEntity, collected: Int = 0, onClick: () -> Unit = {}) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier.clickable(onClickLabel = "view details", role = Role.Button, onClick = onClick),
     ) {
         Box(
             modifier = Modifier
@@ -206,7 +197,7 @@ private fun CardTile(card: CardEntity, collected: Int = 0, onClick: () -> Unit =
         ) {
             CardArt(
                 slug = card.primarySlug,
-                contentDescription = card.name,
+                contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
             )
             RaritySegments(rarity = card.rarity, collected = collected)
@@ -264,7 +255,7 @@ private fun RaritySegments(rarity: String, collected: Int) {
 }
 
 @Composable
-private fun CatalogueLoadingState(state: SyncState, onRetry: () -> Unit = {}) {
+private fun CatalogueLoadingState(state: ImportState, onRetry: () -> Unit = {}) {
     val infiniteTransition = rememberInfiniteTransition(label = "catalogue")
     val breathe by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -283,40 +274,15 @@ private fun CatalogueLoadingState(state: SyncState, onRetry: () -> Unit = {}) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        if (state !is SyncState.Error) {
+        if (state !is ImportState.Error) {
             Canvas(modifier = Modifier.size(72.dp)) {
                 val s = size.minDimension / 2f
                 val strokeW = 1.5.dp.toPx()
                 val alpha = 0.3f + breathe * 0.7f
                 val scale = 0.75f + breathe * 0.25f
 
-                // Outer pulsing diamond
-                val outerPath = Path().apply {
-                    moveTo(center.x, center.y - s * scale)
-                    lineTo(center.x + s * 0.65f * scale, center.y)
-                    lineTo(center.x, center.y + s * scale)
-                    lineTo(center.x - s * 0.65f * scale, center.y)
-                    close()
-                }
-                drawPath(
-                    outerPath,
-                    color = GoldPrimary.copy(alpha = alpha),
-                    style = Stroke(width = strokeW),
-                )
-
-                // Inner fill (subtle)
-                val innerPath = Path().apply {
-                    val innerS = s * 0.45f * scale
-                    moveTo(center.x, center.y - innerS)
-                    lineTo(center.x + innerS * 0.65f, center.y)
-                    lineTo(center.x, center.y + innerS)
-                    lineTo(center.x - innerS * 0.65f, center.y)
-                    close()
-                }
-                drawPath(
-                    innerPath,
-                    color = GoldMuted.copy(alpha = alpha * 0.4f),
-                )
+                drawDiamond(center, s * scale, GoldPrimary.copy(alpha = alpha), style = Stroke(width = strokeW))
+                drawDiamond(center, s * 0.45f * scale, GoldMuted.copy(alpha = alpha * 0.4f))
 
                 // Four corner accent dots
                 val dotR = 2.5f
@@ -330,8 +296,8 @@ private fun CatalogueLoadingState(state: SyncState, onRetry: () -> Unit = {}) {
         }
 
         val (label, isError) = when (state) {
-            is SyncState.SyncingCards -> "CATALOGUING" to false
-            is SyncState.Error -> "ERROR" to true
+            is ImportState.Importing -> "CATALOGUING" to false
+            is ImportState.Error -> "ERROR" to true
             else -> "PREPARING" to false
         }
 
@@ -345,7 +311,7 @@ private fun CatalogueLoadingState(state: SyncState, onRetry: () -> Unit = {}) {
         if (isError) {
             Spacer(Modifier.height(8.dp))
             Text(
-                text = (state as SyncState.Error).message,
+                text = (state as ImportState.Error).message,
                 style = Typography.bodyMedium.copy(
                     color = CreamFaded,
                     textAlign = TextAlign.Center,
@@ -383,7 +349,6 @@ private fun CardListGridPreview() {
                     cardCount = fakeCards.size,
                     totalCount = fakeCards.size,
                     hasFilter = false,
-                    modifier = Modifier.statusBarsPadding(),
                 )
                 CardGrid(
                     cards = fakeCards,
@@ -404,8 +369,8 @@ private fun CardListLoadingPreview() {
                 .leatherBackground(),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                CardsHeader(cardCount = 0, totalCount = 0, hasFilter = false, modifier = Modifier.statusBarsPadding())
-                CatalogueLoadingState(state = SyncState.SyncingCards)
+                CardsHeader(cardCount = 0, totalCount = 0, hasFilter = false)
+                CatalogueLoadingState(state = ImportState.Importing)
             }
         }
     }

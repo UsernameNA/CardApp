@@ -1,6 +1,5 @@
 package com.github.username.cardapp.ui.common
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,12 +16,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.github.username.cardapp.data.local.CardEntity
@@ -35,7 +41,6 @@ import com.github.username.cardapp.ui.theme.GoldPrimary
 import com.github.username.cardapp.ui.theme.Typography
 import com.github.username.cardapp.ui.theme.rarityColor
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CardRow(
     card: CardEntity,
@@ -61,7 +66,7 @@ fun CardRow(
                     Modifier.clickable(onClick = onToggle)
                 },
             )
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = ROW_VERTICAL_PADDING),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -83,25 +88,26 @@ fun CardRow(
         if (marketPrice != null) {
             Spacer(Modifier.width(6.dp))
             Text(
-                text = formatPrice(marketPrice),
+                text = PriceFormat.compact(marketPrice),
                 style = Typography.labelMedium.copy(color = CreamMuted),
                 modifier = Modifier.widthIn(min = 48.dp),
                 textAlign = TextAlign.End,
             )
         }
         if (isSelected) {
-            Spacer(Modifier.width(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CountButton("\u25bc", onClick = onDecrement)
-                Spacer(Modifier.width(6.dp))
+            // The buttons' touch-target margin spaces them from the price.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.overflowVertically(ROW_VERTICAL_PADDING),
+            ) {
+                CountButton("\u25bc", contentDescription = "Remove one", onClick = onDecrement)
                 Text(
                     text = "$count",
                     style = Typography.labelLarge.copy(color = GoldPrimary),
                     modifier = Modifier.width(24.dp),
                     textAlign = TextAlign.Center,
                 )
-                Spacer(Modifier.width(6.dp))
-                CountButton("\u25b2", onClick = onIncrement)
+                CountButton("\u25b2", contentDescription = "Add one", onClick = onIncrement)
             }
         } else {
             Box(
@@ -112,6 +118,7 @@ fun CardRow(
                     Box(
                         modifier = Modifier
                             .border(1.dp, GoldMuted.copy(alpha = 0.6f), RoundedCornerShape(2.dp))
+                            .clearAndSetSemantics { contentDescription = countOf(count, "copy", "copies") }
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -159,25 +166,30 @@ private fun CardInfoLine(card: CardEntity) {
     }
 }
 
+private val ROW_VERTICAL_PADDING = 8.dp
 
-private fun formatPrice(price: Double): String = when {
-    price >= 1000 -> "$${price.toInt()}"
-    price >= 1 -> "$%.2f".format(price)
-    else -> "${(price * 100).toInt()}\u00a2"
+/** Lets content (48dp touch targets) spill [amount] into the row's padding above and below, so the row keeps its height. */
+private fun Modifier.overflowVertically(amount: Dp) = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    val inset = amount.roundToPx().coerceAtMost(placeable.height / 2)
+    layout(placeable.width, placeable.height - 2 * inset) { placeable.place(0, -inset) }
 }
 
 @Composable
-private fun CountButton(label: String, onClick: () -> Unit) {
+private fun CountButton(label: String, contentDescription: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
+            .minimumInteractiveComponentSize()
             .size(26.dp)
             .border(1.dp, GoldMuted, RoundedCornerShape(2.dp))
-            .clickable(onClick = onClick),
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = label,
             style = Typography.labelMedium.copy(color = GoldPrimary),
+            modifier = Modifier.clearAndSetSemantics { },
         )
     }
 }

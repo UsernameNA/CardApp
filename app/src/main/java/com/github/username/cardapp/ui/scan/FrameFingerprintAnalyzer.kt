@@ -8,8 +8,8 @@ import androidx.camera.core.ImageProxy
  * Instead of scanning on a timer, auto mode fingerprints each camera frame (a 16×16
  * grayscale grid sampled from the center of the Y/luminance plane) and reasons about
  * scene stability and content using cheap mean-difference / variance metrics. This
- * object owns those metrics and the thresholds that interpret them; [ScanViewModel]
- * drives the actual state machine on top of them.
+ * object owns those metrics and the thresholds that interpret them; [AutoScanDetector]
+ * runs the actual state machine on top of them.
  */
 object FrameFingerprintAnalyzer {
 
@@ -25,36 +25,19 @@ object FrameFingerprintAnalyzer {
     /** Sample a 16×16 grayscale fingerprint from the central half of the Y plane.
      *  Stability and content are judged on the middle of the camera frame rather than
      *  the on-screen reticle — OCR reads the whole frame, so the card only needs to be
-     *  roughly centred. The screen-space centre is mapped to sensor coordinates using
-     *  the image's rotation degrees. */
+     *  roughly centred. The centre is the centre in any rotation, so the sensor-space
+     *  crop needs no rotation mapping. */
     fun computeFingerprint(imageProxy: ImageProxy): IntArray {
         val yPlane = imageProxy.planes[0]
         val yBuffer = yPlane.buffer
         val rowStride = yPlane.rowStride
         val imgW = imageProxy.width
         val imgH = imageProxy.height
-        val rotation = imageProxy.imageInfo.rotationDegrees
-
-        // Frame center in normalized screen coords (portrait)
-        val screenCx = 0.5
-        val screenCy = 0.5
-
-        // Map screen coords to sensor coords based on rotation
-        val sensorCxNorm: Double
-        val sensorCyNorm: Double
-        when (rotation) {
-            90  -> { sensorCxNorm = 1.0 - screenCy; sensorCyNorm = screenCx }
-            270 -> { sensorCxNorm = screenCy;        sensorCyNorm = 1.0 - screenCx }
-            180 -> { sensorCxNorm = 1.0 - screenCx;  sensorCyNorm = 1.0 - screenCy }
-            else -> { sensorCxNorm = screenCx;        sensorCyNorm = screenCy }
-        }
 
         val cropW = imgW / 2
         val cropH = imgH / 2
-        val centerX = (sensorCxNorm * imgW).toInt().coerceIn(cropW / 2, imgW - cropW / 2)
-        val centerY = (sensorCyNorm * imgH).toInt().coerceIn(cropH / 2, imgH - cropH / 2)
-        val startX = centerX - cropW / 2
-        val startY = centerY - cropH / 2
+        val startX = imgW / 2 - cropW / 2
+        val startY = imgH / 2 - cropH / 2
 
         return IntArray(FINGERPRINT_SIZE * FINGERPRINT_SIZE) { i ->
             val fx = i % FINGERPRINT_SIZE

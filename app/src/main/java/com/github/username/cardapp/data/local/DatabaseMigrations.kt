@@ -55,5 +55,19 @@ object DatabaseMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+    /** Add folded search/sort keys; the import-logic version bump re-imports to fill them properly. */
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE cards ADD COLUMN searchKey TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE cards ADD COLUMN sortKey TEXT NOT NULL DEFAULT ''")
+            // ASCII-only stand-in so search and sort work if that re-import fails.
+            db.execSQL("""
+                UPDATE cards SET
+                    searchKey = LOWER(name || char(10) || cardType || char(10) || subTypes || char(10) || rulesText),
+                    sortKey = LOWER(name)
+            """)
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
 }

@@ -7,5 +7,6 @@ data class PriceEntryJson(
     val productName: String? = null,
     val setName: String? = null,
     val marketPrice: Double? = null,
+    val medianPrice: Double? = null,
     val lowestPrice: Double? = null,
 )

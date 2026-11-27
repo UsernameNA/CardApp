@@ -1,121 +1,103 @@
 #!/usr/bin/env python3
-"""Fetch Sorcery: Contested Realm card prices from TCGPlayer and write to prices.json.
+"""Fetches Sorcery: Contested Realm market prices from TCGPlayer and saves them to assets.
+
+Uses TCGPlayer's marketplace search API (the one behind its price guide pages).
 
 Usage:
-    python3 scripts/fetch_prices.py
+    ./scripts/fetch_prices.py
 
-Output:
-    app/src/main/assets/prices.json
-
-Prices are fetched from TCGPlayer's internal marketplace search API.
-Run this daily or weekly to keep prices current.
+Output: app/src/main/assets/prices.json
 """
 
 import json
-import os
 import sys
 import time
-import requests
+import urllib.request
+from pathlib import Path
 
+# mpfev is TCGPlayer's frontend version; if requests start failing, copy the current
+# value from a price-guide page's network requests.
 API_URL = "https://mp-search-api.tcgplayer.com/v1/search/request?q=&isList=false&mpfev=2952"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
     "Accept": "application/json",
     "Content-Type": "application/json",
 }
-PAGE_SIZE = 50
 PRODUCT_LINE = "sorcery-contested-realm"
+PAGE_SIZE = 50
+MIN_PRICES = 1000
 
-OUTPUT_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "app", "src", "main", "assets", "prices.json",
-)
+PROJECT_ROOT = Path(__file__).parent.parent
+OUTPUT = PROJECT_ROOT / "app/src/main/assets/prices.json"
 
 
-def build_request_body(set_name: str, offset: int, size: int) -> dict:
-    return {
+def search(set_name, offset, size):
+    term = {"productLineName": [PRODUCT_LINE]}
+    if set_name is not None:
+        term["setName"] = [set_name]
+    body = {
         "algorithm": "price_guide_browse",
         "from": offset,
         "size": size,
-        "filters": {
-            "term": {
-                "productLineName": [PRODUCT_LINE],
-                "setName": [set_name],
-            },
-            "range": {},
-            "match": {},
-        },
+        "filters": {"term": term, "range": {}, "match": {}},
         "listingSearch": {
-            "filters": {
-                "term": {},
-                "range": {},
-                "exclude": {"channelExclusion": 0},
-            },
+            "filters": {"term": {}, "range": {}, "exclude": {"channelExclusion": 0}},
             "context": {"cart": {}},
         },
         "context": {"shippingCountry": "US", "userProfile": {}, "cart": {}},
         "settings": {"useFuzzySearch": False, "didYouMean": {}},
         "sort": {},
     }
+    req = urllib.request.Request(API_URL, data=json.dumps(body).encode(), headers=HEADERS, method="POST")
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as response:
+                return json.loads(response.read())["results"][0]
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, KeyError, IndexError) as e:
+            if attempt == 2:
+                print(f"Error: TCGPlayer request failed ({set_name or 'all sets'}, offset {offset}): {e}",
+                      file=sys.stderr)
+                sys.exit(1)
+            time.sleep(2 * (attempt + 1))
 
 
-def fetch_set_names() -> list[tuple[str, int]]:
-    """Return list of (setName, cardCount) for all Sorcery sets."""
-    body = build_request_body("alpha", 0, 1)
-    # Remove setName filter to get all sets in aggregations
-    del body["filters"]["term"]["setName"]
-    resp = requests.post(API_URL, headers=HEADERS, json=body, timeout=30)
-    resp.raise_for_status()
-    data = resp.json()
-    aggs = data["results"][0]["aggregations"]
-    sets = []
-    for s in aggs.get("setName", []):
-        sets.append((s["value"], int(s["count"])))
-    return sets
-
-
-def fetch_set_prices(set_name: str, total: int) -> list[dict]:
-    """Fetch all card prices for a single set."""
-    cards = []
-    offset = 0
-    while offset < total:
-        body = build_request_body(set_name, offset, PAGE_SIZE)
-        resp = requests.post(API_URL, headers=HEADERS, json=body, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-        results = data["results"][0]["results"]
-        if not results:
-            break
-        for r in results:
-            card = {
-                "productName": r.get("productName"),
-                "productId": int(r.get("productId", 0)),
-                "setName": r.get("setName"),
-                "marketPrice": r.get("marketPrice"),
-                "medianPrice": r.get("medianPrice"),
-                "lowestPrice": r.get("lowestPrice"),
-                "lowestPriceWithShipping": r.get("lowestPriceWithShipping"),
-            }
-            cards.append(card)
-        offset += PAGE_SIZE
-        # Be polite — small delay between pages
-        time.sleep(0.5)
-    return cards
+def number(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
 
 
 def main():
     print("Fetching Sorcery: Contested Realm sets...")
-    sets = fetch_set_names()
-    print(f"Found {len(sets)} sets:")
+    sets = [(s["value"], int(s["count"])) for s in search(None, 0, 1)["aggregations"].get("setName", [])]
     for name, count in sets:
-        print(f"  {name}: {count} cards")
+        print(f"  {name}: {count} products")
 
     all_cards = []
-    for set_name, count in sets:
-        print(f"\nFetching {set_name} ({count} cards)...")
-        cards = fetch_set_prices(set_name, count)
-        all_cards.extend(cards)
-        print(f"  Got {len(cards)} cards")
+    for set_name, total in sets:
+        got = 0
+        for offset in range(0, total, PAGE_SIZE):
+            results = search(set_name, offset, PAGE_SIZE)["results"]
+            if not results:
+                break
+            for r in results:
+                all_cards.append({
+                    "productName": r.get("productName"),
+                    "productId": number(r.get("productId")),
+                    "setName": r.get("setName"),
+                    "marketPrice": r.get("marketPrice"),
+                    "medianPrice": r.get("medianPrice"),
+                    "lowestPrice": r.get("lowestPrice"),
+                    "lowestPriceWithShipping": r.get("lowestPriceWithShipping"),
+                })
+            got += len(results)
+            time.sleep(0.5)
+        print(f"  {set_name}: got {got}")
+
+    if len(all_cards) < MIN_PRICES:
+        print(f"Error: only {len(all_cards)} prices fetched; prices.json left untouched.", file=sys.stderr)
+        sys.exit(1)
 
     output = {
         "fetchedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -123,13 +105,9 @@ def main():
         "totalCards": len(all_cards),
         "cards": all_cards,
     }
-
-    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-    with open(OUTPUT_PATH, "w") as f:
-        json.dump(output, f, indent=2)
-
-    print(f"\nWrote {len(all_cards)} card prices to {OUTPUT_PATH}")
-    print(f"Timestamp: {output['fetchedAt']}")
+    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    OUTPUT.write_text(json.dumps(output, indent=2), encoding="utf-8")
+    print(f"Done. {len(all_cards)} prices → {OUTPUT}")
 
 
 if __name__ == "__main__":

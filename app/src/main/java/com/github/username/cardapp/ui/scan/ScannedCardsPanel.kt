@@ -1,13 +1,9 @@
 package com.github.username.cardapp.ui.scan
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,9 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,7 +25,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.github.username.cardapp.ui.common.CardRow
 import com.github.username.cardapp.ui.theme.CreamFaded
@@ -41,6 +35,9 @@ import com.github.username.cardapp.ui.theme.GoldPrimary
 import com.github.username.cardapp.ui.theme.LeatherMid
 import com.github.username.cardapp.ui.theme.Typography
 
+/** Share of the screen height the scanned-cards panel takes at the bottom. */
+internal const val SCANNED_PANEL_HEIGHT_FRACTION = 0.35f
+
 @Composable
 internal fun ScannedCardsPanel(
     cards: List<ScannedEntry>,
@@ -49,6 +46,8 @@ internal fun ScannedCardsPanel(
     modifier: Modifier = Modifier,
     prices: Map<String, Double> = emptyMap(),
     scanLogSize: Int = 0,
+    cameraReady: Boolean = true,
+    catalogueReady: Boolean = true,
     onCardClick: (String) -> Unit = {},
     onScanTap: () -> Unit = {},
     onToggleScanMode: () -> Unit = {},
@@ -56,7 +55,8 @@ internal fun ScannedCardsPanel(
     onDecrement: (String) -> Unit = {},
     onAddToCollection: () -> Unit = {},
     onExportScanLog: () -> Unit = {},
-    lastScanCardName: String? = null,
+    lastOutcomeId: Long? = null,
+    lastOutcomeCardName: String? = null,
 ) {
     var selectedCardName by remember { mutableStateOf<String?>(null) }
 
@@ -94,84 +94,52 @@ internal fun ScannedCardsPanel(
                 thickness = 0.7.dp,
                 color = GoldMuted.copy(alpha = 0.45f),
             )
-            Spacer(Modifier.width(12.dp))
 
-            // AUTO mode toggle
-            val autoActive = scanMode == ScanMode.Auto
-            val autoInteraction = remember { MutableInteractionSource() }
-            val autoPressed by autoInteraction.collectIsPressedAsState()
-            Box(
-                modifier = Modifier
-                    .border(
-                        1.dp,
-                        if (autoPressed) GoldLight else if (autoActive) GoldPrimary else GoldDark,
-                        RoundedCornerShape(2.dp),
-                    )
-                    .background(if (autoPressed || autoActive) GoldDark.copy(alpha = 0.35f) else Color.Transparent)
-                    .clickable(
-                        interactionSource = autoInteraction,
-                        indication = null,
-                        onClick = onToggleScanMode,
-                    )
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-            ) {
-                Text(
-                    "AUTO",
-                    style = Typography.labelLarge.copy(
-                        color = if (autoPressed) GoldLight else if (autoActive) GoldPrimary else GoldDark,
-                    ),
+            if (cameraReady) {
+                Spacer(Modifier.width(12.dp))
+
+                val autoActive = scanMode == ScanMode.Auto
+                val autoColor = if (autoActive) GoldPrimary else GoldDark
+                ScanPanelButton(
+                    text = "AUTO",
+                    onClick = onToggleScanMode,
+                    highlighted = autoActive,
+                    borderColor = autoColor,
+                    textColor = autoColor,
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                 )
-            }
 
-            Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(8.dp))
 
-            if (scanMode == ScanMode.Manual) {
-                // Manual mode: normal SCAN button
-                val scanInteraction = remember { MutableInteractionSource() }
-                val scanPressed by scanInteraction.collectIsPressedAsState()
-                val scanBusy = scanStatus == ScanStatus.Scanning
-                val (buttonLabel, buttonColor) = when (scanStatus) {
-                    ScanStatus.Idle -> "SCAN" to GoldPrimary
-                    ScanStatus.Scanning -> "..." to GoldMuted
-                    ScanStatus.NotFound -> "NOT FOUND" to CreamFaded
-                    is ScanStatus.Found -> "FOUND!" to GoldLight
-                    else -> "SCAN" to GoldPrimary
-                }
-                Box(
-                    modifier = Modifier
-                        .border(
-                            1.dp,
-                            if (scanPressed) GoldLight else GoldMuted,
-                            RoundedCornerShape(2.dp)
-                        )
-                        .background(if (scanPressed) GoldDark.copy(alpha = 0.35f) else Color.Transparent)
-                        .clickable(
-                            interactionSource = scanInteraction,
-                            indication = null,
-                            enabled = !scanBusy,
-                            onClick = onScanTap,
-                        )
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                ) {
+                if (scanMode == ScanMode.Manual) {
+                    val (buttonLabel, buttonColor) = when {
+                        !catalogueReady -> "LOADING" to GoldMuted
+                        scanStatus == ScanStatus.Scanning -> "..." to GoldMuted
+                        scanStatus == ScanStatus.NotFound -> "NOT FOUND" to CreamFaded
+                        scanStatus is ScanStatus.Found -> "FOUND!" to GoldLight
+                        else -> "SCAN" to GoldPrimary
+                    }
+                    ScanPanelButton(
+                        text = buttonLabel,
+                        onClick = onScanTap,
+                        enabled = catalogueReady && scanStatus != ScanStatus.Scanning,
+                        textColor = buttonColor,
+                    )
+                } else {
+                    // Auto mode: show current watch status
+                    val (statusLabel, statusColor) = when (scanStatus) {
+                        ScanStatus.AutoWatching -> "WATCHING" to GoldMuted
+                        ScanStatus.Scanning -> "SCANNING..." to GoldPrimary
+                        ScanStatus.AutoCooldown -> "NEXT..." to CreamFaded
+                        is ScanStatus.Found -> "FOUND!" to GoldLight
+                        else -> "WATCHING" to GoldMuted
+                    }
                     Text(
-                        buttonLabel,
-                        style = Typography.labelLarge.copy(color = if (scanPressed) GoldLight else buttonColor)
+                        text = if (catalogueReady) statusLabel else "LOADING",
+                        style = Typography.labelLarge.copy(color = statusColor),
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
                     )
                 }
-            } else {
-                // Auto mode: show current watch status
-                val (statusLabel, statusColor) = when (scanStatus) {
-                    ScanStatus.AutoWatching -> "WATCHING" to GoldMuted
-                    ScanStatus.Scanning -> "SCANNING..." to GoldPrimary
-                    ScanStatus.AutoCooldown -> "NEXT..." to CreamFaded
-                    is ScanStatus.Found -> "FOUND!" to GoldLight
-                    else -> "WATCHING" to GoldMuted
-                }
-                Text(
-                    text = statusLabel,
-                    style = Typography.labelLarge.copy(color = statusColor),
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
-                )
             }
         }
 
@@ -184,72 +152,35 @@ internal fun ScannedCardsPanel(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 if (cards.isNotEmpty()) {
-                    val addInteraction = remember { MutableInteractionSource() }
-                    val addPressed by addInteraction.collectIsPressedAsState()
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .border(
-                                1.dp,
-                                if (addPressed) GoldLight else GoldPrimary,
-                                RoundedCornerShape(2.dp),
-                            )
-                            .background(if (addPressed) GoldDark.copy(alpha = 0.35f) else Color.Transparent)
-                            .clickable(
-                                interactionSource = addInteraction,
-                                indication = null,
-                                onClick = onAddToCollection,
-                            )
-                            .padding(vertical = 8.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            "ADD TO COLLECTION",
-                            style = Typography.labelLarge.copy(
-                                color = if (addPressed) GoldLight else GoldPrimary,
-                            ),
-                        )
-                    }
+                    ScanPanelButton(
+                        text = "ADD TO COLLECTION",
+                        onClick = onAddToCollection,
+                        modifier = Modifier.weight(1f),
+                        borderColor = GoldPrimary,
+                        contentPadding = PaddingValues(vertical = 8.dp),
+                    )
                 }
                 if (scanLogSize > 0) {
-                    val exportInteraction = remember { MutableInteractionSource() }
-                    val exportPressed by exportInteraction.collectIsPressedAsState()
-                    Box(
-                        modifier = Modifier
-                            .then(if (cards.isEmpty()) Modifier.fillMaxWidth() else Modifier)
-                            .border(
-                                1.dp,
-                                if (exportPressed) GoldLight else GoldMuted,
-                                RoundedCornerShape(2.dp),
-                            )
-                            .background(if (exportPressed) GoldDark.copy(alpha = 0.35f) else Color.Transparent)
-                            .clickable(
-                                interactionSource = exportInteraction,
-                                indication = null,
-                                onClick = onExportScanLog,
-                            )
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            "EXPORT ($scanLogSize)",
-                            style = Typography.labelLarge.copy(
-                                color = if (exportPressed) GoldLight else GoldMuted,
-                            ),
-                        )
-                    }
+                    ScanPanelButton(
+                        text = "EXPORT ($scanLogSize)",
+                        onClick = onExportScanLog,
+                        modifier = if (cards.isEmpty()) Modifier.fillMaxWidth() else Modifier,
+                        textColor = GoldMuted,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    )
                 }
             }
         }
 
         // Scanned cards list (newest first)
         val listState = rememberLazyListState()
-        // Keyed on the last scan only — removing a card must not yank the list to the top.
-        LaunchedEffect(lastScanCardName) {
-            if (cards.isNotEmpty()) listState.animateScrollToItem(0)
+        // Keyed on scans and corrections only — removing a card must not yank the list to
+        // the top. The id, not the card, so scanning the same card again still scrolls.
+        LaunchedEffect(lastOutcomeId, lastOutcomeCardName) {
+            if (lastOutcomeCardName != null && cards.isNotEmpty()) listState.animateScrollToItem(0)
         }
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-            itemsIndexed(cards, key = { _, entry -> entry.card.name }) { _, entry ->
+            items(cards, key = { it.card.name }) { entry ->
                 CardRow(
                     card = entry.card,
                     count = entry.count,

@@ -11,7 +11,8 @@ import com.github.username.cardapp.data.local.MetadataEntity
 import com.github.username.cardapp.data.local.PriceEntity
 import com.github.username.cardapp.data.local.SetEntity
 import com.github.username.cardapp.data.model.CardJson
-import com.github.username.cardapp.ui.common.CardFilterState
+import com.github.username.cardapp.di.ApplicationScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -40,7 +41,7 @@ class CardRepositoryImpl @Inject constructor(
     private val images: BundledImageIndex,
     private val dao: CardDao,
     private val json: Json,
-    private val appScope: CoroutineScope,
+    @ApplicationScope private val appScope: CoroutineScope,
 ) : CardRepository {
 
     override fun filteredCards(filter: CardFilterState): Flow<List<CardWithPrice>> =
@@ -54,13 +55,14 @@ class CardRepositoryImpl @Inject constructor(
     override val priceMap: Flow<Map<String, Double>> = dao.getAllPrices()
         .map { list -> list.mapNotNull { p -> p.marketPrice?.let { p.cardName to it } }.toMap() }
 
+    override fun marketPrice(cardName: String): Flow<Double?> = dao.observeMarketPrice(cardName)
+
     override val totalCardCount: Flow<Int> = dao.observeCardCount()
 
-    override val totalCollectionQuantity: Flow<Int> = dao.getCollectionEntries()
-        .map { entries -> entries.sumOf { it.quantity } }
+    override val totalCollectionQuantity: Flow<Int> = dao.observeCollectionQuantity()
 
-    private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
-    override val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
+    private val _importState = MutableStateFlow<ImportState>(ImportState.Idle)
+    override val importState: StateFlow<ImportState> = _importState.asStateFlow()
 
     private val loadLock = Any()
     private var loadJob: Job? = null
@@ -68,8 +70,8 @@ class CardRepositoryImpl @Inject constructor(
     override fun ensureDataLoaded() {
         synchronized(loadLock) {
             val job = loadJob
-            if (job != null && (job.isActive || _syncState.value !is SyncState.Error)) return
-            _syncState.value = SyncState.Idle
+            if (job != null && (job.isActive || _importState.value == ImportState.Complete)) return
+            _importState.value = ImportState.Idle
             loadJob = appScope.launch { loadBundledData() }
         }
     }
@@ -81,13 +83,15 @@ class CardRepositoryImpl @Inject constructor(
             val imageSlugs = images.slugs()
             val version = BundledDataVersion.of(cardsRaw, pricesRaw, imageSlugs)
             if (dao.getCardCount() == 0 || dao.getMetadata(MetadataEntity.BUNDLED_DATA_VERSION) != version) {
-                _syncState.value = SyncState.SyncingCards
+                _importState.value = ImportState.Importing
                 importBundledData(cardsRaw, pricesRaw, imageSlugs, version)
             }
-            _syncState.value = SyncState.Complete
+            _importState.value = ImportState.Complete
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "Bundled data import failed", e)
-            _syncState.value = SyncState.Error(e.message ?: "Failed to load card catalogue")
+            _importState.value = ImportState.Error(e.message ?: "Failed to load card catalogue")
         }
     }
 
@@ -143,10 +147,12 @@ class CardRepositoryImpl @Inject constructor(
     override suspend fun getFaqs(cardName: String): List<FaqEntry> = withContext(Dispatchers.IO) {
         val cache = faqMutex.withLock {
             faqCache ?: try {
-                val raw = assets.read("faqs.json")
+                val raw = assets.read(FAQS_ASSET)
                 val map = json.decodeFromString<Map<String, List<FaqEntry>>>(raw)
                 faqCache = map
                 map
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to load FAQs", e)
                 emptyMap()
@@ -159,5 +165,6 @@ class CardRepositoryImpl @Inject constructor(
         const val TAG = "CardRepository"
         const val CARDS_ASSET = "cards.json"
         const val PRICES_ASSET = "prices.json"
+        const val FAQS_ASSET = "faqs.json"
     }
 }

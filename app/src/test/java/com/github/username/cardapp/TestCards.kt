@@ -1,5 +1,6 @@
 package com.github.username.cardapp
 
+import com.github.username.cardapp.data.TextFold
 import com.github.username.cardapp.data.local.CardEntity
 
 fun testCard(
@@ -28,4 +29,6 @@ fun testCard(
     fireThreshold = fireThreshold,
     waterThreshold = waterThreshold,
     setNames = setNames,
+    searchKey = TextFold.searchKey(name, cardType, "", rulesText),
+    sortKey = TextFold.fold(name),
 )

@@ -1,12 +1,17 @@
 package com.github.username.cardapp
 
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.withFrameNanos
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -18,20 +23,16 @@ import com.github.username.cardapp.ui.scan.ScanScreen
 import com.github.username.cardapp.ui.trackgame.TrackGameScreen
 import com.github.username.cardapp.ui.theme.CardAppTheme
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.serialization.Serializable
-
-@Serializable object Landing
-@Serializable object Cards
-@Serializable object Collection
-@Serializable object Scan
-@Serializable data class CardDetail(val cardName: String)
-@Serializable object TrackGame
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
-        enableEdgeToEdge()
+        // The app is always dark, so system bar icons must stay light regardless of the device theme
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+        )
         super.onCreate(savedInstanceState)
 
         var isReady = false
@@ -48,29 +49,35 @@ class MainActivity : ComponentActivity() {
                 NavHost(navController = navController, startDestination = Landing) {
                     composable<Landing> {
                         LandingScreen(
-                            onViewCards = { navController.navigate(Cards) { launchSingleTop = true } },
-                            onViewCollection = { navController.navigate(Collection) { launchSingleTop = true } },
-                            onScanCards = { navController.navigate(Scan) { launchSingleTop = true } },
-                            onTrackGame = { navController.navigate(TrackGame) { launchSingleTop = true } },
+                            onViewCards = dropUnlessResumed { navController.navigate(Cards) { launchSingleTop = true } },
+                            onViewCollection = dropUnlessResumed { navController.navigate(Collection) { launchSingleTop = true } },
+                            onScanCards = dropUnlessResumed { navController.navigate(Scan) { launchSingleTop = true } },
+                            onTrackGame = dropUnlessResumed { navController.navigate(TrackGame) { launchSingleTop = true } },
                         )
                     }
-                    composable<Cards> {
+                    composable<Cards> { entry ->
                         CardsScreen(
-                            onCardClick = { cardName -> navController.navigate(CardDetail(cardName)) { launchSingleTop = true } },
+                            onCardClick = { cardName ->
+                                entry.ifResumed { navController.navigate(CardDetail(cardName)) { launchSingleTop = true } }
+                            },
                         )
                     }
                     composable<CardDetail> {
-                        CardDetailScreen(onBack = { navController.popBackStack() })
+                        CardDetailScreen(onBack = dropUnlessResumed { navController.popBackStack() })
                     }
-                    composable<Collection> {
+                    composable<Collection> { entry ->
                         CollectionScreen(
-                            onCardClick = { cardName -> navController.navigate(CardDetail(cardName)) { launchSingleTop = true } },
+                            onCardClick = { cardName ->
+                                entry.ifResumed { navController.navigate(CardDetail(cardName)) { launchSingleTop = true } }
+                            },
                         )
                     }
-                    composable<Scan> {
+                    composable<Scan> { entry ->
                         ScanScreen(
-                            onBack = { navController.popBackStack() },
-                            onCardClick = { cardName -> navController.navigate(CardDetail(cardName)) { launchSingleTop = true } },
+                            onBack = dropUnlessResumed { navController.popBackStack() },
+                            onCardClick = { cardName ->
+                                entry.ifResumed { navController.navigate(CardDetail(cardName)) { launchSingleTop = true } }
+                            },
                         )
                     }
                     composable<TrackGame> {
@@ -80,4 +87,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+// dropUnlessResumed for callbacks that take arguments: a second tap during a
+// navigation transition must not stack another destination
+private inline fun LifecycleOwner.ifResumed(action: () -> Unit) {
+    if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) action()
 }

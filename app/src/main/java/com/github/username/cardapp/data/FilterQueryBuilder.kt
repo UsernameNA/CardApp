@@ -2,8 +2,6 @@ package com.github.username.cardapp.data
 
 import androidx.sqlite.db.SimpleSQLiteQuery
 import androidx.sqlite.db.SupportSQLiteQuery
-import com.github.username.cardapp.ui.common.CardFilterState
-import com.github.username.cardapp.ui.common.SortDir
 
 object FilterQueryBuilder {
 
@@ -24,12 +22,10 @@ object FilterQueryBuilder {
                 "LEFT JOIN prices ON prices.cardName = cards.name"
         }
 
-        // Text search
+        // Text search over name, type, subtypes and rules text, folded on both sides
         if (filter.query.isNotBlank()) {
-            val pattern = "%${filter.query.escapeLike()}%"
-            where += "(cards.name LIKE ? ESCAPE '\\' OR cards.cardType LIKE ? ESCAPE '\\' " +
-                "OR cards.subTypes LIKE ? ESCAPE '\\' OR cards.rulesText LIKE ? ESCAPE '\\')"
-            args += pattern; args += pattern; args += pattern; args += pattern
+            where += "cards.searchKey LIKE ? ESCAPE '\\'"
+            args += "%${TextFold.fold(filter.query).escapeLike()}%"
         }
 
         // Set filter (match any)
@@ -88,20 +84,14 @@ object FilterQueryBuilder {
         // Build ORDER BY clause
         val orderParts = mutableListOf<String>()
         for (field in filter.sort.priority) {
-            val dir = when (field) {
-                "name" -> filter.sort.name
-                "cost" -> filter.sort.cost
-                "rarity" -> filter.sort.rarity
-                "price" -> filter.sort.price
-                else -> SortDir.Off
-            }
+            val dir = filter.sort.dir(field)
             if (dir == SortDir.Off) continue
             val dirStr = if (dir == SortDir.Asc) "ASC" else "DESC"
             when (field) {
-                "name" -> orderParts += "cards.name COLLATE NOCASE $dirStr"
-                "cost" -> orderParts += "cards.cost $dirStr"
-                "rarity" -> orderParts += "CASE cards.rarity WHEN 'Unique' THEN 4 WHEN 'Elite' THEN 3 WHEN 'Exceptional' THEN 2 WHEN 'Ordinary' THEN 1 ELSE 0 END $dirStr"
-                "price" -> {
+                SortField.Name -> orderParts += "cards.sortKey $dirStr, cards.name $dirStr"
+                SortField.Cost -> orderParts += "cards.cost $dirStr"
+                SortField.Rarity -> orderParts += "CASE cards.rarity WHEN 'Unique' THEN 4 WHEN 'Elite' THEN 3 WHEN 'Exceptional' THEN 2 WHEN 'Ordinary' THEN 1 ELSE 0 END $dirStr"
+                SortField.Price -> {
                     orderParts += "CASE WHEN prices.marketPrice IS NULL THEN 1 ELSE 0 END ASC"
                     orderParts += "prices.marketPrice $dirStr"
                 }
@@ -109,7 +99,7 @@ object FilterQueryBuilder {
         }
         // Always add name as tiebreaker if not already sorting by name
         if (filter.sort.name == SortDir.Off) {
-            orderParts += "cards.name COLLATE NOCASE ASC"
+            orderParts += "cards.sortKey ASC, cards.name ASC"
         }
 
         val orderClause = if (orderParts.isNotEmpty()) " ORDER BY ${orderParts.joinToString(", ")}" else ""

@@ -65,6 +65,23 @@ class LevenshteinTest {
     }
 
     @Test
+    fun insertionOrDeletionNextToAConfusablePairCostsAFullUnit() {
+        // Only substitutions between confused characters are cheap. Dropping a character
+        // that merely sits beside one it could be confused with is an ordinary deletion.
+        assertEquals(2, levenshtein("lion", "lon"))
+        assertEquals(2, levenshtein("illusion", "ilusion"))
+        assertEquals(2, levenshtein("hill", "hil"))
+        assertEquals(4, levenshtein("ceeds", "cds"))
+        assertEquals(2, levenshtein("lon", "lion"))
+    }
+
+    @Test
+    fun confusedSubstitutionInsideAWordStillCostsHalf() {
+        assertEquals(1, levenshtein("lion", "l1on"))
+        assertEquals(1, levenshtein("ceeds", "cceds"))
+    }
+
+    @Test
     fun realCardNameFuzzyMatch() {
         // "abundance" vs "abundonce" — 'a' -> 'o' normal sub
         val dist = levenshtein("abundance", "abundonce")

@@ -8,6 +8,8 @@ import com.github.username.cardapp.data.model.CardJson
 /** Turns the bundled `cards.json` into database rows. */
 object CatalogueBuilder {
 
+    // Pin the Welcome Kit ("wk") promo art for the two Wizards. Applied before the
+    // bundled-image check, so the override slug's image must ship with the app.
     private val primarySlugOverrides = mapOf(
         "Apprentice Wizard" to "999-apprentice_wizard-wk-s",
         "Grandmaster Wizard" to "999-grandmaster_wizard-wk-s",
@@ -35,23 +37,28 @@ object CatalogueBuilder {
         val cardEntities = cardList.map { card ->
             val g = card.guardian
             val setNames = card.sets.mapNotNullTo(linkedSetOf()) { it.name }
+            val subTypes = card.subTypes.orEmpty()
+            val cardType = g?.type.orEmpty()
+            val rulesText = g?.rulesText.orEmpty()
             CardEntity(
                 name = card.name,
                 primarySlug = primarySlug(card, setOrder, imageSlugs),
                 elements = card.elements.orEmpty(),
-                subTypes = card.subTypes.orEmpty(),
-                cardType = g?.type.orEmpty(),
+                subTypes = subTypes,
+                cardType = cardType,
                 rarity = g?.rarity.orEmpty(),
                 cost = g?.cost ?: 0,
                 attack = g?.attack ?: 0,
                 defence = g?.defence ?: 0,
                 life = g?.life,
-                rulesText = g?.rulesText.orEmpty(),
+                rulesText = rulesText,
                 airThreshold = g?.thresholds?.air ?: 0,
                 earthThreshold = g?.thresholds?.earth ?: 0,
                 fireThreshold = g?.thresholds?.fire ?: 0,
                 waterThreshold = g?.thresholds?.water ?: 0,
                 setNames = if (setNames.isEmpty()) "" else setNames.joinToString(",", prefix = ",", postfix = ","),
+                searchKey = TextFold.searchKey(card.name, cardType, subTypes, rulesText),
+                sortKey = TextFold.fold(card.name),
             )
         }
 

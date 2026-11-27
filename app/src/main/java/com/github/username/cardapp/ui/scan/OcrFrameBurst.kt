@@ -24,11 +24,13 @@ class OcrFrameBurst(
     private var generation = 0
     private var unclaimed = 0
     private var lastClaimNanos: Long? = null
+    private var pending = false
 
     /** Abandon any burst in flight and open a new one. Returns the new generation token. */
     fun restart(): Int = synchronized(lock) {
         reset()
         unclaimed = size
+        pending = true
         generation
     }
 
@@ -37,11 +39,26 @@ class OcrFrameBurst(
         synchronized(lock) { reset() }
     }
 
+    /**
+     * Abandon burst [generation] if it is still waiting for reads.
+     *
+     * @return true if it was, false if it already completed or was superseded.
+     */
+    fun cancelIfPending(generation: Int): Boolean = synchronized(lock) {
+        if (generation != this.generation || !pending) return false
+        reset()
+        true
+    }
+
+    /** True while [generation] is the latest burst and has not been cancelled. */
+    fun isCurrent(generation: Int): Boolean = synchronized(lock) { generation == this.generation }
+
     private fun reset() {
         frames.clear()
         completed = 0
         unclaimed = 0
         lastClaimNanos = null
+        pending = false
         ++generation
     }
 
@@ -70,9 +87,11 @@ class OcrFrameBurst(
      */
     fun report(generation: Int, scores: OcrCardScorer.FrameScores?): List<OcrCardScorer.FrameScores>? =
         synchronized(lock) {
-            if (generation != this.generation) return null
+            if (generation != this.generation || !pending) return null
             if (scores != null) frames.add(scores)
-            if (++completed < size) null else frames.toList()
+            if (++completed < size) return null
+            pending = false
+            frames.toList()
         }
 
     companion object {

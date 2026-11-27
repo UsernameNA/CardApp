@@ -7,7 +7,9 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "cards")
 data class CardEntity(
     @PrimaryKey val name: String,
-    val primarySlug: String,       // slug of the standard-finish print from the earliest set, used for display image
+    // Display image: the first print (earliest set, standard finish first) that has a bundled
+    // image, or a pinned override; see CatalogueBuilder.
+    val primarySlug: String,
     val elements: String,
     val subTypes: String,
     val cardType: String,
@@ -22,4 +24,8 @@ data class CardEntity(
     val fireThreshold: Int,
     val waterThreshold: Int,
     @ColumnInfo(defaultValue = "") val setNames: String = "",
+    /** [com.github.username.cardapp.data.TextFold.searchKey] of name, type, subtypes and rules text. */
+    @ColumnInfo(defaultValue = "") val searchKey: String = "",
+    /** Folded name, so "Älvalinne" sorts among the A's rather than after Z. */
+    @ColumnInfo(defaultValue = "") val sortKey: String = "",
 )

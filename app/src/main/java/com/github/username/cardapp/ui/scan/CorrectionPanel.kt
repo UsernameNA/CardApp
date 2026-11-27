@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,8 +31,6 @@ import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.ui.theme.CreamMuted
 import com.github.username.cardapp.ui.theme.CreamPrimary
 import com.github.username.cardapp.ui.theme.GoldDark
-import com.github.username.cardapp.ui.theme.GoldLight
-import com.github.username.cardapp.ui.theme.GoldMuted
 import com.github.username.cardapp.ui.theme.LeatherDark
 import com.github.username.cardapp.ui.theme.LeatherDeep
 import com.github.username.cardapp.ui.theme.LeatherMid
@@ -71,31 +70,16 @@ internal fun CorrectionPanel(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 for (candidate in candidates) key(candidate.name) {
-                    val chipInteraction = remember { MutableInteractionSource() }
-                    val chipPressed by chipInteraction.collectIsPressedAsState()
-                    Box(
-                        modifier = Modifier
-                            .border(
-                                1.dp,
-                                if (chipPressed) GoldLight else GoldMuted,
-                                RoundedCornerShape(2.dp),
-                            )
-                            .background(if (chipPressed) GoldDark.copy(alpha = 0.35f) else LeatherMid)
-                            .clickable(
-                                interactionSource = chipInteraction,
-                                indication = null,
-                            ) { onCorrect(candidate.name) }
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                    ) {
-                        Text(
-                            text = "${candidate.name} (${candidate.score})",
-                            style = Typography.labelSmall.copy(
-                                color = if (chipPressed) CreamPrimary else CreamMuted,
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+                    ScanPanelButton(
+                        text = "${candidate.name} (${candidate.score})",
+                        onClick = { onCorrect(candidate.name) },
+                        idleBackground = LeatherMid,
+                        textColor = CreamMuted,
+                        pressedTextColor = CreamPrimary,
+                        textStyle = Typography.labelSmall,
+                        maxLines = 1,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    )
                 }
             }
         }

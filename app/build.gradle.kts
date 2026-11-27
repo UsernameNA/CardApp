@@ -7,12 +7,15 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.room)
 }
 
 android {
     namespace = "com.github.username.cardapp"
     compileSdk {
-        version = release(37)
+        version = release(37) {
+            minorApiLevel = 1
+        }
     }
 
     defaultConfig {
@@ -26,30 +29,37 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            val props = Properties()
-            val propsFile = rootProject.file("keystore.properties")
-            if (propsFile.exists()) {
-                props.load(propsFile.inputStream())
-                storeFile = rootProject.file(props["storeFile"] as String)
-                storePassword = props["storePassword"] as String
-                keyAlias = props["keyAlias"] as String
-                keyPassword = props["keyPassword"] as String
-            } else {
-                // CI: read from environment variables
-                storeFile = file(System.getenv("KEYSTORE_PATH") ?: "/dev/null")
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-                keyAlias = System.getenv("KEY_ALIAS") ?: ""
-                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+        // Local builds read keystore.properties; the Release workflow passes the same values as
+        // environment variables. Without either, release is left unsigned and refuses to package.
+        val props = Properties()
+        val propsFile = rootProject.file("keystore.properties")
+        if (propsFile.exists()) propsFile.inputStream().use { props.load(it) }
+        val keystore = props.getProperty("storeFile")?.let { rootProject.file(it) }
+            ?: System.getenv("KEYSTORE_PATH")?.let { file(it) }
+        val keystorePassword = props.getProperty("storePassword") ?: System.getenv("KEYSTORE_PASSWORD")
+        val alias = props.getProperty("keyAlias") ?: System.getenv("KEY_ALIAS")
+        val aliasPassword = props.getProperty("keyPassword") ?: System.getenv("KEY_PASSWORD")
+        if (keystore?.isFile == true && !keystorePassword.isNullOrEmpty() &&
+            !alias.isNullOrEmpty() && !aliasPassword.isNullOrEmpty()
+        ) {
+            create("release") {
+                storeFile = keystore
+                storePassword = keystorePassword
+                keyAlias = alias
+                keyPassword = aliasPassword
             }
         }
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -75,8 +85,21 @@ android {
             )
         }
     }
-    buildToolsVersion = "36.1.0"
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+}
 
+if (android.signingConfigs.findByName("release") == null) {
+    tasks.matching { it.name == "packageRelease" || it.name == "packageReleaseBundle" }.configureEach {
+        doFirst {
+            throw GradleException(
+                "No release signing key: add keystore.properties (see README, Releasing) or set " +
+                    "KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD."
+            )
+        }
+    }
 }
 
 // Release builds bundle the full image set from scripts/images/ as a generated
@@ -140,10 +163,9 @@ kotlin {
     }
 }
 
-ksp {
-    arg("room.generateKotlin", "true")
-    // Export schema JSONs so future migrations can be validated with MigrationTestHelper.
-    arg("room.schemaLocation", "$projectDir/schemas")
+room {
+    // Exported schema JSONs are read by DatabaseMigrationTest.
+    schemaDirectory("$projectDir/schemas")
 }
 
 dependencies {
@@ -159,7 +181,6 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
@@ -171,10 +192,11 @@ dependencies {
     implementation(libs.androidx.camera.view)
     implementation(libs.mlkit.text.recognition)
     implementation(libs.hilt.android)
-    implementation(libs.hilt.navigation.compose)
+    implementation(libs.hilt.lifecycle.viewmodel.compose)
     implementation(libs.androidx.startup.runtime)
     implementation(libs.androidx.profileinstaller)
     implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.webkit)
     ksp(libs.hilt.compiler)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

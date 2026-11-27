@@ -5,7 +5,6 @@ import com.github.username.cardapp.data.local.CardDao
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CardVariantEntity
 import com.github.username.cardapp.data.local.CardWithPrice
-import com.github.username.cardapp.data.local.CollectionCardRow
 import com.github.username.cardapp.data.local.CollectionCardWithPrice
 import com.github.username.cardapp.data.local.MetadataEntity
 import com.github.username.cardapp.data.local.PriceEntity
@@ -69,11 +68,12 @@ class FakeCardDao(
     override suspend fun putMetadata(entry: MetadataEntity) {
         metadata[entry.name] = entry.value
     }
-    override fun getCollectionEntries(): Flow<List<CollectionCardRow>> = flowOf(emptyList())
+    override fun observeCollectionQuantity(): Flow<Int> = flowOf(0)
     override suspend fun upsertCollectionEntry(cardName: String, quantity: Int) {}
     override suspend fun incrementCollectionEntry(cardName: String) {}
     override suspend fun decrementCollectionEntry(cardName: String): Int = 0
     override suspend fun deleteCollectionEntryIfSingle(cardName: String): Int = 0
     override suspend fun countOrphanedCollectionEntries(): Int = 0
     override fun getAllPrices(): Flow<List<PriceEntity>> = flowOf(emptyList())
+    override fun observeMarketPrice(cardName: String): Flow<Double?> = flowOf(null)
 }

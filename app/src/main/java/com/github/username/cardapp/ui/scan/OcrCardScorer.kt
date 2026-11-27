@@ -1,6 +1,8 @@
 package com.github.username.cardapp.ui.scan
 
 import com.github.username.cardapp.data.local.CardEntity
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * Stateless OCR → card matching engine.
@@ -35,6 +37,9 @@ object OcrCardScorer {
      */
     const val SCORE_MARGIN_PERCENT = 5
 
+    /** Name words on more cards than this earn less than full points; see [commonWordWeight]. */
+    private const val NAME_WORD_FULL_WEIGHT_CARDS = 10
+
     /** Outcome of scoring an OCR read against the card catalogue. */
     data class ScoreResult(
         val best: CardEntity?,
@@ -57,11 +62,14 @@ object OcrCardScorer {
      * A card's text normalized, tokenized and compiled into patterns once, so scoring a
      * read only does work on the OCR side. Build with [prepare].
      */
-    class PreparedCard internal constructor(val card: CardEntity) {
-        // Card-side text goes through the same normalization as the OCR text, so a
-        // correctly-read "Burn" (normalized to "bum") still matches the card "Burn".
-        internal val nameClean: String = stripPunctuation(normalizeOcr(card.name.lowercase()))
-        internal val nameWords: List<String> = nameClean.split(" ").filter { it.length > 1 }
+    class PreparedCard internal constructor(val card: CardEntity, nameWordCardCounts: Map<String, Int>) {
+        internal val nameClean: String = cleanName(card.name)
+        internal val nameWords: List<String> = nameWordsOf(nameClean)
+
+        /** Per [nameWords] entry, the share of a name-word match's points it earns. */
+        internal val nameWordWeights: FloatArray = FloatArray(nameWords.size) {
+            commonWordWeight(nameWordCardCounts[nameWords[it]] ?: 1)
+        }
 
         /** Whole-word match for single-word names, so "Blaze" doesn't match inside "ablaze". */
         internal val singleWordName: Regex? =
@@ -78,17 +86,31 @@ object OcrCardScorer {
             if (card.subTypes.isEmpty()) emptyList()
             else normalizeOcr(card.subTypes.lowercase()).split(SUBTYPE_SEPARATORS).filter { it.length > 2 }
 
+        // Unlike name words, rules words are not frequency-weighted: across the catalogue
+        // with simulated OCR noise, down-weighting them lost more right matches than it
+        // prevented wrong ones, since the real card's common words are its support too.
         internal val rulesWords: Set<String> =
             if (card.rulesText.isEmpty()) emptySet()
             else normalizeOcr(card.rulesText.lowercase()).split(NON_WORD).filter { it.length > 3 }.toSet()
     }
 
     /** Prepare the catalogue for scoring. Do this once, not per read. */
-    fun prepare(cards: List<CardEntity>): List<PreparedCard> = cards.map(::PreparedCard)
+    fun prepare(cards: List<CardEntity>): List<PreparedCard> {
+        val nameWordCardCounts = HashMap<String, Int>()
+        for (card in cards) {
+            for (word in nameWordsOf(cleanName(card.name)).toSet()) {
+                nameWordCardCounts[word] = (nameWordCardCounts[word] ?: 0) + 1
+            }
+        }
+        return cards.map { PreparedCard(it, nameWordCardCounts) }
+    }
 
-    /** Score every card against one OCR read. */
+    /**
+     * Score every card against one OCR read. A blank read carries no evidence, so it comes
+     * back with no scores and [combine] skips it like a failed frame.
+     */
     fun scoreFrame(rawText: String, cards: List<PreparedCard>): FrameScores {
-        if (cards.isEmpty()) return FrameScores(rawText, emptyMap(), emptySet())
+        if (cards.isEmpty() || rawText.isBlank()) return FrameScores(rawText, emptyMap(), emptySet())
 
         val ctx = buildContext(rawText)
         val scores = HashMap<String, Int>(cards.size * 2)
@@ -99,8 +121,9 @@ object OcrCardScorer {
     /**
      * Merge the reads of a multi-frame burst into a single verdict.
      *
-     * Scores are averaged rather than summed so [SCORE_THRESHOLD] keeps the same meaning
-     * regardless of how many frames were captured.
+     * The verdict is taken on the average score so [SCORE_THRESHOLD] keeps the same meaning
+     * regardless of how many frames were captured. The gates compare totals against
+     * frame-count-scaled limits, so no precision is lost to integer division.
      */
     fun combine(frames: List<FrameScores>, cards: List<CardEntity>): ScoreResult {
         val usable = frames.filter { it.scores.isNotEmpty() }
@@ -113,32 +136,53 @@ object OcrCardScorer {
             for ((name, value) in frame.scores) totals[name] = (totals[name] ?: 0) + value
         }
 
+        val frameCount = usable.size
         val scored = cards
-            .map { it to (totals[it.name] ?: 0) / usable.size }
+            .map { it to (totals[it.name] ?: 0) }
             .sortedByDescending { it.second }
 
         val best = scored.firstOrNull()
-        val runnerUp = scored.getOrNull(1)?.second ?: 0
-        val top3 = scored.take(3).map { ScanCandidate(it.first.name, it.second) }
+        val runnerUpTotal = scored.getOrNull(1)?.second ?: 0
+        val top3 = scored.take(3).map { ScanCandidate(it.first.name, averageOf(it.second, frameCount)) }
 
         // Integer form of: (best - runnerUp) >= best * (SCORE_MARGIN_PERCENT / 100)
         val matched = best
-            ?.takeIf { it.second >= SCORE_THRESHOLD }
-            ?.takeIf { (it.second - runnerUp) * 100 >= it.second * SCORE_MARGIN_PERCENT }
+            ?.takeIf { it.second >= SCORE_THRESHOLD * frameCount }
+            ?.takeIf { (it.second - runnerUpTotal) * 100 >= it.second * SCORE_MARGIN_PERCENT }
             ?.first
 
         return ScoreResult(
             best = best?.first,
-            bestScore = best?.second ?: 0,
+            bestScore = best?.let { averageOf(it.second, frameCount) } ?: 0,
             top3 = top3,
             costCandidates = usable.first().costCandidates,
             matched = matched,
         )
     }
 
+    /** Display only: [combine] gates on totals, so truncating here costs no precision. */
+    private fun averageOf(total: Int, count: Int): Int = total / count
+
     /** Convenience single-frame entry point; prepares [cards] on every call. */
-    fun score(rawText: String, cards: List<CardEntity>): ScoreResult =
+    internal fun score(rawText: String, cards: List<CardEntity>): ScoreResult =
         combine(listOf(scoreFrame(rawText, prepare(cards))), cards)
+
+    /**
+     * Share of a name-word match's points earned by a word in [cardCount] card names.
+     *
+     * Words in at most [NAME_WORD_FULL_WEIGHT_CARDS] names earn full points; beyond that the
+     * weight falls off inversely with frequency. Without this, "of" (in ~130 names) alone
+     * would hand every "X of Y" card enough points to clear [SCORE_THRESHOLD].
+     */
+    private fun commonWordWeight(cardCount: Int): Float =
+        if (cardCount <= NAME_WORD_FULL_WEIGHT_CARDS) 1f
+        else NAME_WORD_FULL_WEIGHT_CARDS.toFloat() / cardCount
+
+    // Card-side text goes through the same normalization as the OCR text, so a
+    // correctly-read "Burn" (normalized to "bum") still matches the card "Burn".
+    private fun cleanName(name: String): String = stripPunctuation(normalizeOcr(name.lowercase()))
+
+    private fun nameWordsOf(nameClean: String): List<String> = nameClean.split(" ").filter { it.length > 1 }
 
     /**
      * Everything derived from one OCR read that is shared across all ~1100 card
@@ -163,15 +207,30 @@ object OcrCardScorer {
 
         private val nearestMemo = HashMap<String, Int>()
         private val nearestInNameZoneMemo = HashMap<String, Int>()
+        private var prevRow = IntArray(32)
+        private var currRow = IntArray(32)
 
-        /** Edit distance from [word] to the nearest token anywhere in the read. */
-        fun nearest(word: String): Int = nearestMemo.getOrPut(word) {
-            allTokens.minOfOrNull { levenshtein(word, it) } ?: Int.MAX_VALUE
-        }
+        /**
+         * Edit distance from [word] to the nearest token anywhere in the read; any value
+         * above [MAX_TOLERANCE] means "nothing close enough".
+         */
+        fun nearest(word: String): Int = nearestMemo.getOrPut(word) { nearestIn(allTokens, word) }
 
-        /** Edit distance from [word] to the nearest token in the name zone. */
-        fun nearestInNameZone(word: String): Int = nearestInNameZoneMemo.getOrPut(word) {
-            nameZoneTokens.minOfOrNull { levenshtein(word, it) } ?: Int.MAX_VALUE
+        /** As [nearest], restricted to the name zone. */
+        fun nearestInNameZone(word: String): Int =
+            nearestInNameZoneMemo.getOrPut(word) { nearestIn(nameZoneTokens, word) }
+
+        private fun nearestIn(tokens: List<String>, word: String): Int {
+            var best = MAX_TOLERANCE + 1
+            for (token in tokens) {
+                if (token.length + 1 > prevRow.size) {
+                    prevRow = IntArray(token.length + 1)
+                    currRow = IntArray(token.length + 1)
+                }
+                best = minOf(best, boundedLevenshtein(word, token, MAX_TOLERANCE, prevRow, currRow))
+                if (best == 0) break
+            }
+            return best
         }
     }
 
@@ -228,7 +287,8 @@ object OcrCardScorer {
     //   Cost match           0–35
     //   Rules overlap        0–N    (3 pts per word)
     //
-    // Threshold 50: a name-zone match on even a single word (50) clears it;
+    // Threshold 50: a name-zone match on even a single distinctive word (50) clears it,
+    // though common words like "of" earn a fraction of that ([commonWordWeight]);
     // body-only matches need cost + type to reach threshold.
     private fun scoreCard(card: PreparedCard, ctx: FrameContext): Int {
         var score = 0
@@ -244,15 +304,15 @@ object OcrCardScorer {
             val singleWord = card.singleWordName
             nameZoneScore = if (singleWord == null || singleWord.containsMatchIn(nameZoneClean)) 200 else 60
         } else {
-            for (word in nameWords) {
-                val tol2 = if (word.length >= 7) 4 else 2
+            for ((i, word) in nameWords.withIndex()) {
                 val bestDist = ctx.nearestInNameZone(word)
-                nameZoneScore += when {
+                val points = when {
                     bestDist == 0 -> 50
                     word.length >= 3 && nameZoneClean.contains(word) -> 40 // merged tokens
-                    bestDist <= tol2 -> 30
+                    bestDist <= tolerance(word) -> 30
                     else -> 0
                 }
+                nameZoneScore += (points * card.nameWordWeights[i]).roundToInt()
             }
         }
         score += nameZoneScore
@@ -275,16 +335,10 @@ object OcrCardScorer {
 
         // ── C. Type match (fuzzy, anywhere in text) ────────────────────────────
         val cardType = card.type
-        if (cardType.length > 3) {
-            val tol2 = if (cardType.length >= 7) 4 else 2
-            if (ctx.nearest(cardType) <= tol2) score += 10
-        }
+        if (cardType.length > 3 && ctx.nearest(cardType) <= tolerance(cardType)) score += 10
 
         // ── D. Subtype match (fuzzy, anywhere in text) ─────────────────────────
-        for (sub in card.subTypes) {
-            val tol2 = if (sub.length >= 7) 4 else 2
-            if (ctx.nearest(sub) <= tol2) { score += 8; break }
-        }
+        if (card.subTypes.any { ctx.nearest(it) <= tolerance(it) }) score += 8
 
         // ── E. Cost match ──────────────────────────────────────────────────────
         if (!card.isSite && ctx.costCandidates.contains(card.card.cost)) {
@@ -296,15 +350,20 @@ object OcrCardScorer {
         for (rw in card.rulesWords) {
             if (rw in ctx.allWords) {
                 rulesScore += 3
-            } else {
-                val tol2 = if (rw.length >= 7) 4 else 2
-                if (ctx.nearest(rw) <= tol2) rulesScore += 2
+            } else if (ctx.nearest(rw) <= tolerance(rw)) {
+                rulesScore += 2
             }
         }
         score += rulesScore
 
         return score
     }
+
+    /** Edit-distance tolerance for [word], in [levenshtein]'s doubled units. */
+    private fun tolerance(word: String): Int = if (word.length >= 7) MAX_TOLERANCE else 2
+
+    /** The largest [tolerance]; a distance above it never earns points. */
+    private const val MAX_TOLERANCE = 4
 
     private val NON_WORD = Regex("[^a-z0-9']+")
     private val SUBTYPE_SEPARATORS = Regex("[,/\\s]+")
@@ -313,26 +372,32 @@ object OcrCardScorer {
     private val STRIPPED_PUNCTUATION = Regex("['‘’ʼ!.,;:?]")
     private val ARTIST_CREDIT_WORDS = setOf("art", "at", "aut", "att", "arto")
 
+    private const val ASCII = 128
+
     // Common OCR confusion pairs — characters frequently misread as each other.
-    // Used to reduce substitution cost in weighted Levenshtein.
-    private val OCR_CONFUSIONS: Set<Long> = buildSet {
-        fun pair(a: Char, b: Char) { add(packChars(a, b)); add(packChars(b, a)) }
-        pair('0', 'o'); pair('0', 'O')
+    // Used to reduce substitution cost in weighted Levenshtein. Lowercase only: both
+    // sides are lowercased before any comparison.
+    private val OCR_CONFUSIONS = BooleanArray(ASCII * ASCII).apply {
+        fun pair(a: Char, b: Char) {
+            this[a.code * ASCII + b.code] = true
+            this[b.code * ASCII + a.code] = true
+        }
+        pair('0', 'o')
         pair('1', 'l'); pair('1', 'i'); pair('l', 'i')
-        pair('5', 's'); pair('5', 'S')
-        pair('8', 'b'); pair('8', 'B')
+        pair('5', 's')
+        pair('8', 'b')
         pair('g', 'q'); pair('g', '9')
         pair('c', 'e')
         pair('u', 'v')
         pair('n', 'h')
     }
 
-    private fun packChars(a: Char, b: Char): Long =
-        (a.lowercaseChar().code.toLong() shl 16) or b.lowercaseChar().code.toLong()
+    private fun isOcrConfusion(a: Char, b: Char): Boolean =
+        a.code < ASCII && b.code < ASCII && OCR_CONFUSIONS[a.code * ASCII + b.code]
 
     /** Detect OCR lines that are artist credits rather than card content.
      *  Common patterns: "Art © Name", "At Name" (garbled Art©), "AtOName" (merged Art©). */
-    fun isLikelyArtistCredit(line: String): Boolean {
+    internal fun isLikelyArtistCredit(line: String): Boolean {
         if ('©' in line || '®' in line) return true
         val trimmed = line.trim()
         if (trimmed.length > 35) return false
@@ -345,14 +410,14 @@ object OcrCardScorer {
     }
 
     /** Tokenize text into lowercase alphanumeric words. */
-    fun tokenize(text: String): List<String> =
+    internal fun tokenize(text: String): List<String> =
         text.split(NON_WORD).filter { it.isNotEmpty() }
 
     /** Strip punctuation that OCR may omit/garble (hyphens, apostrophes, !, etc.)
      *  so "Cave-in" matches "Cave In" and "Castle's Ablaze!" matches "Castles Ablaze".
      *  Both straight and typographic apostrophes are removed — ML Kit usually emits the
      *  curly form, while the catalogue uses the straight one. */
-    fun stripPunctuation(text: String): String =
+    internal fun stripPunctuation(text: String): String =
         text.replace('-', ' ').replace(STRIPPED_PUNCTUATION, "")
 
     /**
@@ -361,7 +426,7 @@ object OcrCardScorer {
      *   - "vv" → "w"
      *   - "cl" → "d" (decorative font artifact)
      */
-    fun normalizeOcr(text: String): String = text
+    internal fun normalizeOcr(text: String): String = text
         .replace("rn", "m")
         .replace("vv", "w")
         .replace("cl", "d")
@@ -371,24 +436,38 @@ object OcrCardScorer {
     // a full edit-distance unit. Result is doubled and returned as Int to avoid
     // floating-point: effective distance = return value / 2. Callers compare
     // against tolerance * 2.
-    fun levenshtein(a: String, b: String): Int {
+    internal fun levenshtein(a: String, b: String): Int =
+        boundedLevenshtein(a, b, Int.MAX_VALUE - 1, IntArray(b.length + 1), IntArray(b.length + 1))
+
+    /**
+     * [levenshtein], giving up early once the distance must exceed [limit]: it then returns
+     * some value above [limit] rather than the exact distance. The rows must hold at
+     * least `b.length + 1` entries.
+     */
+    private fun boundedLevenshtein(a: String, b: String, limit: Int, prevRow: IntArray, currRow: IntArray): Int {
         if (a == b) return 0
-        if (a.isEmpty()) return b.length * 2
-        if (b.isEmpty()) return a.length * 2
-        var prev = IntArray(b.length + 1) { it * 2 }
-        var curr = IntArray(b.length + 1)
+        if (abs(a.length - b.length) * INDEL_COST > limit) return limit + 1
+        var prev = prevRow
+        var curr = currRow
+        for (j in 0..b.length) prev[j] = j * INDEL_COST
         for (i in 1..a.length) {
-            curr[0] = i * 2
+            curr[0] = i * INDEL_COST
+            var rowMin = curr[0]
             for (j in 1..b.length) {
-                curr[j] = if (a[i - 1] == b[j - 1]) {
-                    prev[j - 1]
-                } else {
-                    val subCost = if (packChars(a[i - 1], b[j - 1]) in OCR_CONFUSIONS) 1 else 2
-                    subCost + minOf(prev[j], curr[j - 1], prev[j - 1])
+                val subCost = when {
+                    a[i - 1] == b[j - 1] -> 0
+                    isOcrConfusion(a[i - 1], b[j - 1]) -> 1
+                    else -> 2
                 }
+                curr[j] = minOf(prev[j] + INDEL_COST, curr[j - 1] + INDEL_COST, prev[j - 1] + subCost)
+                if (curr[j] < rowMin) rowMin = curr[j]
             }
+            // Costs are never negative, so no later row can come in under this one's minimum.
+            if (rowMin > limit) return limit + 1
             val tmp = prev; prev = curr; curr = tmp
         }
         return prev[b.length]
     }
+
+    private const val INDEL_COST = 2
 }

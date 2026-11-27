@@ -4,15 +4,17 @@ import android.app.Application
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.github.username.cardapp.data.CardFilterState
 import com.github.username.cardapp.data.FilterQueryBuilder
+import com.github.username.cardapp.data.SortDir
+import com.github.username.cardapp.data.SortField
+import com.github.username.cardapp.data.SortState
 import com.github.username.cardapp.data.local.AppDatabase
 import com.github.username.cardapp.data.local.CardDao
 import com.github.username.cardapp.data.local.CardEntity
+import com.github.username.cardapp.data.local.CollectionEntryEntity
 import com.github.username.cardapp.data.local.MetadataEntity
 import com.github.username.cardapp.data.local.PriceEntity
-import com.github.username.cardapp.ui.common.CardFilterState
-import com.github.username.cardapp.ui.common.SortDir
-import com.github.username.cardapp.ui.common.SortState
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -53,7 +55,9 @@ class CardDaoTest {
         version: String = "v1",
     ) = dao.replaceBundledData(emptyList(), cards, emptyList(), prices, version)
 
-    private suspend fun collection() = dao.getCollectionEntries().first().map { it.card.name to it.quantity }
+    private suspend fun collection() =
+        dao.filteredCollectionCards(FilterQueryBuilder.build(CardFilterState(), collection = true)).first()
+            .map { it.card.name to it.quantity }
 
     private suspend fun names(filter: CardFilterState) =
         dao.filteredCards(FilterQueryBuilder.build(filter)).first().map { it.card.name }
@@ -85,7 +89,7 @@ class CardDaoTest {
     @Test
     fun removeOneDecrementsThenDeletes() = runBlocking {
         importCatalogue(listOf(ruby))
-        dao.upsertCollectionEntries(listOf(com.github.username.cardapp.data.local.CollectionEntryEntity("Ruby Core", 2)))
+        dao.upsertCollectionEntries(listOf(CollectionEntryEntity("Ruby Core", 2)))
 
         dao.removeOneFromCollection("Ruby Core")
         assertEquals(listOf("Ruby Core" to 1), collection())
@@ -96,7 +100,8 @@ class CardDaoTest {
 
     @Test
     fun textSearchMatchesNameTypeAndRulesLiterally() = runBlocking {
-        importCatalogue(listOf(ruby, serpent, drake.copy(rulesText = "Deals 100% damage")))
+        val damageDrake = testCard("Ember Drake", rarity = "Exceptional", rulesText = "Deals 100% damage")
+        importCatalogue(listOf(ruby, serpent, damageDrake))
 
         assertEquals(listOf("Sea Serpent"), names(CardFilterState(query = "serp")))
         assertEquals(listOf("Ruby Core"), names(CardFilterState(query = "artifact")))
@@ -127,7 +132,7 @@ class CardDaoTest {
             listOf(ruby, serpent, drake),
             prices = listOf(PriceEntity("Ruby Core", 1.0, 1.0), PriceEntity("Sea Serpent", 9.0, 8.0)),
         )
-        val byPriceDesc = SortState(name = SortDir.Off, price = SortDir.Desc, priority = listOf("price"))
+        val byPriceDesc = SortState(name = SortDir.Off, price = SortDir.Desc, priority = listOf(SortField.Price))
 
         assertEquals(listOf("Sea Serpent", "Ruby Core", "Ember Drake"), names(CardFilterState(sort = byPriceDesc)))
     }
@@ -140,5 +145,66 @@ class CardDaoTest {
         val rows = dao.filteredCollectionCards(FilterQueryBuilder.build(CardFilterState(), collection = true)).first()
 
         assertEquals(listOf(Triple("Sea Serpent", 1, 9.0)), rows.map { Triple(it.card.name, it.quantity, it.marketPrice) })
+    }
+
+    @Test
+    fun textSearchIgnoresDiacriticsCaseAndCurlyQuotes() = runBlocking {
+        val maelstrom = testCard("Maelström")
+        val dryads = testCard("Älvalinne Dryads")
+        val quoted = testCard("Ruby Core", rulesText = "Can’t be targeted")
+        importCatalogue(listOf(maelstrom, dryads, quoted, serpent))
+
+        assertEquals(listOf("Maelström"), names(CardFilterState(query = "maelstrom")))
+        assertEquals(listOf("Maelström"), names(CardFilterState(query = "MAELSTRÖM")))
+        assertEquals(listOf("Älvalinne Dryads"), names(CardFilterState(query = "alvalinne")))
+        assertEquals(listOf("Ruby Core"), names(CardFilterState(query = "can't")))
+    }
+
+    @Test
+    fun nameSortTreatsAccentedLettersAsTheirBaseLetter() = runBlocking {
+        val zephyr = testCard("Zephyr")
+        val dryads = testCard("Älvalinne Dryads")
+        val boar = testCard("Wild Boar")
+        importCatalogue(listOf(zephyr, dryads, boar, ruby))
+
+        assertEquals(listOf("Älvalinne Dryads", "Ruby Core", "Wild Boar", "Zephyr"), names(CardFilterState()))
+        val desc = SortState(name = SortDir.Desc, priority = listOf(SortField.Name))
+        assertEquals(listOf("Zephyr", "Wild Boar", "Ruby Core", "Älvalinne Dryads"), names(CardFilterState(sort = desc)))
+    }
+
+    @Test
+    fun collectionQuantityCountsOnlyCardsInTheCatalogue() = runBlocking {
+        assertEquals(0, dao.observeCollectionQuantity().first())
+
+        importCatalogue(listOf(ruby, serpent))
+        dao.upsertCollectionEntries(listOf(CollectionEntryEntity("Ruby Core", 3), CollectionEntryEntity("Sea Serpent", 2)))
+        assertEquals(5, dao.observeCollectionQuantity().first())
+
+        importCatalogue(listOf(ruby), version = "v2")
+        assertEquals(3, dao.observeCollectionQuantity().first())
+    }
+
+    @Test
+    fun collectionQuantitiesAreCappedWhenAdding() = runBlocking {
+        importCatalogue(listOf(ruby))
+        val max = CollectionEntryEntity.MAX_QUANTITY
+
+        dao.upsertCollectionEntries(listOf(CollectionEntryEntity("Ruby Core", max - 1)))
+        dao.upsertCollectionEntries(listOf(CollectionEntryEntity("Ruby Core", 5)))
+        assertEquals(listOf("Ruby Core" to max), collection())
+
+        dao.incrementCollectionEntry("Ruby Core")
+        assertEquals(listOf("Ruby Core" to max), collection())
+    }
+
+    @Test
+    fun marketPriceObservesOneCard() = runBlocking {
+        importCatalogue(
+            listOf(ruby, serpent),
+            prices = listOf(PriceEntity("Ruby Core", 1.5, 1.0), PriceEntity("Sea Serpent", 9.0, 8.0)),
+        )
+
+        assertEquals(1.5, dao.observeMarketPrice("Ruby Core").first())
+        assertEquals(null, dao.observeMarketPrice("Ember Drake").first())
     }
 }

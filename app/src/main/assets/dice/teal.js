@@ -151,22 +151,6 @@ else {
     };
 }
 
-teal.rpc = function(params, resp) {
-    var ajax = new XMLHttpRequest(), ret;
-    ajax.open("post", 'f', resp ? true : false);
-    ajax.onreadystatechange = function() {
-        if (ajax.readyState === 4) {
-            if (resp) {
-                resp(JSON.parse(ajax.responseText));
-            } else {
-                ret = JSON.parse(ajax.responseText);
-            }
-        }
-    };
-    ajax.send(JSON.stringify(params));
-    return ret;
-};
-
 teal.uuid = function() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
         var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);

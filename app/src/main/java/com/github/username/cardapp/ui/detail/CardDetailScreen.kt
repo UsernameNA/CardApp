@@ -8,15 +8,22 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
@@ -24,26 +31,36 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.foundation.text.InlineTextContent
-import androidx.compose.foundation.text.appendInlineContent
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.github.username.cardapp.ui.common.CardArt
 import com.github.username.cardapp.data.FaqEntry
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CardVariantEntity
+import com.github.username.cardapp.ui.common.AlchemicalSymbol
+import com.github.username.cardapp.ui.common.CardArt
+import com.github.username.cardapp.ui.common.ElementThresholdGrid
+import com.github.username.cardapp.ui.common.PriceFormat
+import com.github.username.cardapp.ui.common.countOf
 import com.github.username.cardapp.ui.theme.CardAppTheme
 import com.github.username.cardapp.ui.theme.CreamFaded
 import com.github.username.cardapp.ui.theme.CreamMuted
@@ -54,8 +71,6 @@ import com.github.username.cardapp.ui.theme.GoldPrimary
 import com.github.username.cardapp.ui.theme.LeatherLight
 import com.github.username.cardapp.ui.theme.LeatherMid
 import com.github.username.cardapp.ui.theme.Typography
-import com.github.username.cardapp.ui.common.AlchemicalSymbol
-import com.github.username.cardapp.ui.common.ElementThresholdGrid
 import com.github.username.cardapp.ui.theme.leatherBackground
 import com.github.username.cardapp.ui.theme.rarityColor
 
@@ -64,9 +79,10 @@ fun CardDetailScreen(
     onBack: () -> Unit,
     vm: CardDetailViewModel = hiltViewModel(),
 ) {
-    val card by vm.card.collectAsStateWithLifecycle()
+    val state by vm.state.collectAsStateWithLifecycle()
     val variants by vm.variants.collectAsStateWithLifecycle()
-    val prices by vm.prices.collectAsStateWithLifecycle()
+    val marketPrice by vm.marketPrice.collectAsStateWithLifecycle()
+    val ownedCount by vm.ownedCount.collectAsStateWithLifecycle()
     val faqs by vm.faqs.collectAsStateWithLifecycle()
 
     Box(
@@ -74,15 +90,63 @@ fun CardDetailScreen(
             .fillMaxSize()
             .leatherBackground(),
     ) {
-        val loadedCard = card
-        if (loadedCard != null) {
-            CardDetailContent(
-                card = loadedCard,
+        when (val current = state) {
+            is CardDetailState.Loaded -> CardDetailContent(
+                card = current.card,
                 variants = variants,
-                marketPrice = prices[loadedCard.name],
+                marketPrice = marketPrice,
+                ownedCount = ownedCount,
                 faqs = faqs,
                 onBack = onBack,
                 onAddToCollection = vm::addToCollection,
+            )
+            CardDetailState.NotFound -> CardNotFound(cardName = vm.cardName, onBack = onBack)
+            CardDetailState.Loading -> Box(
+                modifier = Modifier.windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+                ),
+            ) {
+                BackButton(onBack)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BackButton(onBack: () -> Unit) {
+    Text(
+        text = "←  BACK",
+        style = Typography.labelLarge.copy(color = GoldPrimary),
+        modifier = Modifier
+            .clickable(role = Role.Button, onClick = onBack)
+            .clearAndSetSemantics { contentDescription = "Back" }
+            .padding(16.dp),
+    )
+}
+
+@Composable
+private fun CardNotFound(cardName: String, onBack: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing),
+    ) {
+        BackButton(onBack)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = "CARD NOT FOUND",
+                style = Typography.labelLarge.copy(color = CreamMuted),
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "“$cardName” is not in the catalogue.",
+                style = Typography.bodyMedium.copy(color = CreamFaded, textAlign = TextAlign.Center),
             )
         }
     }
@@ -93,26 +157,22 @@ private fun CardDetailContent(
     card: CardEntity,
     variants: List<CardVariantEntity>,
     marketPrice: Double?,
+    ownedCount: Int,
     faqs: List<FaqEntry> = emptyList(),
     onBack: () -> Unit,
     onAddToCollection: () -> Unit,
 ) {
-    var selectedSlug by remember(card.name) { mutableStateOf(card.primarySlug) }
+    var selectedSlug by rememberSaveable(card.name) { mutableStateOf(card.primarySlug) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
-            .verticalScroll(rememberScrollState()),
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+            .verticalScroll(rememberScrollState())
+            // Inside the scroll, so the content can scroll out from under the navigation bar.
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)),
     ) {
-        // Back button
-        Text(
-            text = "\u2190  BACK",
-            style = Typography.labelLarge.copy(color = GoldPrimary),
-            modifier = Modifier
-                .clickable(onClick = onBack)
-                .padding(16.dp),
-        )
+        BackButton(onBack)
 
         // Card image — uses selected variant slug
         Box(
@@ -180,7 +240,7 @@ private fun CardDetailContent(
                         style = Typography.labelLarge.copy(color = CreamFaded),
                     )
                     Text(
-                        text = "$%.2f".format(marketPrice),
+                        text = PriceFormat.full(marketPrice),
                         style = Typography.labelLarge.copy(color = GoldPrimary),
                     )
                 }
@@ -203,34 +263,23 @@ private fun CardDetailContent(
                 Spacer(Modifier.height(16.dp))
             }
 
-            // Add to collection button
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .border(0.8.dp, GoldMuted, RoundedCornerShape(2.dp))
-                    .padding(2.dp)
-                    .border(0.5.dp, GoldDark.copy(alpha = 0.5f), RoundedCornerShape(1.dp))
-                    .background(LeatherMid.copy(alpha = 0.5f), RoundedCornerShape(1.dp))
-                    .clickable(onClick = onAddToCollection),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "ADD TO COLLECTION",
-                    style = Typography.labelLarge.copy(color = CreamMuted),
-                )
-            }
+            AddToCollectionButton(ownedCount = ownedCount, onClick = onAddToCollection)
 
             // Variants / printings (collapsible)
             if (variants.isNotEmpty()) {
-                var printingsExpanded by remember { mutableStateOf(false) }
+                var printingsExpanded by rememberSaveable { mutableStateOf(false) }
                 Spacer(Modifier.height(16.dp))
                 GoldDivider()
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    text = if (printingsExpanded) "PRINTINGS  \u25B2" else "PRINTINGS  \u25BC",
+                    text = if (printingsExpanded) "PRINTINGS  ▲" else "PRINTINGS  ▼",
                     style = Typography.labelLarge.copy(color = CreamFaded),
-                    modifier = Modifier.clickable { printingsExpanded = !printingsExpanded },
+                    modifier = Modifier
+                        .clickable(role = Role.Button) { printingsExpanded = !printingsExpanded }
+                        .clearAndSetSemantics {
+                            contentDescription = "Printings"
+                            stateDescription = if (printingsExpanded) "Expanded" else "Collapsed"
+                        },
                 )
                 if (printingsExpanded) {
                     Spacer(Modifier.height(8.dp))
@@ -245,7 +294,48 @@ private fun CardDetailContent(
                 }
             }
 
-            Spacer(Modifier.height(80.dp))
+            Spacer(Modifier.height(32.dp))
+        }
+    }
+}
+
+/** Adds one copy; shows how many the collection already holds, so each tap visibly counts. */
+@Composable
+private fun AddToCollectionButton(ownedCount: Int, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .border(0.8.dp, GoldMuted, RoundedCornerShape(2.dp))
+            .padding(2.dp)
+            .border(0.5.dp, GoldDark.copy(alpha = 0.5f), RoundedCornerShape(1.dp))
+            .background(LeatherMid.copy(alpha = 0.5f), RoundedCornerShape(1.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .clearAndSetSemantics {
+                contentDescription = "Add to collection"
+                stateDescription = if (ownedCount > 0) "${countOf(ownedCount, "copy", "copies")} owned" else "None owned"
+                liveRegion = LiveRegionMode.Polite
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "ADD TO COLLECTION",
+                style = Typography.labelLarge.copy(color = CreamMuted),
+            )
+            if (ownedCount > 0) {
+                Spacer(Modifier.width(10.dp))
+                Box(
+                    modifier = Modifier
+                        .border(1.dp, GoldMuted.copy(alpha = 0.6f), RoundedCornerShape(2.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                ) {
+                    Text(
+                        text = "×$ownedCount",
+                        style = Typography.labelSmall.copy(color = GoldPrimary),
+                    )
+                }
+            }
         }
     }
 }
@@ -395,13 +485,14 @@ private fun VariantRow(
 
 @Composable
 private fun FaqRow(faq: FaqEntry) {
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(LeatherLight.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
-            .clickable { expanded = !expanded }
+            .clickable(role = Role.Button) { expanded = !expanded }
+            .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" }
             .padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
         Text(
@@ -426,51 +517,30 @@ private fun GoldDivider() {
     )
 }
 
-private val circledDigits = (1..20).associate { "($it)" to (0x2460 + it - 1).toChar().toString() }
-
-private val elementPlaceholders = mapOf(
-    "(A)" to "air",
-    "(E)" to "earth",
-    "(F)" to "fire",
-    "(W)" to "water",
-)
-
 @Composable
 private fun RulesText(text: String) {
     val style = Typography.bodyLarge.copy(color = CreamPrimary)
     val fontSize = style.fontSize
 
-    // Strip "UPDATED: " prefix from errata'd cards, append asterisk
-    val isErrata = text.startsWith("UPDATED: ")
-    val cleaned = if (isErrata) text.removePrefix("UPDATED: ") + " *" else text
-    // Normalize (1) (2) etc. to circled Unicode digits ① ②
-    val normalized = circledDigits.entries.fold(cleaned) { acc, (token, circled) -> acc.replace(token, circled) }
-
-    // Build annotated string replacing element tokens with inline content IDs
-    val annotated = buildAnnotatedString {
-        var remaining = normalized
-        while (remaining.isNotEmpty()) {
-            val nextMatch = elementPlaceholders.keys
-                .mapNotNull { token -> remaining.indexOf(token).takeIf { it >= 0 }?.let { token to it } }
-                .minByOrNull { it.second }
-
-            if (nextMatch == null) {
-                append(remaining)
-                break
+    val annotated = remember(text) {
+        buildAnnotatedString {
+            for (segment in RulesTextParser.parse(text)) {
+                when (segment) {
+                    is RulesTextSegment.Text -> append(segment.text)
+                    // The element name doubles as the inline content id and the spoken text.
+                    is RulesTextSegment.Element -> appendInlineContent(segment.element, segment.element)
+                }
             }
-
-            val (token, index) = nextMatch
-            append(remaining.substring(0, index))
-            appendInlineContent(elementPlaceholders[token]!!, token)
-            remaining = remaining.substring(index + token.length)
         }
     }
 
-    val inlineContent = elementPlaceholders.values.associateWith { element ->
-        InlineTextContent(
-            placeholder = Placeholder(fontSize, fontSize * 1.4, PlaceholderVerticalAlign.Center),
-        ) {
-            AlchemicalSymbol(element = element, fontSize = fontSize)
+    val inlineContent = remember(fontSize) {
+        ELEMENTS.associateWith { element ->
+            InlineTextContent(
+                placeholder = Placeholder(fontSize, fontSize * 1.4, PlaceholderVerticalAlign.Center),
+            ) {
+                AlchemicalSymbol(element = element, fontSize = fontSize)
+            }
         }
     }
 
@@ -480,6 +550,8 @@ private fun RulesText(text: String) {
         inlineContent = inlineContent,
     )
 }
+
+private val ELEMENTS = listOf("air", "earth", "fire", "water")
 
 @Preview(showBackground = true)
 @Composable
@@ -519,6 +591,7 @@ private fun CardDetailPreview() {
                 card = card,
                 variants = variants,
                 marketPrice = 0.05,
+                ownedCount = 2,
                 onBack = {},
                 onAddToCollection = {},
             )

@@ -4,10 +4,13 @@ import android.app.Application
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
+import com.github.username.cardapp.data.CardFilterState
+import com.github.username.cardapp.data.FilterQueryBuilder
 import com.github.username.cardapp.data.local.AppDatabase
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -23,7 +26,7 @@ import java.io.File
  * Upgrades real on-disk databases from every schema a shipped release used and opens them
  * the way the app does, so Room's post-migration schema validation runs for real.
  *
- * v4 shipped in v1.0.0–v1.2.2, v5 in v1.3.0, v6 in v1.4.0–v1.5.0.
+ * v4 shipped in v1.0.0–v1.2.2, v5 in v1.3.0, v6 in v1.4.0–v1.5.0, v7 in v1.6.0.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36], application = Application::class)
@@ -62,8 +65,7 @@ class DatabaseMigrationTest {
 
     /** DDL for an exported schema version, straight from app/schemas/. */
     private fun exportedSchema(version: Int): List<String> {
-        val file = File("schemas/com.github.username.cardapp.data.local.AppDatabase/$version.json")
-        val database = Json.parseToJsonElement(file.readText()).jsonObject.getValue("database").jsonObject
+        val database = exportedDatabase(version)
         return database.getValue("entities").jsonArray.flatMap { entity ->
             val obj = entity.jsonObject
             val table = obj.getValue("tableName").jsonPrimitive.content
@@ -71,6 +73,11 @@ class DatabaseMigrationTest {
             val indices = obj["indices"]?.jsonArray.orEmpty().map { it.jsonObject.getValue("createSql").jsonPrimitive.content }
             (listOf(create) + indices).map { it.replace("\${TABLE_NAME}", table) }
         }
+    }
+
+    private fun exportedDatabase(version: Int): JsonObject {
+        val file = File("schemas/com.github.username.cardapp.data.local.AppDatabase/$version.json")
+        return Json.parseToJsonElement(file.readText()).jsonObject.getValue("database").jsonObject
     }
 
     private fun sampleRows(withSetNames: Boolean): List<String> {
@@ -87,14 +94,14 @@ class DatabaseMigrationTest {
         )
     }
 
-    private fun createDatabase(version: Int, statements: List<String>) {
+    private fun createDatabase(version: Int, statements: List<String>, identityHash: String = "v$version") {
         context.deleteDatabase(name)
         val file = context.getDatabasePath(name)
         file.parentFile?.mkdirs()
         SQLiteDatabase.openOrCreateDatabase(file, null).use { db ->
             statements.forEach(db::execSQL)
             db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)")
-            db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'v$version')")
+            db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '$identityHash')")
             db.version = version
         }
     }
@@ -103,17 +110,26 @@ class DatabaseMigrationTest {
     private fun assertCollectionSurvivesUpgrade() {
         val db = AppDatabase.create(context, name)
         try {
-            val entries = runBlocking { db.cardDao().getCollectionEntries().first() }
+            val collectionQuery = FilterQueryBuilder.build(CardFilterState(), collection = true)
+            val entries = runBlocking { db.cardDao().filteredCollectionCards(collectionQuery).first() }
             assertEquals(listOf("Ruby Core" to 3), entries.map { it.card.name to it.quantity })
 
             val sqlite = db.openHelper.writableDatabase
             sqlite.query("PRAGMA foreign_key_list(collection)").use { cursor ->
                 assertEquals("the collection must not cascade from cards", 0, cursor.count)
             }
-            sqlite.query("SELECT setNames FROM cards").use { cursor ->
+            sqlite.query("SELECT setNames, searchKey, sortKey FROM cards").use { cursor ->
                 cursor.moveToFirst()
                 assertEquals(",Alpha,", cursor.getString(0))
+                assertEquals("ruby core\nartifact\n\n", cursor.getString(1))
+                assertEquals("ruby core", cursor.getString(2))
             }
+            val search = FilterQueryBuilder.build(CardFilterState(query = "RUBY"))
+            assertEquals(
+                "search works on migrated rows before the re-import refills them",
+                listOf("Ruby Core"),
+                runBlocking { db.cardDao().filteredCards(search).first() }.map { it.card.name },
+            )
         } finally {
             db.close()
         }
@@ -135,5 +151,27 @@ class DatabaseMigrationTest {
     fun upgradesFromV6() {
         createDatabase(6, exportedSchema(6) + sampleRows(withSetNames = true))
         assertCollectionSurvivesUpgrade()
+    }
+
+    @Test
+    fun upgradesFromV7() {
+        createDatabase(7, exportedSchema(7) + sampleRows(withSetNames = true))
+        assertCollectionSurvivesUpgrade()
+    }
+
+    @Test
+    fun exportedSchemaMatchesTheCurrentVersion() {
+        // Room refuses to open a database whose identity hash differs from the compiled entities'.
+        val identityHash = exportedDatabase(8).getValue("identityHash").jsonPrimitive.content
+        createDatabase(8, exportedSchema(8) + sampleRows(withSetNames = true), identityHash)
+        val db = AppDatabase.create(context, name)
+        try {
+            db.openHelper.writableDatabase.query("SELECT COUNT(*) FROM cards").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(1, cursor.getInt(0))
+            }
+        } finally {
+            db.close()
+        }
     }
 }

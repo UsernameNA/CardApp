@@ -15,4 +15,9 @@ import androidx.room.PrimaryKey
 data class CollectionEntryEntity(
     @PrimaryKey val cardName: String,
     val quantity: Int,
-)
+) {
+    companion object {
+        /** Ceiling on copies of one card, so adding to a quantity can never overflow an Int. */
+        const val MAX_QUANTITY = 9999
+    }
+}

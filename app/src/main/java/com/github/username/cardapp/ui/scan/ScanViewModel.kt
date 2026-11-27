@@ -1,15 +1,17 @@
 package com.github.username.cardapp.ui.scan
 
+import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
+import android.util.Log
 import androidx.camera.core.ImageProxy
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import android.content.Context
-import android.util.Log
+import com.github.username.cardapp.data.CardFilterState
 import com.github.username.cardapp.data.CardRepository
 import com.github.username.cardapp.data.local.CardEntity
 import com.github.username.cardapp.data.local.CollectionEntryEntity
-import com.github.username.cardapp.ui.common.CardFilterState
 import com.google.mlkit.common.MlKit
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
@@ -23,19 +25,22 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 
 @HiltViewModel
 class ScanViewModel @Inject constructor(
     @ApplicationContext context: Context,
     private val repository: CardRepository,
+    private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
     init {
@@ -52,6 +57,11 @@ class ScanViewModel @Inject constructor(
         .map { list -> OcrCardScorer.prepare(list.map { it.card }) }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** False until the catalogue has loaded; a scan before then could only come back empty. */
+    val catalogueReady: StateFlow<Boolean> = catalogue
+        .map { it.isNotEmpty() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     val prices: StateFlow<Map<String, Double>> = repository.priceMap
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
@@ -71,28 +81,35 @@ class ScanViewModel @Inject constructor(
         _correctionQuery.value = query
     }
 
-
     private val _scannedCards = MutableStateFlow<List<ScannedEntry>>(emptyList())
     val scannedCards: StateFlow<List<ScannedEntry>> = _scannedCards.asStateFlow()
     private val scannedCardsMutex = Mutex()
 
+    init {
+        restoreScannedCards()
+    }
+
     private val _scanStatus = MutableStateFlow<ScanStatus>(ScanStatus.Idle)
     val scanStatus: StateFlow<ScanStatus> = _scanStatus.asStateFlow()
 
-    private val _debugInfo = MutableStateFlow<ScanDebugInfo?>(null)
-    val debugInfo: StateFlow<ScanDebugInfo?> = _debugInfo.asStateFlow()
+    private val _lastOutcome = MutableStateFlow<ScanOutcome?>(null)
+    val lastOutcome: StateFlow<ScanOutcome?> = _lastOutcome.asStateFlow()
 
+    /** Main thread only. */
+    private var nextOutcomeId = 0L
+
+    private val _correctionOpen = MutableStateFlow(false)
+    val correctionOpen: StateFlow<Boolean> = _correctionOpen.asStateFlow()
+
+    // --- Scan log (debug builds only) ---
+    //
+    // Every scan's raw OCR, candidates and any later correction, exportable as JSON for
+    // tuning the scorer offline.
+    private val scanLogEnabled = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     private val scanLogLock = Any()
-    private val _scanLog = mutableListOf<ScanDebugInfo>()
-    /** Per scan, the card the user picked in the correction panel; "" when never corrected. */
-    private val _scanLogActualCards = mutableListOf<String>()
-    val scanLogSize: Int get() = synchronized(scanLogLock) { _scanLog.size }
-
-    private val _lastScanCard = MutableStateFlow<CardEntity?>(null)
-    val lastScanCard: StateFlow<CardEntity?> = _lastScanCard.asStateFlow()
-
-    private val _unmatchedScan = MutableStateFlow(false)
-    val unmatchedScan: StateFlow<Boolean> = _unmatchedScan.asStateFlow()
+    private val scanLog = ArrayDeque<ScanLogEntry>()
+    private val _scanLogSize = MutableStateFlow(0)
+    val scanLogSize: StateFlow<Int> = _scanLogSize.asStateFlow()
 
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
@@ -106,53 +123,52 @@ class ScanViewModel @Inject constructor(
     private val _scanMode = MutableStateFlow(ScanMode.Manual)
     val scanMode: StateFlow<ScanMode> = _scanMode.asStateFlow()
 
-    // --- Auto mode: CV-based card detection ---
-    //
-    // Instead of scanning on a timer, we fingerprint each camera frame (16×16 grayscale
-    // sampled from the center 50% of the Y plane) and run a three-state machine:
-    //
-    //   WaitingForCard  — accumulate stable frames; once the scene is still and the center
-    //                     region has enough visual content, fire OCR
-    //   OcrInFlight     — OCR is running; skip incoming frames
-    //   WaitingForChange — a card was just scanned; wait until the fingerprint diverges
-    //                      (card removed / swapped) before watching again
-    private enum class AutoState { WaitingForCard, OcrInFlight, WaitingForChange }
+    /** Decides when auto mode starts a burst; see [AutoScanDetector]. */
+    private val autoDetector = AutoScanDetector()
 
-    private val autoState = AtomicReference(AutoState.WaitingForCard)
+    /**
+     * Held while the mode changes, a burst starts or is abandoned, or the correction panel
+     * opens, so that whatever cancels a burst cannot interleave with a burst starting.
+     */
+    private val modeLock = Any()
 
-    // Accessed from analysis executor and reset from main thread via toggleScanMode
-    @Volatile private var prevFingerprint: IntArray? = null
-    @Volatile private var stableFrameCount = 0
+    /** The mode the latest burst was started in. Written under [modeLock]. */
+    @Volatile private var burstMode = ScanMode.Manual
 
-    // Written from coroutine callbacks, read from the analysis thread
-    @Volatile private var scannedFingerprint: IntArray? = null
-    @Volatile private var failedFingerprint: IntArray? = null
-
-    /** Fingerprint of the frame that triggered the burst in flight. */
-    @Volatile private var burstFingerprint: IntArray? = null
-
-    fun toggleScanMode() {
+    fun toggleScanMode() = synchronized(modeLock) {
         val next = if (_scanMode.value == ScanMode.Manual) ScanMode.Auto else ScanMode.Manual
         _scanMode.value = next
-        _scanStatus.value = if (next == ScanMode.Auto) ScanStatus.AutoWatching else ScanStatus.Idle
-        cancelBurst()
-        if (next == ScanMode.Auto) resetAutoState()
+        burst.cancel()
+        autoDetector.reset()
+        _scanStatus.value = idleStatus(next)
     }
 
-    private fun resetAutoState() {
-        autoState.set(AutoState.WaitingForCard)
-        prevFingerprint = null
-        stableFrameCount = 0
-        scannedFingerprint = null
-        failedFingerprint = null
+    private fun idleStatus(mode: ScanMode): ScanStatus =
+        if (mode == ScanMode.Auto) ScanStatus.AutoWatching else ScanStatus.Idle
+
+    /**
+     * Open a burst of [OcrFrameBurst.SIZE] reads in [mode]. Call with [modeLock] held.
+     *
+     * A watchdog abandons the burst if its reads haven't all come back in time — the camera
+     * may never deliver frames (bind failure, camera taken by another app), and without it
+     * the scan would spin forever.
+     */
+    private fun startBurstLocked(mode: ScanMode) {
+        val generation = burst.restart()
+        burstMode = mode
+        _scanStatus.value = ScanStatus.Scanning
+        viewModelScope.launch {
+            delay(BURST_TIMEOUT_MS)
+            synchronized(modeLock) {
+                if (burst.cancelIfPending(generation)) abandonBurstLocked()
+            }
+        }
     }
 
-    /** Drop any burst in flight; its late frames will report against a stale generation. */
-    private fun cancelBurst() = burst.cancel()
-
-    /** Open a burst of [OcrFrameBurst.SIZE] reads. */
-    private fun startBurst() {
-        burst.restart()
+    /** Reset after the burst in flight was dropped without a verdict. Call with [modeLock] held. */
+    private fun abandonBurstLocked() {
+        autoDetector.onBurstAbandoned()
+        if (_scanStatus.value == ScanStatus.Scanning) _scanStatus.value = idleStatus(_scanMode.value)
     }
 
     /** Read [imageProxy] into the burst in flight if it wants this frame; otherwise release it. */
@@ -162,27 +178,36 @@ class ScanViewModel @Inject constructor(
         else imageProxy.close()
     }
 
-    @Volatile var correctionOpen = false
-
-    fun requestScan() {
-        if (correctionOpen) return
-        _scanStatus.value = ScanStatus.Scanning
-        startBurst()
-    }
-
-    fun analyzeFrame(imageProxy: ImageProxy) {
-        if (correctionOpen) { imageProxy.close(); return }
-        when (_scanMode.value) {
-            ScanMode.Manual -> analyzeFrameManual(imageProxy)
-            ScanMode.Auto -> analyzeFrameAuto(imageProxy)
+    /**
+     * Open or close the correction panel. Opening it abandons any scan in flight: a result
+     * landing mid-correction would replace the outcome being corrected.
+     */
+    fun setCorrectionOpen(open: Boolean) = synchronized(modeLock) {
+        if (open && _lastOutcome.value == null) return@synchronized
+        _correctionOpen.value = open
+        if (open) {
+            burst.cancel()
+            abandonBurstLocked()
         }
     }
 
-    // ── Manual mode ─────────────────────────────────────────────────────────────
+    fun requestScan() = synchronized(modeLock) {
+        if (_scanMode.value != ScanMode.Manual || !canScan()) return@synchronized
+        startBurstLocked(ScanMode.Manual)
+    }
 
-    private fun analyzeFrameManual(imageProxy: ImageProxy) {
-        // Frames after the tap feed the burst until it has all its reads.
-        offerToBurst(imageProxy)
+    private fun canScan(): Boolean = !_correctionOpen.value && catalogue.value.isNotEmpty()
+
+    fun analyzeFrame(imageProxy: ImageProxy) {
+        if (!canScan()) {
+            imageProxy.close()
+            return
+        }
+        when (_scanMode.value) {
+            // Frames after the tap feed the burst until it has all its reads.
+            ScanMode.Manual -> offerToBurst(imageProxy)
+            ScanMode.Auto -> analyzeFrameAuto(imageProxy)
+        }
     }
 
     // ── Auto mode ───────────────────────────────────────────────────────────────
@@ -190,58 +215,22 @@ class ScanViewModel @Inject constructor(
     private fun analyzeFrameAuto(imageProxy: ImageProxy) {
         // Compute fingerprint directly from the Y (luminance) plane — no Bitmap allocation.
         val fingerprint = FrameFingerprintAnalyzer.computeFingerprint(imageProxy)
-        val state: AutoState = autoState.get()
-
-        when (state) {
-            AutoState.WaitingForCard -> {
-                // Track inter-frame stability
-                val prev = prevFingerprint
-                if (prev != null) {
-                    if (FrameFingerprintAnalyzer.isStable(prev, fingerprint)) {
-                        stableFrameCount++
-                    } else {
-                        stableFrameCount = 0
-                        failedFingerprint = null   // scene changed, allow retry
-                    }
+        val action = synchronized(modeLock) {
+            // Re-checked under the lock: the mode or the correction panel may have changed
+            // since analyzeFrame looked.
+            if (_scanMode.value != ScanMode.Auto || !canScan()) return@synchronized AutoScanAction.Skip
+            autoDetector.onFrame(fingerprint).also {
+                when (it) {
+                    AutoScanAction.StartBurst -> startBurstLocked(ScanMode.Auto)
+                    AutoScanAction.Rearm -> _scanStatus.value = ScanStatus.AutoWatching
+                    AutoScanAction.FeedBurst, AutoScanAction.Skip -> Unit
                 }
-                prevFingerprint = fingerprint
-
-                val hasContent = FrameFingerprintAnalyzer.hasContent(fingerprint)
-                val notPreviouslyFailed = failedFingerprint?.let {
-                    FrameFingerprintAnalyzer.hasChanged(it, fingerprint)
-                } ?: true
-
-                if (stableFrameCount >= FrameFingerprintAnalyzer.STABLE_FRAMES_REQUIRED && hasContent && notPreviouslyFailed) {
-                    if (autoState.compareAndSet(AutoState.WaitingForCard, AutoState.OcrInFlight)) {
-                        stableFrameCount = 0
-                        _scanStatus.value = ScanStatus.Scanning
-                        burstFingerprint = fingerprint
-                        startBurst()
-                        // This frame is the burst's first read; the remaining ones are
-                        // claimed by later frames in the OcrInFlight branch.
-                        offerToBurst(imageProxy)
-                        return
-                    }
-                }
-                imageProxy.close()
             }
-
-            AutoState.OcrInFlight -> {
-                prevFingerprint = fingerprint
-                offerToBurst(imageProxy)
-            }
-
-            AutoState.WaitingForChange -> {
-                val scanned = scannedFingerprint
-                if (scanned != null && FrameFingerprintAnalyzer.hasChanged(scanned, fingerprint)) {
-                    autoState.set(AutoState.WaitingForCard)
-                    stableFrameCount = 0
-                    failedFingerprint = null
-                    _scanStatus.value = ScanStatus.AutoWatching
-                }
-                prevFingerprint = fingerprint
-                imageProxy.close()
-            }
+        }
+        when (action) {
+            // The frame that starts a burst is also its first read; later ones are fed to it.
+            AutoScanAction.StartBurst, AutoScanAction.FeedBurst -> offerToBurst(imageProxy)
+            AutoScanAction.Rearm, AutoScanAction.Skip -> imageProxy.close()
         }
     }
 
@@ -277,90 +266,93 @@ class ScanViewModel @Inject constructor(
             .addOnFailureListener { onFrameRecognized(generation, null) }
     }
 
-    /** Score one finished read and resolve the burst if it was the last one outstanding. */
+    /**
+     * Score one finished read and resolve the burst if it was the last one outstanding.
+     * A read that found no text at all counts as a failed frame, not a vote for nothing.
+     */
     private fun onFrameRecognized(generation: Int, rawText: String?) {
         viewModelScope.launch(Dispatchers.Default) {
             val cards = catalogue.value
-            val frame = if (rawText != null && cards.isNotEmpty()) {
+            val frame = if (!rawText.isNullOrBlank() && cards.isNotEmpty()) {
                 OcrCardScorer.scoreFrame(rawText, cards)
             } else {
                 null
             }
             val frames = burst.report(generation, frame) ?: return@launch
-            finishBurst(frames, cards.map { it.card })
+            val result = OcrCardScorer.combine(frames, cards.map { it.card })
+            withContext(Dispatchers.Main) { finishBurst(generation, frames, result) }
         }
     }
 
     private suspend fun finishBurst(
-        frames: List<OcrCardScorer.FrameScores>,
-        cards: List<CardEntity>,
-    ) {
-        val result = OcrCardScorer.combine(frames, cards)
-        recordScan(frames, result)
-
-        val matched = result.matched
-        if (matched != null) {
-            addScannedCard(matched)
-            _lastScanCard.value = matched
-            _unmatchedScan.value = false
-        } else {
-            _lastScanCard.value = null
-            _unmatchedScan.value = true
-        }
-
-        if (_scanMode.value == ScanMode.Auto) finishAutoBurst(matched)
-        else setStatusTemporarily(
-            if (matched != null) ScanStatus.Found(matched.name) else ScanStatus.NotFound
-        )
-    }
-
-    private fun finishAutoBurst(matched: CardEntity?) {
-        val fingerprint = burstFingerprint
-        if (matched != null) {
-            scannedFingerprint = fingerprint
-            autoState.set(AutoState.WaitingForChange)
-            _scanStatus.value = ScanStatus.Found(matched.name)
-            viewModelScope.launch {
-                delay(FOUND_BANNER_MS)
-                if (_scanMode.value == ScanMode.Auto &&
-                    autoState.get() == AutoState.WaitingForChange
-                ) {
-                    _scanStatus.value = ScanStatus.AutoCooldown
-                }
-            }
-        } else {
-            failedFingerprint = fingerprint
-            autoState.set(AutoState.WaitingForCard)
-            _scanStatus.value = ScanStatus.AutoWatching
-        }
-    }
-
-    /** Publish the burst outcome to the debug overlay and the exportable scan log. */
-    private fun recordScan(
+        generation: Int,
         frames: List<OcrCardScorer.FrameScores>,
         result: OcrCardScorer.ScoreResult,
     ) {
-        val info = ScanDebugInfo(
-            rawText = frames.joinToString("\n--- frame ---\n") { it.rawText },
-            costCandidates = result.costCandidates,
-            bestCardName = result.best?.name,
-            bestScore = result.bestScore,
-            top3 = result.top3,
-            acceptedCardName = result.matched?.name,
-        )
-        _debugInfo.value = info
-        synchronized(scanLogLock) {
-            _scanLog.add(info)
-            _scanLogActualCards.add("")
+        val matched = result.matched
+        val status: ScanStatus
+        val mode = synchronized(modeLock) {
+            // A mode toggle or the correction panel opening since the last read landed
+            // abandoned this burst; its verdict no longer belongs anywhere.
+            if (!burst.isCurrent(generation)) return
+            val mode = burstMode
+            status = when {
+                matched != null -> ScanStatus.Found(matched.name)
+                mode == ScanMode.Auto -> ScanStatus.AutoWatching
+                else -> ScanStatus.NotFound
+            }
+            if (mode == ScanMode.Auto) autoDetector.onBurstFinished(matched != null)
+            _scanStatus.value = status
+            mode
+        }
+
+        val id = nextOutcomeId++
+        recordScan(id, frames, result)
+        if (matched != null) addScannedCard(matched)
+        _correctionOpen.value = false
+        _lastOutcome.value = ScanOutcome(id, matched, result.top3)
+
+        when {
+            mode == ScanMode.Manual -> resetStatusLater(status)
+            matched != null -> viewModelScope.launch {
+                delay(FOUND_BANNER_MS)
+                synchronized(modeLock) {
+                    if (_scanMode.value == ScanMode.Auto && autoDetector.isWaitingForChange) {
+                        _scanStatus.value = ScanStatus.AutoCooldown
+                    }
+                }
+            }
         }
     }
 
     // ── Scanned cards list ──────────────────────────────────────────────────────
 
+    /** Publish [entries] and save them so the pile survives process death. */
+    private fun publishScanned(entries: List<ScannedEntry>) {
+        _scannedCards.value = entries
+        savedStateHandle[KEY_SCANNED_NAMES] = entries.map { it.card.name }.toTypedArray()
+        savedStateHandle[KEY_SCANNED_COUNTS] = entries.map { it.count }.toIntArray()
+    }
+
+    /** Rebuild the pile saved before process death once the catalogue is back. */
+    private fun restoreScannedCards() {
+        val names = savedStateHandle.get<Array<String>>(KEY_SCANNED_NAMES) ?: return
+        val counts = savedStateHandle.get<IntArray>(KEY_SCANNED_COUNTS) ?: return
+        viewModelScope.launch {
+            val byName = catalogue.first { it.isNotEmpty() }.associateBy { it.card.name }
+            val restored = names.zip(counts.asList()).mapNotNull { (name, count) ->
+                byName[name]?.let { ScannedEntry(it.card, count) }
+            }
+            mutateScanned { current ->
+                current + restored.filter { saved -> current.none { it.card.name == saved.card.name } }
+            }
+        }
+    }
+
     /** Apply a pure transform to the scanned-cards list under the mutex. */
     private suspend fun mutateScanned(transform: (List<ScannedEntry>) -> List<ScannedEntry>) {
         scannedCardsMutex.withLock {
-            _scannedCards.value = transform(_scannedCards.value)
+            publishScanned(transform(_scannedCards.value))
         }
     }
 
@@ -377,28 +369,23 @@ class ScanViewModel @Inject constructor(
     private suspend fun addScannedCard(card: CardEntity) =
         mutateScanned { ScannedCards.addOrBumpToFront(it, card) }
 
-    fun correctLastScan(actualCardName: String) {
-        val oldName = _lastScanCard.value?.name
-        val wasUnmatched = _unmatchedScan.value
-
+    /**
+     * Replace the card scan [outcomeId] added with [actualCardName]. Ignored unless that
+     * scan is still the latest one, so a stale tap can't edit a different scan.
+     */
+    fun correctLastScan(outcomeId: Long, actualCardName: String) {
         viewModelScope.launch {
-            synchronized(scanLogLock) {
-                if (_scanLogActualCards.isNotEmpty()) {
-                    _scanLogActualCards[_scanLogActualCards.lastIndex] = actualCardName
-                }
+            scannedCardsMutex.withLock {
+                val outcome = _lastOutcome.value?.takeIf { it.id == outcomeId } ?: return@launch
+                val newCard = catalogue.value.firstOrNull { it.card.name == actualCardName }?.card
+                    ?: return@launch
+                val entries = _scannedCards.value
+                val withoutOld = outcome.card?.let { ScannedCards.removeOne(entries, it.name) } ?: entries
+                publishScanned(ScannedCards.addOrBumpToFront(withoutOld, newCard))
+                _lastOutcome.value = outcome.copy(card = newCard)
             }
-
-            val newCard = catalogue.value.firstOrNull { it.card.name == actualCardName }?.card ?: return@launch
-
-            mutateScanned { entries ->
-                val withoutOld =
-                    if (!wasUnmatched && oldName != null) ScannedCards.removeOne(entries, oldName)
-                    else entries
-                ScannedCards.addOrBumpToFront(withoutOld, newCard)
-            }
-
-            _lastScanCard.value = newCard
-            _unmatchedScan.value = false
+            _correctionOpen.value = false
+            recordCorrection(outcomeId, actualCardName)
         }
     }
 
@@ -408,7 +395,12 @@ class ScanViewModel @Inject constructor(
                 val snapshot = _scannedCards.value.map {
                     CollectionEntryEntity(cardName = it.card.name, quantity = it.count)
                 }
-                if (snapshot.isNotEmpty()) _scannedCards.value = emptyList()
+                if (snapshot.isNotEmpty()) {
+                    publishScanned(emptyList())
+                    // The committed cards are out of reach of the correction panel now.
+                    _correctionOpen.value = false
+                    _lastOutcome.value = null
+                }
                 snapshot
             }
             if (entries.isEmpty()) return@launch
@@ -416,29 +408,55 @@ class ScanViewModel @Inject constructor(
         }
     }
 
-    // ── Export scan log ──────────────────────────────────────────────────────────
+    // ── Scan log ─────────────────────────────────────────────────────────────────
 
-    fun exportScanLog(): String {
-        val entries = synchronized(scanLogLock) {
-            _scanLog.mapIndexed { index, info ->
-                ScanLogEntry(
-                    rawText = info.rawText,
-                    costCandidates = info.costCandidates,
-                    bestMatch = info.bestCardName,
-                    bestScore = info.bestScore,
-                    top3 = info.top3,
-                    acceptedMatch = info.acceptedCardName,
-                    actualCard = _scanLogActualCards.getOrElse(index) { "" },
-                )
-            }
+    private fun recordScan(
+        id: Long,
+        frames: List<OcrCardScorer.FrameScores>,
+        result: OcrCardScorer.ScoreResult,
+    ) {
+        if (!scanLogEnabled) return
+        val entry = ScanLogEntry(
+            scanId = id,
+            rawText = frames.joinToString("\n--- frame ---\n") { it.rawText },
+            costCandidates = result.costCandidates,
+            bestMatch = result.best?.name,
+            bestScore = result.bestScore,
+            top3 = result.top3,
+            acceptedMatch = result.matched?.name,
+        )
+        synchronized(scanLogLock) {
+            scanLog.addLast(entry)
+            while (scanLog.size > MAX_SCAN_LOG_ENTRIES) scanLog.removeFirst()
+            _scanLogSize.value = scanLog.size
         }
-        return scanLogJson.encodeToString(entries)
+    }
+
+    private fun recordCorrection(id: Long, actualCardName: String) {
+        if (!scanLogEnabled) return
+        synchronized(scanLogLock) {
+            val index = scanLog.indexOfLast { it.scanId == id }
+            if (index >= 0) scanLog[index] = scanLog[index].copy(actualCard = actualCardName)
+        }
+    }
+
+    /**
+     * The scan log as JSON, newest scans kept if it must be cut down: it is shared as
+     * Intent text, which has to fit in a Binder transaction.
+     */
+    fun exportScanLog(): String {
+        var entries = synchronized(scanLogLock) { scanLog.toList() }
+        var json = scanLogJson.encodeToString(entries)
+        while (json.length > MAX_EXPORT_CHARS && entries.size > 1) {
+            entries = entries.drop((entries.size / 4).coerceAtLeast(1))
+            json = scanLogJson.encodeToString(entries)
+        }
+        return json
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────────
 
-    private fun setStatusTemporarily(status: ScanStatus) {
-        _scanStatus.value = status
+    private fun resetStatusLater(status: ScanStatus) {
         viewModelScope.launch {
             delay(2000)
             if (_scanStatus.value == status) _scanStatus.value = ScanStatus.Idle
@@ -451,6 +469,18 @@ class ScanViewModel @Inject constructor(
 
     companion object {
         private const val FOUND_BANNER_MS = 1200L
-        private val scanLogJson = kotlinx.serialization.json.Json { prettyPrint = true }
+
+        /** Far longer than a healthy burst takes (three reads ~150 ms apart, plus OCR). */
+        private const val BURST_TIMEOUT_MS = 10_000L
+
+        private const val MAX_SCAN_LOG_ENTRIES = 100
+
+        /** Characters, so at most ~200 KB as UTF-16 — well inside the ~1 MB Binder buffer. */
+        private const val MAX_EXPORT_CHARS = 100_000
+
+        private const val KEY_SCANNED_NAMES = "scanned_names"
+        private const val KEY_SCANNED_COUNTS = "scanned_counts"
+
+        private val scanLogJson = Json { prettyPrint = true }
     }
 }

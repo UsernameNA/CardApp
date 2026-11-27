@@ -3,23 +3,26 @@ package com.github.username.cardapp.ui.collection
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -28,29 +31,40 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.github.username.cardapp.data.CardFilterState
 import com.github.username.cardapp.data.CollectionImportResult
 import com.github.username.cardapp.data.local.CardEntity
-import com.github.username.cardapp.data.local.CollectionEntryEntity
 import com.github.username.cardapp.data.local.CollectionCardWithPrice
-import com.github.username.cardapp.ui.common.CardFilterState
+import com.github.username.cardapp.data.local.CollectionEntryEntity
 import com.github.username.cardapp.ui.common.CardRow
 import com.github.username.cardapp.ui.common.NoFilterResults
+import com.github.username.cardapp.ui.common.PriceFormat
 import com.github.username.cardapp.ui.common.SearchFilterBar
+import com.github.username.cardapp.ui.common.SectionHeader
+import com.github.username.cardapp.ui.common.countOf
 import com.github.username.cardapp.ui.theme.BurgundyLight
 import com.github.username.cardapp.ui.theme.CardAppTheme
 import com.github.username.cardapp.ui.theme.CreamFaded
@@ -62,47 +76,49 @@ import com.github.username.cardapp.ui.theme.GoldPrimary
 import com.github.username.cardapp.ui.theme.LeatherMid
 import com.github.username.cardapp.ui.theme.Typography
 import com.github.username.cardapp.ui.theme.leatherBackground
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.launch
 
 @Composable
 fun CollectionScreen(onCardClick: (String) -> Unit = {}, vm: CollectionViewModel = hiltViewModel()) {
     val entries by vm.entries.collectAsStateWithLifecycle()
-    val filterState by vm.filterState.collectAsStateWithLifecycle()
+    val filterState by vm.filter.filterState.collectAsStateWithLifecycle()
     val totalCards by vm.totalCardCount.collectAsStateWithLifecycle()
-    val sets by vm.sets.collectAsStateWithLifecycle()
+    val setNames by vm.filter.setNames.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
     ) { uri ->
-        uri ?: return@rememberLauncherForActivityResult
-        val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-        if (!text.isNullOrBlank()) vm.importCollection(text)
+        if (uri != null) vm.importCollection(uri)
     }
 
-    val importResult by vm.importResult.collectAsStateWithLifecycle()
-    importResult?.let { result ->
-        ImportResultDialog(result = result, onDismiss = vm::dismissImportResult)
+    val importOutcome by vm.importOutcome.collectAsStateWithLifecycle()
+    importOutcome?.let { outcome ->
+        ImportOutcomeDialog(outcome = outcome, onDismiss = vm::dismissImportOutcome)
     }
 
     CollectionScreenContent(
         entries = entries,
         filterState = filterState,
         totalCards = totalCards,
-        availableSets = sets.map { it.name },
-        onUpdateFilter = { newState -> vm.updateFilter { newState } },
+        availableSets = setNames,
+        onUpdateFilter = vm.filter::updateFilter,
+        onQueryChange = vm.filter::updateQuery,
+        onClearFilters = vm.filter::clearFilters,
         onIncrement = { vm.increment(it) },
         onDecrement = { vm.decrement(it) },
         onCardClick = onCardClick,
         onImport = { importLauncher.launch("text/*") },
         onExport = {
-            val text = entries
-                .sortedBy { it.card.name }
-                .joinToString("\n") { "${it.quantity} ${it.card.name}" }
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, text)
-                putExtra(Intent.EXTRA_SUBJECT, "Sorcery Collection")
+            scope.launch {
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, vm.exportText())
+                    putExtra(Intent.EXTRA_SUBJECT, "Sorcery Collection")
+                }
+                context.startActivity(Intent.createChooser(intent, "Export Collection"))
             }
-            context.startActivity(Intent.createChooser(intent, "Export Collection"))
         },
     )
 }
@@ -113,7 +129,9 @@ private fun CollectionScreenContent(
     filterState: CardFilterState = CardFilterState(),
     totalCards: Int = entries.sumOf { it.quantity },
     availableSets: List<String> = emptyList(),
-    onUpdateFilter: (CardFilterState) -> Unit = {},
+    onUpdateFilter: ((CardFilterState) -> CardFilterState) -> Unit = {},
+    onQueryChange: (String) -> Unit = {},
+    onClearFilters: () -> Unit = {},
     onIncrement: (String) -> Unit = {},
     onDecrement: (String) -> Unit = {},
     onCardClick: (String) -> Unit = {},
@@ -122,15 +140,25 @@ private fun CollectionScreenContent(
 ) {
     var selectedCardName by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
-    val scrollKey = remember(filterState) { filterState.copy(filtersExpanded = false) }
-    LaunchedEffect(scrollKey) { listState.scrollToItem(0) }
+    // Back to the top when the filter changes, but not when the screen re-enters
+    // composition (returning from a card, rotating), which re-emits the current filter.
+    val currentFilter by rememberUpdatedState(filterState)
+    LaunchedEffect(listState) {
+        snapshotFlow { currentFilter.copy(filtersExpanded = false) }
+            .drop(1)
+            .collect { listState.scrollToItem(0) }
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .leatherBackground(),
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)),
+        ) {
             val totalValue = entries.sumOf { entry ->
                 val price = entry.marketPrice ?: 0.0
                 price * entry.quantity
@@ -142,22 +170,24 @@ private fun CollectionScreenContent(
                 hasFilter = filterState.hasActiveFilters,
                 onExport = onExport,
                 onImport = onImport,
-                modifier = Modifier.statusBarsPadding(),
             )
             SearchFilterBar(
                 state = filterState,
                 onUpdate = onUpdateFilter,
+                onQueryChange = onQueryChange,
                 availableSets = availableSets,
             )
             if (entries.isEmpty() && filterState.hasActiveFilters) {
-                NoFilterResults(onClear = { onUpdateFilter(CardFilterState()) })
+                NoFilterResults(onClear = onClearFilters)
             } else if (entries.isEmpty()) {
                 EmptyCollectionMessage()
             } else {
+                // Clear the navigation bar, and the keyboard while searching.
+                val bottomInset = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom).asPaddingValues().calculateBottomPadding()
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 80.dp),
+                    contentPadding = PaddingValues(bottom = bottomInset + 16.dp),
                 ) {
                     items(entries, key = { it.card.name }) { entry ->
                         CardRow(
@@ -184,7 +214,6 @@ private fun CollectionScreenContent(
 }
 
 @Composable
-@OptIn(ExperimentalFoundationApi::class)
 private fun CollectionHeader(
     totalCards: Int,
     totalTotal: Int,
@@ -194,48 +223,61 @@ private fun CollectionHeader(
     onExport: () -> Unit = {},
     onImport: () -> Unit = {},
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+    SectionHeader(title = "COLLECTION", modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            HorizontalDivider(
-                modifier = Modifier.weight(1f),
-                thickness = 0.7.dp,
-                color = GoldMuted.copy(alpha = 0.45f),
-            )
-            Text(
-                text = "  COLLECTION  ",
-                style = Typography.labelLarge.copy(color = GoldPrimary),
-            )
-            HorizontalDivider(
-                modifier = Modifier.weight(1f),
-                thickness = 0.7.dp,
-                color = GoldMuted.copy(alpha = 0.45f),
-            )
-        }
-        if (totalTotal > 0) {
-            Spacer(Modifier.height(4.dp))
-            val valueStr = "$%.2f".format(totalValue)
-            val subtitle = if (hasFilter) {
-                "$totalCards cards \u00b7 $valueStr (of $totalTotal)"
-            } else {
-                "$totalTotal cards \u00b7 $valueStr"
+            HeaderAction(label = "IMPORT", contentDescription = "Import collection from a file", onClick = onImport)
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                if (totalTotal > 0) {
+                    val valueStr = PriceFormat.full(totalValue)
+                    val subtitle = if (hasFilter) {
+                        "${countOf(totalCards, "card")} · $valueStr (of $totalTotal)"
+                    } else {
+                        "${countOf(totalTotal, "card")} · $valueStr"
+                    }
+                    Text(
+                        text = subtitle,
+                        style = Typography.labelMedium.copy(color = CreamFaded, textAlign = TextAlign.Center),
+                        modifier = Modifier.padding(horizontal = 4.dp),
+                    )
+                }
             }
-            Text(
-                text = subtitle,
-                style = Typography.labelMedium.copy(color = CreamFaded),
-                modifier = Modifier.combinedClickable(
-                    onClick = { onExport() },
-                    onLongClick = { onImport() },
-                ),
+            HeaderAction(
+                label = "EXPORT",
+                contentDescription = "Export collection",
+                enabled = totalTotal > 0,
+                onClick = onExport,
             )
         }
+    }
+}
+
+@Composable
+private fun HeaderAction(
+    label: String,
+    contentDescription: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
+    Box(
+        modifier = Modifier
+            .minimumInteractiveComponentSize()
+            .border(
+                0.7.dp,
+                if (enabled) GoldMuted.copy(alpha = 0.6f) else GoldDark.copy(alpha = 0.3f),
+                RoundedCornerShape(2.dp),
+            )
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .semantics { this.contentDescription = contentDescription }
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        Text(
+            text = label,
+            style = Typography.labelMedium.copy(color = if (enabled) GoldPrimary else CreamFaded.copy(alpha = 0.4f)),
+            modifier = Modifier.clearAndSetSemantics { },
+        )
     }
 }
 
@@ -254,7 +296,7 @@ private fun EmptyCollectionMessage() {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "Scan cards and add them to your collection",
+            text = "Scan cards or import a list to add them to your collection",
             style = Typography.bodyMedium.copy(
                 color = CreamFaded,
                 textAlign = TextAlign.Center,
@@ -263,10 +305,8 @@ private fun EmptyCollectionMessage() {
     }
 }
 
-
-
 @Composable
-private fun ImportResultDialog(result: CollectionImportResult, onDismiss: () -> Unit) {
+private fun ImportOutcomeDialog(outcome: ImportOutcome, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
@@ -280,33 +320,12 @@ private fun ImportResultDialog(result: CollectionImportResult, onDismiss: () -> 
                 style = Typography.titleMedium.copy(color = GoldPrimary),
             )
             Spacer(Modifier.height(12.dp))
-            Text(
-                text = if (result.importedCount > 0) {
-                    "Added ${result.importedCount} cards (${result.entries.size} distinct) to your collection."
-                } else {
-                    "No cards were imported."
-                },
-                style = Typography.bodyMedium.copy(color = CreamPrimary),
-            )
-            if (result.unmatched.isNotEmpty()) {
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    text = "${result.unmatched.size} line(s) could not be matched to a card:",
+            when (outcome) {
+                is ImportOutcome.Imported -> ImportResultSummary(outcome.result)
+                is ImportOutcome.Failed -> Text(
+                    text = outcome.message,
                     style = Typography.bodyMedium.copy(color = BurgundyLight),
                 )
-                Spacer(Modifier.height(6.dp))
-                Column(
-                    modifier = Modifier
-                        .heightIn(max = 180.dp)
-                        .verticalScroll(rememberScrollState()),
-                ) {
-                    for (line in result.unmatched) {
-                        Text(
-                            text = line,
-                            style = Typography.bodySmall.copy(color = CreamMuted),
-                        )
-                    }
-                }
             }
             Spacer(Modifier.height(16.dp))
             Text(
@@ -314,9 +333,41 @@ private fun ImportResultDialog(result: CollectionImportResult, onDismiss: () -> 
                 style = Typography.labelMedium.copy(color = GoldPrimary),
                 modifier = Modifier
                     .align(Alignment.End)
-                    .clickable(onClick = onDismiss)
+                    .clickable(role = Role.Button, onClick = onDismiss)
                     .padding(horizontal = 8.dp, vertical = 4.dp),
             )
+        }
+    }
+}
+
+@Composable
+private fun ImportResultSummary(result: CollectionImportResult) {
+    Text(
+        text = if (result.importedCount > 0) {
+            "Added ${countOf(result.importedCount, "card")} (${result.entries.size} distinct) to your collection."
+        } else {
+            "No cards were imported."
+        },
+        style = Typography.bodyMedium.copy(color = CreamPrimary),
+    )
+    if (result.unmatched.isNotEmpty()) {
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = "${countOf(result.unmatched.size, "line")} could not be matched to a card:",
+            style = Typography.bodyMedium.copy(color = BurgundyLight),
+        )
+        Spacer(Modifier.height(6.dp))
+        Column(
+            modifier = Modifier
+                .heightIn(max = 180.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            for (line in result.unmatched) {
+                Text(
+                    text = line,
+                    style = Typography.bodySmall.copy(color = CreamMuted),
+                )
+            }
         }
     }
 }
@@ -356,18 +407,32 @@ private fun CollectionEmptyPreview() {
         CollectionScreenContent(entries = emptyList())
     }
 }
+
 @Preview(showBackground = true)
 @Composable
 private fun ImportResultDialogPreview() {
     CardAppTheme {
-        ImportResultDialog(
-            result = CollectionImportResult(
-                entries = listOf(
-                    CollectionEntryEntity(cardName = "Abundance", quantity = 2),
-                    CollectionEntryEntity(cardName = "Volcanic Dragon", quantity = 3),
+        ImportOutcomeDialog(
+            outcome = ImportOutcome.Imported(
+                CollectionImportResult(
+                    entries = listOf(
+                        CollectionEntryEntity(cardName = "Abundance", quantity = 2),
+                        CollectionEntryEntity(cardName = "Volcanic Dragon", quantity = 3),
+                    ),
+                    unmatched = listOf("2 Saphire Core", "Ruby Core"),
                 ),
-                unmatched = listOf("2 Saphire Core", "Ruby Core"),
             ),
+            onDismiss = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ImportFailedDialogPreview() {
+    CardAppTheme {
+        ImportOutcomeDialog(
+            outcome = ImportOutcome.Failed("The file could not be read."),
             onDismiss = {},
         )
     }

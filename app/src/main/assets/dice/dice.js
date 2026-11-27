@@ -4,8 +4,6 @@
 
 (function() {
 
-    var randomStorage = [], useRandomStorage = false;
-
     function createShape(vertices, faces, radius) {
         var cv = [], cf = [];
         for (var i = 0; i < vertices.length; ++i) {
@@ -536,9 +534,6 @@
                 this.world.remove(die.body);
             }
         }
-        if (this.pane) {
-            this.scene.remove(this.pane);
-        }
         this.renderer.render(this.scene, this.camera);
     };
 
@@ -608,62 +603,6 @@
         this.__animate(this.running);
     };
 
-    this.dieBox.prototype.__selectorAnimate = function(threadid) {
-        var time = (new Date()).getTime();
-        var timeDiff = (time - this.lastTime) / 1000;
-        if (timeDiff > 3) {
-            timeDiff = 1 / 60;
-        }
-        var angleChange = 0.3 * timeDiff * Math.PI * Math.min(24000 + threadid - time, 6000) / 6000;
-        if (angleChange < 0) {
-            this.running = false;
-        }
-        for (var i in this.dice) {
-            this.dice[i].rotation.y += angleChange;
-            this.dice[i].rotation.x += angleChange / 4;
-            this.dice[i].rotation.z += angleChange / 10;
-        }
-
-        this.lastTime = time;
-        this.renderer.render(this.scene, this.camera);
-        if (this.running === threadid) {
-            (function(t, tid) {
-                requestAnimationFrame(function() { t.__selectorAnimate(tid); });
-            })(this, threadid);
-        }
-    };
-
-    this.dieBox.prototype.searchDieByMouse = function(ev) {
-        var intersects = (new THREE.Raycaster(this.camera.position, 
-                                              (new THREE.Vector3((ev.clientX - this.cw) / this.aspect,
-                                                                 (ev.clientY - this.ch) / this.aspect, this.w / 9))
-                                              .sub(this.camera.position).normalize())).intersectObjects(this.dice);
-        if (intersects.length) {
-            return intersects[0].object.userData;
-        }
-    };
-
-    this.dieBox.prototype.drawSelector = function() {
-        this.clear();
-        var step = this.w / 4.5;
-        this.pane = new THREE.Mesh(new THREE.PlaneGeometry(this.cw * 20, this.ch * 20, 1, 1), 
-                                   new THREE.MeshPhongMaterial({ color: 0, ambient: 0xfbfbfb, emissive: 0 }));
-        this.pane.receiveShadow = true;
-        this.pane.position.set(0, 0, 1);
-        this.scene.add(this.pane);
-
-        for (var i = 0, pos = -3; i < knownDieTypes.length; ++i, ++pos) {
-            var die = createDie(knownDieTypes[i]);
-            die.position.set(pos * step, 0, step * 0.5);
-            die.castShadow = true;
-            this.dice.push(die); this.scene.add(die);
-        }
-
-        this.running = (new Date()).getTime();
-        this.lastTime = 0;
-        this.__selectorAnimate(this.running);
-    };
-
     this.dieBox.prototype.rollDice = function(notation, coords, boost, beforeRoll, afterRoll) {
         var vectors = this.generateVectors(notation, coords, boost);
         this.rolling = true;
@@ -682,20 +621,7 @@
     };
 
     this.dieBox.prototype.rnd = function() {
-        if (!randomStorage.length && useRandomStorage) {
-            try {
-                var randomResponse = $t.rpc({ method: "random", n: 512 });
-                if (!randomResponse.error) {
-                    randomStorage = randomResponse.result.random.data;
-                }
-                else {
-                    useRandomStorage = false;
-                }
-            } catch (e) {
-                useRandomStorage = false;
-            }
-        }
-        return randomStorage.length ? randomStorage.pop() : Math.random();
+        return Math.random();
     };
 
 }).apply(teal.dice = teal.dice || {});

@@ -1,11 +1,13 @@
 package com.github.username.cardapp
 
 import androidx.sqlite.db.SupportSQLiteProgram
+import com.github.username.cardapp.data.CardFilterState
 import com.github.username.cardapp.data.FilterQueryBuilder
-import com.github.username.cardapp.ui.common.CardFilterState
-import com.github.username.cardapp.ui.common.SortDir
-import com.github.username.cardapp.ui.common.SortState
+import com.github.username.cardapp.data.SortDir
+import com.github.username.cardapp.data.SortField
+import com.github.username.cardapp.data.SortState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -38,7 +40,7 @@ class FilterQueryBuilderTest {
         val sql = buildSql(CardFilterState())
         assertTrue(sql.contains("SELECT cards.*"))
         assertTrue(sql.contains("LEFT JOIN prices"))
-        assertTrue(sql.contains("ORDER BY cards.name COLLATE NOCASE ASC"))
+        assertTrue(sql.contains("ORDER BY cards.sortKey ASC"))
     }
 
     @Test
@@ -51,17 +53,29 @@ class FilterQueryBuilderTest {
     // --- Text search ---
 
     @Test
-    fun textSearchFiltersNameAndRulesText() {
+    fun textSearchUsesTheFoldedSearchKey() {
         val sql = buildSql(CardFilterState(query = "dragon"))
-        assertTrue(sql.contains("cards.name LIKE ?"))
-        assertTrue(sql.contains("cards.rulesText LIKE ?"))
+        assertTrue(sql.contains("cards.searchKey LIKE ?"))
+        assertFalse(sql.contains("cards.name LIKE"))
+    }
+
+    @Test
+    fun textSearchFoldsTheQueryLikeTheStoredKey() {
+        assertEquals("%maelstrom%", boundArgs(CardFilterState(query = "MAELSTRÖM"))[0])
+        assertEquals("%alvalinne%", boundArgs(CardFilterState(query = "Älvalinne"))[0])
+        assertEquals("%can't%", boundArgs(CardFilterState(query = "Can’t"))[0])
+    }
+
+    @Test
+    fun textSearchEscapesWildcardsAfterFolding() {
+        assertEquals("""%a\_\%%""", boundArgs(CardFilterState(query = "Ä_%"))[0])
     }
 
     @Test
     fun textSearchEscapesLikeWildcards() {
         val state = CardFilterState(query = "50%_off")
         val sql = buildSql(state)
-        assertTrue(sql.contains("cards.name LIKE ? ESCAPE '\\'"))
+        assertTrue(sql.contains("cards.searchKey LIKE ? ESCAPE '\\'"))
         assertEquals("%50\\%\\_off%", boundArgs(state)[0])
     }
 
@@ -139,14 +153,14 @@ class FilterQueryBuilderTest {
 
     @Test
     fun sortByCostAsc() {
-        val sort = SortState(name = SortDir.Off, cost = SortDir.Asc, priority = listOf("cost"))
+        val sort = SortState(name = SortDir.Off, cost = SortDir.Asc, priority = listOf(SortField.Cost))
         val sql = buildSql(CardFilterState(sort = sort))
         assertTrue(sql.contains("ORDER BY cards.cost ASC"))
     }
 
     @Test
     fun sortByRarityDesc() {
-        val sort = SortState(name = SortDir.Off, rarity = SortDir.Desc, priority = listOf("rarity"))
+        val sort = SortState(name = SortDir.Off, rarity = SortDir.Desc, priority = listOf(SortField.Rarity))
         val sql = buildSql(CardFilterState(sort = sort))
         assertTrue(sql.contains("CASE cards.rarity"))
         assertTrue(sql.contains("DESC"))
@@ -154,7 +168,7 @@ class FilterQueryBuilderTest {
 
     @Test
     fun sortByPriceAsc() {
-        val sort = SortState(name = SortDir.Off, price = SortDir.Asc, priority = listOf("price"))
+        val sort = SortState(name = SortDir.Off, price = SortDir.Asc, priority = listOf(SortField.Price))
         val sql = buildSql(CardFilterState(sort = sort))
         assertTrue(sql.contains("prices.marketPrice"))
         assertTrue(sql.contains("ASC"))
@@ -162,10 +176,10 @@ class FilterQueryBuilderTest {
 
     @Test
     fun multiFieldSort() {
-        val sort = SortState(cost = SortDir.Asc, name = SortDir.Desc, priority = listOf("cost", "name"))
+        val sort = SortState(cost = SortDir.Asc, name = SortDir.Desc, priority = listOf(SortField.Cost, SortField.Name))
         val sql = buildSql(CardFilterState(sort = sort))
         val costIdx = sql.indexOf("cards.cost ASC")
-        val nameIdx = sql.indexOf("cards.name COLLATE NOCASE DESC")
+        val nameIdx = sql.indexOf("cards.sortKey DESC")
         assertTrue(costIdx < nameIdx)
     }
 }

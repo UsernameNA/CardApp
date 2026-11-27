@@ -3,7 +3,9 @@ package com.github.username.cardapp
 import com.github.username.cardapp.ui.scan.OcrCardScorer
 import com.github.username.cardapp.ui.scan.OcrFrameBurst
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OcrFrameBurstTest {
@@ -119,6 +121,52 @@ class OcrFrameBurstTest {
         assertNull(burst.claim(1))
         assertNull(burst.report(gen, frame("late")))
         assertNull(burst.report(gen, frame("later")))
+    }
+
+    // ── Watchdog cancellation ───────────────────────────────────────────────────
+
+    @Test
+    fun cancelIfPendingAbandonsABurstStillWaitingForReads() {
+        val burst = OcrFrameBurst(size = 2, minFrameIntervalNanos = 0)
+        val gen = burst.restart()
+        burst.claim(0)
+
+        assertTrue(burst.cancelIfPending(gen))
+
+        assertFalse(burst.isCurrent(gen))
+        assertNull(burst.claim(1))
+        assertNull(burst.report(gen, frame("late")))
+        assertNull(burst.report(gen, frame("later")))
+    }
+
+    @Test
+    fun cancelIfPendingLeavesACompletedBurstAlone() {
+        // The watchdog firing just after the last read landed must not discard the verdict.
+        val burst = OcrFrameBurst(size = 1)
+        val gen = burst.restart()
+        assertEquals(1, burst.report(gen, frame("a"))?.size)
+
+        assertFalse(burst.cancelIfPending(gen))
+        assertTrue(burst.isCurrent(gen))
+    }
+
+    @Test
+    fun cancelIfPendingIgnoresASupersededBurst() {
+        val burst = OcrFrameBurst(size = 1, minFrameIntervalNanos = 0)
+        val old = burst.restart()
+        val new = burst.restart()
+
+        assertFalse("an old watchdog must not cancel the next scan", burst.cancelIfPending(old))
+        assertEquals(new, burst.claim(0))
+    }
+
+    @Test
+    fun aCompletedBurstReportsOnlyOnce() {
+        val burst = OcrFrameBurst(size = 1)
+        val gen = burst.restart()
+
+        assertEquals(1, burst.report(gen, frame("a"))?.size)
+        assertNull(burst.report(gen, frame("b")))
     }
 
     @Test
